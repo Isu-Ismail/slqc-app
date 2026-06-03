@@ -1,0 +1,168 @@
+/* src/shared/components/Modal/AlertModal.module.css */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.modal {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    animation: scaleIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.icon {
+    width: 24px;
+    height: 24px;
+}
+
+.iconWarning {
+    color: #ff3b30; /* Warning red color */
+}
+
+.iconSuccess {
+    color: var(--accent); /* Success emerald green */
+}
+
+.title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-h);
+    margin: 0;
+}
+
+.extraDataContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background-color: var(--bg-shade, #f3f4f6);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 4px;
+}
+
+.idLabel {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted, #6b7280);
+    font-weight: 600;
+}
+
+.idBox {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+}
+
+.idText {
+    font-family: monospace;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-h);
+    letter-spacing: 0.02em;
+}
+
+.copyButton {
+    background-color: var(--bg-shade, #f3f4f6);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s;
+}
+
+.copyButton:hover {
+    background-color: var(--border);
+}
+
+.copyIcon {
+    width: 14px;
+    height: 14px;
+}
+
+.emailNotice {
+    font-size: 12px;
+    color: var(--text-muted, #6b7280);
+    margin: 0;
+    font-style: italic;
+}
+
+.message {
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.5;
+    margin: 0;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+
+.button {
+    background-color: var(--accent);
+    color: #ffffff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.button:hover {
+    opacity: 0.9;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

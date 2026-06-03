@@ -1,0 +1,58 @@
+services:
+  # -------- Frontend (Nginx acting as the carrier) --------
+  frontend:
+    image: ismailisims/sqlc:v1.0  # Your single image from Docker Hub
+    container_name: frontend-apps
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3001:3001"
+    environment:
+      - TZ=Asia/Kolkata 
+    volumes:
+      # Mount the bridge volume to Nginx
+      - shared_hooks:/shared_hooks_destination
+    # THIS IS THE MAGIC TRICK:
+    # 1. Delete old hooks in the shared folder to prevent lingering deleted files
+    # 2. Copy the new hooks from the carrier folder into the shared folder
+    # 3. Start Nginx normally
+    command: >
+      /bin/sh -c "
+      rm -rf /shared_hooks_destination/* && 
+      cp -r /data/pb_hooks_carrier/. /shared_hooks_destination/ && 
+      nginx -g 'daemon off;'
+      "
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # -------- Backend (Standard PocketBase) --------
+  pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest # Use standard image, no custom build!
+    container_name: pocketbase-backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      # Keep your persistent database map
+      - ./pocketbase/pb_data:/pb_data
+      # Receive the hooks from Nginx via the shared volume
+      - shared_hooks:/pb_hooks
+    environment:
+      - TZ=Asia/Kolkata
+    command:
+      - serve
+      - --http=0.0.0.0:8080
+      - --dir=/pb_data
+      - --hooksDir=/pb_hooks
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Define the shared bridge volume at the bottom of the file
+volumes:
+  shared_hooks:

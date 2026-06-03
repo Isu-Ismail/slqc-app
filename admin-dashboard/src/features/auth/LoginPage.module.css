@@ -1,0 +1,106 @@
+.loginContainer {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f8fafc; /* light grey */
+    background-image: radial-gradient(#cbd5e1 1.5px, transparent 1.5px);
+    background-size: 24px 24px;
+    padding: 20px;
+}
+
+.loginCard {
+    background: white;
+    padding: 40px;
+    border-radius: 24px; /* more rounded corners */
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+}
+
+.loginHeader {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.logo {
+    width: 60px;
+    height: 60px;
+    margin-bottom: 16px;
+}
+
+.loginHeader h2 {
+    color: var(--primary-color, #0f766e);
+    margin: 0 0 8px 0;
+    font-size: 24px;
+}
+
+.loginHeader p {
+    color: #64748b;
+    margin: 0;
+    font-size: 14px;
+}
+
+.loginForm {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.inputGroup label {
+    font-weight: 500;
+    font-size: 14px;
+    color: #334155;
+}
+
+.inputGroup input {
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.inputGroup input:focus {
+    border-color: var(--primary-color, #0f766e);
+    box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.1);
+}
+
+.loginButton {
+    background-color: var(--primary-color, #0f766e);
+    color: white;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    margin-top: 10px;
+}
+
+.loginButton:hover:not(:disabled) {
+    background-color: var(--primary-hover, #115e59);
+}
+
+.loginButton:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.errorMessage {
+    background-color: #fef2f2;
+    color: #b91c1c;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    border: 1px solid #f87171;
+    text-align: center;
+}

@@ -1,0 +1,666 @@
+/* src/features/registration/views/dashboard/DashboardPage.module.css */
+
+/* ── Wrapper ── */
+.dashboardWrapper {
+    animation: fadeIn 0.4s ease-in-out;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+}
+
+/* ── Welcome Banner ── */
+.welcomeSection {
+    background: linear-gradient(135deg, #0f766e 0%, #0d9488 50%, #10b981 100%);
+    border-radius: 20px;
+    padding: 40px;
+    color: #ffffff;
+    box-shadow: 0 20px 40px -12px rgba(13, 148, 136, 0.35), 0 4px 16px -4px rgba(0,0,0,0.08);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 40px;
+}
+
+/* Decorative background glyph */
+.welcomeSection::before {
+    content: "بسم";
+    position: absolute;
+    right: 200px;
+    top: -30px;
+    font-size: 180px;
+    opacity: 0.04;
+    font-family: serif;
+    pointer-events: none;
+    color: #ffffff;
+}
+
+.welcomeSection::after {
+    content: "۞";
+    position: absolute;
+    right: -24px;
+    bottom: -48px;
+    font-size: 220px;
+    opacity: 0.06;
+    font-family: serif;
+    pointer-events: none;
+}
+
+@media (max-width: 1024px) {
+    .welcomeSection {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 28px;
+        padding: 28px;
+    }
+}
+
+.welcomeLeft {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    z-index: 10;
+}
+
+.welcomeTitle {
+    font-size: 32px;
+    font-weight: 800;
+    margin: 0;
+    color: #ffffff;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+.welcomeDesc {
+    font-size: 15px;
+    opacity: 0.88;
+    max-width: 560px;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* ── Quick Action Buttons in Banner ── */
+.quickActionsBarInline {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+}
+
+.btnPrimarySmall {
+    background-color: #ffffff;
+    color: #0f766e;
+    border: none;
+    padding: 9px 18px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+.btnPrimarySmall:hover {
+    background-color: #f0fdf4;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.16);
+}
+
+.btnSecondarySmall {
+    background-color: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    padding: 9px 18px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    backdrop-filter: blur(6px);
+}
+
+.btnSecondarySmall:hover {
+    background-color: rgba(255, 255, 255, 0.24);
+    transform: translateY(-1px);
+}
+
+.btnSecondarySmallWhite {
+    background-color: #ffffff;
+    color: #10b981;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    padding: 9px 18px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.btnSecondarySmallWhite:hover {
+    background-color: #f0fdf4;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.14);
+}
+
+/* Status pills in banner */
+.statusWaitMessageSmall {
+    background-color: rgba(250, 204, 21, 0.18);
+    border: 1px solid rgba(250, 204, 21, 0.32);
+    color: #fef08a;
+    padding: 9px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.statusClosedMessageSmall {
+    background-color: rgba(239, 68, 68, 0.18);
+    border: 1px solid rgba(239, 68, 68, 0.32);
+    color: #fca5a5;
+    padding: 9px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* ── Countdown Box ── */
+.welcomeRight {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    background-color: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 16px;
+    padding: 24px 28px;
+    text-align: center;
+    min-width: 320px;
+    z-index: 10;
+    box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+    .welcomeRight { min-width: 100%; padding: 18px; }
+}
+
+.welcomeRightClosed {
+    background-color: rgba(239, 68, 68, 0.14) !important;
+    border-color: rgba(239, 68, 68, 0.32) !important;
+}
+
+.bannerTimerTitle {
+    font-size: 11px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.8);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.bannerTimer {
+    display: flex;
+    gap: 10px;
+}
+
+.bannerTimeSegment {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.bannerTimeValue {
+    font-size: 30px;
+    font-weight: 800;
+    color: #0d9488;
+    background-color: #ffffff;
+    padding: 6px 12px;
+    border-radius: 10px;
+    min-width: 52px;
+    display: inline-block;
+    box-shadow: 0 6px 14px -4px rgba(0, 0, 0, 0.12);
+    letter-spacing: -0.02em;
+}
+
+.bannerTimeLabel {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 6px;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+}
+
+.bannerDeadline {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    margin-top: 4px;
+    background-color: rgba(0, 0, 0, 0.16);
+    padding: 6px 16px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.bannerClosedContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+}
+
+.bannerClosedText {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* ── Stats Grid ── */
+.topStatsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 18px;
+}
+
+.statCard {
+    background: #ffffff;
+    border: 1px solid #e8eaed;
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.02);
+    transition: transform 0.22s ease, box-shadow 0.22s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Coloured top accent bar per card */
+.statCard::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #10b981, #0d9488, #0891b2);
+    border-radius: 16px 16px 0 0;
+}
+
+.statCard:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px -8px rgba(13, 148, 136, 0.14), 0 4px 12px -4px rgba(0,0,0,0.08);
+}
+
+.statLabel {
+    font-size: 11px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+}
+
+.statValue {
+    font-size: 36px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1;
+    letter-spacing: -0.02em;
+}
+
+.statChange {
+    font-size: 12px;
+    color: #10b981;
+    font-weight: 600;
+}
+
+/* ── Section Cards (Timeline & Prizes) ── */
+.bottomGrid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 20px;
+}
+
+@media (max-width: 1024px) {
+    .bottomGrid { grid-template-columns: 1fr; }
+}
+
+.sectionCard {
+    background: #ffffff;
+    border: 1px solid #e8eaed;
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.sectionTitle {
+    font-size: 17px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #f1f5f9;
+    letter-spacing: -0.01em;
+}
+
+/* ── Timeline ── */
+.timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.timelineItem {
+    display: flex;
+    gap: 16px;
+    position: relative;
+}
+
+.timelineItem:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    left: 7px;
+    top: 20px;
+    bottom: -20px;
+    width: 2px;
+    background: linear-gradient(to bottom, #d1fae5, #f1f5f9);
+}
+
+.timelineDot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background-color: #f4f5f8;
+    border: 2px solid #e2e8f0;
+    flex-shrink: 0;
+    z-index: 10;
+    transition: all 0.2s ease;
+}
+
+.timelineDotActive {
+    background-color: #10b981;
+    border-color: #6ee7b7;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12);
+}
+
+.timelineContent {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-top: 0;
+}
+
+.timelineDate {
+    font-size: 11px;
+    font-weight: 800;
+    color: #10b981;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.timelineLabel {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.timelineDesc {
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.45;
+}
+
+/* ── Prize Pool ── */
+.prizeItem {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 1px solid #f1f5f9;
+    transition: all 0.2s ease;
+}
+
+.prizeItem:hover {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    transform: translateX(2px);
+}
+
+.prizeRank {
+    font-size: 24px;
+    line-height: 1;
+}
+
+.prizeInfo {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 2px;
+}
+
+.prizeTitle {
+    font-size: 13px;
+    color: #475569;
+    font-weight: 500;
+}
+
+.prizeValue {
+    font-size: 18px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+}
+
+/* ── Scrollable sub-containers ── */
+.timelineContainer {
+    max-height: 290px;
+    overflow-y: auto;
+    padding-right: 12px;
+}
+
+.prizesContainer {
+    max-height: 290px;
+    overflow-y: auto;
+    padding-right: 12px;
+}
+
+.timelineContainer::-webkit-scrollbar,
+.prizesContainer::-webkit-scrollbar { width: 5px; }
+
+.timelineContainer::-webkit-scrollbar-track,
+.prizesContainer::-webkit-scrollbar-track { background: transparent; }
+
+.timelineContainer::-webkit-scrollbar-thumb,
+.prizesContainer::-webkit-scrollbar-thumb {
+    background: rgba(16, 185, 129, 0.22);
+    border-radius: 4px;
+}
+
+.timelineContainer::-webkit-scrollbar-thumb:hover,
+.prizesContainer::-webkit-scrollbar-thumb:hover {
+    background: rgba(16, 185, 129, 0.4);
+}
+
+/* ── Standalone buttons (kept for existing class references) ── */
+.btnPrimary {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #ffffff;
+    border: none;
+    padding: 14px 28px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    text-align: center;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+}
+
+.btnPrimary:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    box-shadow: 0 8px 20px rgba(16, 185, 129, 0.35);
+    transform: translateY(-1px);
+}
+
+.btnSecondary {
+    background-color: #f8fafc;
+    color: #0f172a;
+    border: 1px solid #e2e8f0;
+    padding: 14px 28px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    text-align: center;
+}
+
+.btnSecondary:hover {
+    background-color: #f1f5f9;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+}
+
+/* ── Status messages (large versions, kept for compat) ── */
+.quickActionsContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 12px;
+}
+
+.quickActionsGroup {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.actionLabel {
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    min-width: 120px;
+}
+
+.statusWaitMessage {
+    background-color: rgba(250, 204, 21, 0.18);
+    border: 1px solid rgba(250, 204, 21, 0.3);
+    color: #fef08a;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.statusClosedMessage {
+    background-color: rgba(239, 68, 68, 0.18);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.quickActions {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+}
+
+/* ── Animations ── */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+    .dashboardWrapper { gap: 18px; }
+
+    .welcomeSection {
+        padding: 24px 20px;
+        border-radius: 16px;
+    }
+
+    .welcomeTitle { font-size: 24px; }
+    .welcomeDesc  { font-size: 14px; }
+
+    .quickActionsBarInline {
+        gap: 8px;
+        margin-top: 14px;
+    }
+
+    .btnPrimarySmall,
+    .btnSecondarySmall,
+    .btnSecondarySmallWhite {
+        font-size: 12px;
+        padding: 8px 14px;
+    }
+
+    .welcomeRight {
+        min-width: 100%;
+        padding: 16px 14px;
+        border-radius: 12px;
+    }
+
+    .bannerTimeValue {
+        font-size: 24px;
+        min-width: 44px;
+        padding: 5px 9px;
+    }
+
+    .bannerTimeLabel { font-size: 9px; }
+    .bannerTimer     { gap: 8px; }
+
+    .topStatsGrid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .statCard    { padding: 18px; border-radius: 12px; }
+    .statValue   { font-size: 30px; }
+
+    .sectionCard { padding: 20px 16px; border-radius: 12px; }
+    .sectionTitle { font-size: 15px; }
+
+    .btnPrimary, .btnSecondary {
+        padding: 12px 20px;
+        font-size: 14px;
+        width: 100%;
+    }
+}

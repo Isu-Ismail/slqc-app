@@ -1,0 +1,194 @@
+.container {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.header h1 {
+    font-size: 28px;
+    color: #0f172a;
+    margin: 0 0 8px 0;
+}
+
+.header p {
+    color: #64748b;
+    margin: 0;
+}
+
+.btnPrimary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #0f766e;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btnPrimary:hover {
+    background: #115e59;
+}
+
+.btnSecondary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8fafc;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btnSecondary:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.restricted {
+    padding: 40px;
+    text-align: center;
+    color: #b91c1c;
+    background: #fef2f2;
+    border-radius: 8px;
+    margin: 40px;
+}
+
+.tableContainer {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05);
+    border: 1px solid #f1f5f9;
+    overflow-x: auto;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th {
+    background: #f8fafc;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #f8fafc;
+    color: #334155;
+    vertical-align: middle;
+    font-size: 13px;
+}
+
+.table tr:last-child td {
+    border-bottom: none;
+}
+
+.userInfo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #e0f2fe;
+    color: #0369a1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.userName {
+    font-weight: 600;
+}
+
+.badgeSelf {
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.designationBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: bold;
+    text-transform: capitalize;
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.designationBadge[data-type="admin"] {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.designationBadge[data-type="coordinators"] {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.btnDelete {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 6px;
+    transition: 0.2s;
+}
+
+.btnDelete:hover:not(:disabled) {
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+.btnDelete:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.loading {
+    padding: 40px;
+    text-align: center;
+    color: #64748b;
+}
+
+.emptyState {
+    padding: 40px !important;
+    text-align: center;
+    color: #94a3b8;
+    font-style: italic;
+}

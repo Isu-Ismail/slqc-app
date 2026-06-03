@@ -1,0 +1,46 @@
+services:
+  # Your bundled Frontend Image (Nginx + User App + Admin App)
+  frontend:
+    image: ismailisims/sqlc:v1.0
+    container_name: frontend-apps
+    restart: unless-stopped
+    ports:
+      # Map host 127.0.0.1 to container ports for security
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3001:3001"
+    environment:
+      # Ensures Nginx access/error logs match your local timezone
+      - TZ=Asia/Kolkata 
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"  # Caps each log file at 10 Megabytes
+        max-file: "3"    # Keeps only the 3 most recent files (Max 30MB total)
+
+  # Your PocketBase Backend
+  pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest
+    container_name: pocketbase-backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      # Persist your database outside the container
+      - ./pocketbase/pb_data:/pb_data
+      - ./pocketbase/pb_hooks:/pb_hooks
+    environment:
+      # CRITICAL: Ensures your 01:00 AM cron hook runs at 1 AM IST, not 1 AM UTC
+      - TZ=Asia/Kolkata
+      
+      # Optional: You can pass custom secrets here if your pb_hooks ever need them
+      # - MY_SECRET_API_KEY=your_key_here
+    command:
+      - serve
+      - --http=0.0.0.0:8080
+      - --dir=/pb_data
+      - --hooksDir=/pb_hooks
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"  # Caps each log file at 10 Megabytes
+        max-file: "3"    # Keeps only the 3 most recent files (Max 30MB total)

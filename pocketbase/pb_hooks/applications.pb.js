@@ -1,0 +1,1 @@
+// Cleared to prevent conflicts with split hooks files: bootstrap.pb.js, institutions.pb.js, and participants.pb.js.

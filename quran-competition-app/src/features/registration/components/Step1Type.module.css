@@ -1,0 +1,291 @@
+/* src/features/registration/components/Step1Type.module.css */
+.stepContainer {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.stepTitle {
+    font-size: 20px;
+    color: var(--text-h);
+    margin-bottom: 4px;
+}
+
+.stepDesc {
+    font-size: 15px;
+    color: var(--text);
+    margin-bottom: 24px;
+}
+
+/* Radio Button Styling */
+.radioGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.radioLabel {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 16px;
+    color: var(--text-h);
+    cursor: pointer;
+    font-weight: 500;
+}
+
+/* Hide the default radio circle */
+.radioLabel input[type="radio"] {
+    display: none;
+}
+
+/* Create a custom radio circle */
+.customRadio {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border);
+    border-radius: 50%;
+    display: inline-block;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+/* The inner dot when checked */
+.radioLabel input[type="radio"]:checked+.customRadio::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 10px;
+    height: 10px;
+    background-color: var(--accent);
+    border-radius: 50%;
+}
+
+.radioLabel input[type="radio"]:checked+.customRadio {
+    border-color: var(--accent);
+}
+
+/* Soft Gray Input Field (Matching your image) */
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+    animation: slideDown 0.3s ease-out;
+}
+
+.inputLabel {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-h);
+}
+
+.inputField {
+    background-color: #ffffff;
+    /* Soft white */
+    border: 1px solid var(--border);
+    /* Standard border */
+    padding: 14px 16px;
+    border-radius: 8px;
+    font-size: 16px;
+    color: var(--text-h);
+    font-family: var(--sans);
+    transition: all 0.2s;
+}
+
+.inputField:focus {
+    outline: none;
+    border-color: var(--accent-border);
+    background-color: #ffffff;
+    box-shadow: 0 0 0 4px var(--accent-bg);
+}
+
+.inputField::placeholder {
+    color: #a1a1aa;
+}
+
+.inputHint {
+    font-size: 13px;
+    color: var(--text);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Captcha Styling */
+.captchaBox {
+    background-color: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    animation: slideDown 0.3s ease-out;
+}
+
+.captchaHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.captchaTitle {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-h);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.captchaBadge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.captchaBadgePending {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.captchaBadgeSuccess {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.captchaBody {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.captchaCanvas {
+    background-color: #f1f5f9;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    user-select: none;
+    display: block;
+}
+
+.refreshBtn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text);
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.refreshBtn:hover {
+    background-color: #e2e8f0;
+    color: var(--text-h);
+}
+
+.refreshIcon {
+    width: 20px;
+    height: 20px;
+}
+
+.captchaInput {
+    flex: 1;
+    background-color: #ffffff;
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 16px;
+    color: var(--text-h);
+    font-family: var(--sans);
+    transition: all 0.2s;
+    max-width: 120px;
+}
+
+.captchaInput:focus {
+    outline: none;
+    border-color: var(--accent-border);
+    box-shadow: 0 0 0 4px var(--accent-bg);
+}
+
+.captchaVerifiedText {
+    font-size: 13px;
+    color: #10b981;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.searchRow {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+}
+
+.searchRow input {
+    flex: 1;
+}
+
+.btnVerify {
+    background-color: var(--accent);
+    color: #ffffff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    white-space: nowrap;
+}
+
+.btnVerify:hover:not(:disabled) {
+    opacity: 0.9;
+}
+
+.btnVerify:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.errorMsg {
+    font-size: 13px;
+    color: #ff3b30;
+    margin-top: 4px;
+    display: block;
+    font-weight: 500;
+}
+
+.successMsg {
+    font-size: 13px;
+    color: #10b981;
+    margin-top: 4px;
+    display: block;
+    font-weight: 600;
+}

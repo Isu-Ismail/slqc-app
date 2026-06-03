@@ -1,0 +1,103 @@
+/* src/features/registration/views/register/RegisterPage.module.css */
+.pageWrapper {
+    display: flex;
+    flex: 1;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 20px;
+}
+
+.card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    padding: 40px;
+    border-radius: 12px;
+    max-width: 650px;
+    width: 100%;
+    text-align: left;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.header h2 {
+    margin: 0;
+}
+
+.stepIndicator {
+    font-size: 14px;
+    color: var(--text);
+    font-weight: 500;
+    background: var(--code-bg);
+    padding: 4px 12px;
+    border-radius: 16px;
+}
+
+.progressBar {
+    height: 6px;
+    background-color: var(--code-bg);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 32px;
+}
+
+.progressFill {
+    height: 100%;
+    background-color: var(--accent);
+    transition: width 0.3s ease-in-out;
+}
+
+.formContainer {
+    min-height: 250px;
+    /* Prevents jumping when switching steps */
+    margin-bottom: 32px;
+}
+
+.navigationButtons {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--border);
+    padding-top: 24px;
+}
+
+.btnPrimary {
+    background-color: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.btnPrimary:hover {
+    opacity: 0.9;
+}
+
+.btnSecondary {
+    background-color: transparent;
+    color: var(--text-h);
+    border: 1px solid var(--border);
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btnSecondary:hover {
+    background-color: var(--code-bg);
+}
+
+@media (max-width: 600px) {
+    .card {
+        padding: 24px 16px;
+    }
+}

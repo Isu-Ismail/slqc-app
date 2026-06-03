@@ -1,0 +1,617 @@
+/* src/features/registration/views/institution/InstitutionRegisterPage.module.css */
+.pageWrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 100%;
+    min-height: 100vh;
+    padding: 40px 20px;
+    background-color: var(--bg);
+    box-sizing: border-box;
+    overflow-x: hidden;
+}
+
+.container {
+    max-width: 600px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.tabBtn {
+    background: none;
+    border: none;
+    padding: 10px 4px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-muted, #6b7280);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.tabBtn:hover {
+    color: var(--text-h);
+}
+
+.activeTab {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+.card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    padding: 32px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    box-sizing: border-box;
+    max-width: 100%;
+}
+
+.cardHeader h2 {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text-h);
+    margin: 0 0 6px 0;
+}
+
+.cardHeader p {
+    font-size: 14px;
+    color: var(--text-muted, #6b7280);
+    margin: 0;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-h);
+}
+
+.input, .textarea {
+    background-color: #ffffff;
+    border: 1px solid var(--border);
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--text-h);
+    outline: none;
+    transition: all 0.2s ease;
+    font-family: var(--sans);
+}
+
+.input:focus, .textarea:focus {
+    border-color: var(--accent);
+    background-color: var(--card-bg);
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+}
+
+.textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.inputRow {
+    display: flex;
+    gap: 20px;
+}
+
+@media (max-width: 640px) {
+    .pageWrapper {
+        padding: 20px 12px;
+    }
+    
+    .card {
+        padding: 20px 16px;
+        gap: 20px;
+    }
+
+    .cardHeader h2 {
+        font-size: 18px;
+    }
+
+    .inputRow {
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .captchaBody {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .captchaInput {
+        max-width: 100%;
+        flex: 1 1 100%;
+    }
+
+    .fileControl {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        text-align: center;
+    }
+
+    .fileName {
+        white-space: normal;
+        word-break: break-all;
+    }
+
+    .navigationButtons {
+        flex-direction: column-reverse;
+        gap: 12px;
+        align-items: stretch;
+    }
+
+    .navigationButtons button, .navigationButtons div {
+        width: 100%;
+    }
+
+    .searchRow {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .searchRow button {
+        width: 100%;
+    }
+}
+
+.fileControl {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background-color: var(--bg-shade, #f3f4f6);
+    border: 1px dashed var(--border);
+    padding: 12px;
+    border-radius: 8px;
+}
+
+.btnUpload {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-h);
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btnUpload:hover {
+    background-color: var(--border);
+}
+
+.fileName {
+    font-size: 13px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hint {
+    font-size: 12px;
+    color: var(--text-muted, #6b7280);
+}
+
+.btnSubmit {
+    background-color: var(--accent);
+    color: #ffffff;
+    border: none;
+    padding: 14px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.btnSubmit:hover:not(:disabled) {
+    opacity: 0.9;
+}
+
+.btnSubmit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Sidebar Section Tracker styling */
+.sidebarSection {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.searchBox {
+    background-color: var(--bg-shade, #f3f4f6);
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.searchRow {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+}
+
+.searchRow input {
+    flex: 1;
+}
+
+.btnPrimary {
+    background-color: var(--accent);
+    color: #ffffff;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.btnPrimary:hover {
+    opacity: 0.9;
+}
+
+.trackDetails {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.trackHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 12px;
+}
+
+.trackHeader h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-h);
+    margin: 0;
+}
+
+.statusBadge {
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.statusApproved {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+.statusPending {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+}
+
+.statusRejected {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.detailsList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.detailItem {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+}
+
+.detailLabel {
+    color: var(--text-muted, #6b7280);
+    font-weight: 500;
+}
+
+.detailVal {
+    color: var(--text-h);
+    font-weight: 600;
+}
+
+.docLink {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.docLink:hover {
+    text-decoration: underline;
+}
+
+.pendingNotice {
+    background-color: rgba(245, 158, 11, 0.05);
+    border: 1px dashed rgba(245, 158, 11, 0.2);
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #b45309;
+    line-height: 1.4;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Captcha Styling */
+.captchaBox {
+    background-color: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.captchaHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.captchaTitle {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-h);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.captchaBadge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.captchaBadgePending {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.captchaBadgeSuccess {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.captchaBody {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.captchaCanvas {
+    background-color: #f1f5f9;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    user-select: none;
+    display: block;
+}
+
+.refreshBtn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text);
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.refreshBtn:hover {
+    background-color: #e2e8f0;
+    color: var(--text-h);
+}
+
+.refreshIcon {
+    width: 20px;
+    height: 20px;
+}
+
+.captchaInput {
+    flex: 1;
+    background-color: #ffffff;
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 16px;
+    color: var(--text-h);
+    font-family: var(--sans);
+    transition: all 0.2s;
+    max-width: 120px;
+}
+
+.captchaInput:focus {
+    outline: none;
+    border-color: var(--accent-border);
+    box-shadow: 0 0 0 4px var(--accent-bg);
+}
+
+/* Dynamic Step/Progress Bar styling */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.stepIndicator {
+    font-size: 13px;
+    color: var(--text-h);
+    font-weight: 600;
+    background: var(--bg-shade, #f3f4f6);
+    padding: 6px 14px;
+    border-radius: 16px;
+}
+
+.progressBar {
+    height: 6px;
+    background-color: var(--bg-shade, #f3f4f6);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 28px;
+    border: 1px solid var(--border);
+}
+
+.progressFill {
+    height: 100%;
+    background-color: var(--accent);
+    transition: width 0.3s ease-in-out;
+}
+
+.formContainer {
+    min-height: 250px;
+    margin-bottom: 24px;
+}
+
+.navigationButtons {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--border);
+    padding-top: 24px;
+    margin-top: 12px;
+}
+
+.btnSecondary {
+    background-color: transparent;
+    color: var(--text-h);
+    border: 1px solid var(--border);
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btnSecondary:hover {
+    background-color: var(--bg-shade, #f3f4f6);
+}
+
+/* Geolocation widget styling */
+.locationWidget {
+    background-color: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.locationDisplay {
+    background-color: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: monospace;
+    font-size: 15px;
+    color: var(--text-h);
+}
+
+.locationDisplayIcon {
+    color: #ef4444; /* red location pin color */
+}
+
+.locationButtonRow {
+    display: flex;
+    gap: 12px;
+}
+
+.locationBtn {
+    background-color: #3b82f6; /* blue for helper button */
+    color: #ffffff;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.locationBtn:hover {
+    background-color: #2563eb;
+}
+
+.locationMapPreview {
+    width: 100%;
+    height: 180px;
+    background-color: #e2e8f0;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    position: relative;
+    overflow: hidden;
+}
+
+.locationMapLink {
+    color: #3b82f6;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.locationMapLink:hover {
+    text-decoration: underline;
+}
+

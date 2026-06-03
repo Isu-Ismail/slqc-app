@@ -1,0 +1,56 @@
+/* src/features/registration/views/landing/LandingPage.module.css */
+.pageWrapper {
+    display: flex;
+    flex: 1;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    padding: 48px 32px;
+    border-radius: 12px;
+    max-width: 460px;
+    width: 100%;
+}
+
+.desc {
+    margin-bottom: 32px;
+}
+
+.actionGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.btnPrimary {
+    background-color: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.btnSecondary {
+    background-color: var(--code-bg);
+    color: var(--text-h);
+    border: 1px solid var(--border);
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.btnPrimary:hover {
+    opacity: 0.95;
+}
+
+.btnSecondary:hover {
+    background-color: var(--border);
+}
