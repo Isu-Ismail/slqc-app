@@ -5,7 +5,6 @@ import StatusToggles from './components/StatusToggles';
 import TimeSettingsForm from './components/TimeSettingsForm';
 import DynamicListEditor from './components/DynamicListEditor';
 import StatsRecalculator from './components/StatsRecalculator';
-import AllocationManager from './components/AllocationManager';
 import styles from './ControlPanelPage.module.css';
 import { pb } from '../../api/db';
 
@@ -93,7 +92,6 @@ export default function ControlPanelPage() {
                     template={{ rank: '🏅', title: '', value: '', highlight: false }}
                 />
                 <StatsRecalculator onUpdate={() => {}} />
-                <AllocationManager />
             </div>
         </div>
     );

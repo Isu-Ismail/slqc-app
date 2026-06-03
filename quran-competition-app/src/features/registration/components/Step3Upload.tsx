@@ -90,11 +90,6 @@ export default function Step3Upload({ formData, updateForm }: Step3Props) {
         ctx.drawImage(cropImageObj, -dWidth / 2, -dHeight / 2, dWidth, dHeight);
         ctx.restore();
 
-        // Draw static square guiding grid overlay
-        ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
-
         // Grid lines
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
         ctx.lineWidth = 1;

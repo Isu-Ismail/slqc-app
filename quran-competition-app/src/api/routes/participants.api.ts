@@ -42,8 +42,16 @@ export const participantsApi = {
         formData.append('guardian_name', params.guardian_name);
         formData.append('guardian_phone', params.guardian_phone);
         formData.append('requires_accommodation', String(params.requires_accommodation || false));
-        formData.append('aadhaar_front', params.aadhaar_front);
-        formData.append('candidate_photo', params.candidate_photo);
+        
+        const safeName = params.full_name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+        const aadhaarExt = params.aadhaar_front.name.split('.').pop() || 'jpg';
+        const photoExt = params.candidate_photo.name.split('.').pop() || 'jpg';
+
+        const renamedAadhaar = new File([params.aadhaar_front], `${safeName}_aadhaar.${aadhaarExt}`, { type: params.aadhaar_front.type });
+        const renamedPhoto = new File([params.candidate_photo], `${safeName}_passport.${photoExt}`, { type: params.candidate_photo.type });
+
+        formData.append('aadhaar_front', renamedAadhaar);
+        formData.append('candidate_photo', renamedPhoto);
         formData.append('status', 'pending');
 
         return await pb.collection('participants_application').create<ParticipantsApplicationResponse>(formData);

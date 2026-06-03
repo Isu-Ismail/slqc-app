@@ -151,7 +151,7 @@ export default function InstitutionRegisterPage() {
             return;
         }
 
-        if (!isValidGoogleMapsLink(location)) {
+        if (location.trim() && !isValidGoogleMapsLink(location)) {
             triggerAlert('Please enter a valid Google Maps link for your institution.', 'Invalid Google Maps Link');
             return;
         }
@@ -235,7 +235,7 @@ export default function InstitutionRegisterPage() {
             return;
         }
 
-        if (!isValidGoogleMapsLink(editLocation)) {
+        if (editLocation.trim() && !isValidGoogleMapsLink(editLocation)) {
             triggerAlert('Please enter a valid Google Maps link before saving.', 'Invalid Google Maps Link');
             return;
         }

@@ -57,8 +57,48 @@ onRecordAfterUpdateSuccess((e) => {
             record.set("institution_id", "");
             $app.save(record);
         }
+        
+        // ── Enqueue Confirmation Email on Email Update (Spelling Correction) ──
+        const original = record.original();
+        const originalEmail = original ? original.get("email") : "";
+        const newEmail = record.get("email");
+        if (newEmail && newEmail !== originalEmail) {
+            const instName = record.get("name");
+            const appId = record.get("id");
+            const passcode = record.get("passcode");
+
+            const appUrl = "https://al-azhar.duckdns.org/slqc";
+            const trackUrl = `${appUrl}/track?type=institution&query=${appId}`;
+
+            const htmlBody = `
+                <div style="font-family: sans-serif; color: #333; line-height: 1.6;">
+                    <h2>Institution Registration Received – SLQC 2026</h2>
+                    <p>Dear ${instName},</p>
+                    <p>Your institution's registration for the Quran Competition has been received successfully.</p>
+                    <p><strong>Institution Auto-ID (for internal tracking):</strong> ${appId}</p>
+                    <p><strong>Your Passcode:</strong> ${passcode}</p>
+                    <p>Please keep this passcode secure. You will need it to track your status, submit candidates, and manage your registration.</p>
+                    <p>You can track the status of your registration using the link below:</p>
+                    <p><a href="${trackUrl}" style="display: inline-block; padding: 10px 15px; background-color: #0d9488; color: white; text-decoration: none; border-radius: 5px;">Track Institution Status</a></p>
+                    <p>Thank you,<br/>SLQC 2026 Team</p>
+                </div>
+            `;
+
+            const mailCollection = $app.findCollectionByNameOrId("mail_queue");
+            const mailRecord = new Record(mailCollection);
+            mailRecord.set("to_email", newEmail);
+            mailRecord.set("to_name", instName);
+            mailRecord.set("subject", `Institution Registration Received – SLQC 2026`);
+            mailRecord.set("body_html", htmlBody);
+            mailRecord.set("type", "institution_confirmation");
+            mailRecord.set("status", "pending");
+            mailRecord.set("attempts", 0);
+            mailRecord.set("record_id", appId);
+
+            $app.save(mailRecord);
+        }
     } catch (err) {
-        console.error("institutions: failed to assign/clear institution_id: " + err);
+        console.error("institutions: failed to assign/clear institution_id or send email on update: " + err);
     }
 }, "institutions");
 

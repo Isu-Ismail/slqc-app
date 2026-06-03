@@ -23,8 +23,8 @@ export default function ApprovalsListPage() {
     const [counts, setCounts] = useState(initialCountsCache || { individual: 0, institution: 0 });
     const [loading, setLoading] = useState(!initialAppsCache);
     const navigate = useNavigate();
-    const [lockedIds, setLockedIds] =
-        useState<Set<string>>(new Set());
+    const [lockedIds, setLockedIds] = useState<Set<string>>(new Set());
+    const [fadingOutIds, setFadingOutIds] = useState<Set<string>>(new Set());
 
     const fetchApplications = async (force = false) => {
         if (!user) return;
@@ -51,12 +51,7 @@ export default function ApprovalsListPage() {
         const loadLocks = async () => {
             try {
                 const locks = await approvalsApi.getLocks();
-
-                setLockedIds(
-                    new Set(
-                        locks.map(lock => lock.application_id)
-                    )
-                );
+                setLockedIds(new Set(locks.map(lock => lock.application_id)));
             } catch (err) {
                 console.error(err);
             }
@@ -64,66 +59,121 @@ export default function ApprovalsListPage() {
 
         const setupRealtime = async () => {
             try {
-                const applicationCollection =
-                    appType === 'individual'
-                        ? 'participants_application'
-                        : 'institutions';
+                const handleRealtimeEvent = async (type: 'individual' | 'institution', e: any) => {
+                    const record = e.record as AllocatedItem;
 
-                await pb
-                    .collection(applicationCollection)
-                    .subscribe('*', (e) => {
-
-                        const record = e.record as AllocatedItem;
-
-                        if (e.action === 'create') {
-
+                    if (e.action === 'create') {
+                        if (record.status === 'pending' && activeTab === 'pending' && appType === type) {
                             setApplications(prev => {
-
-                                const exists =
-                                    prev.some(
-                                        x => x.id === record.id
-                                    );
-
-                                if (exists) {
-                                    return prev;
-                                }
-
+                                if (prev.some(x => x.id === record.id)) return prev;
                                 return [record, ...prev];
                             });
-
-                            setCounts(prev => ({
-                                ...prev,
-                                [appType]:
-                                    prev[appType] + 1
-                            }));
                         }
-                    });
+                        const countsData = await approvalsApi.getPendingCounts(user!.id, true);
+                        setCounts(countsData);
+                    } else if (e.action === 'update') {
+                        const isPendingNow = record.status === 'pending';
 
-                await pb
-                    .collection('approval_locks')
-                    .subscribe('*', (e) => {
+                        if (activeTab === 'pending') {
+                            if (appType === type) {
+                                if (isPendingNow) {
+                                    setApplications(prev => {
+                                        if (prev.some(x => x.id === record.id)) {
+                                            return prev.map(x => x.id === record.id ? record : x);
+                                        }
+                                        return [record, ...prev];
+                                    });
+                                } else {
+                                    setFadingOutIds(prev => {
+                                        const next = new Set(prev);
+                                        next.add(record.id);
+                                        return next;
+                                    });
+                                    setTimeout(() => {
+                                        setApplications(prev => prev.filter(x => x.id !== record.id));
+                                        setFadingOutIds(prev => {
+                                            const next = new Set(prev);
+                                            next.delete(record.id);
+                                            return next;
+                                        });
+                                    }, 300);
+                                }
+                            }
+                        } else if (activeTab === 'history') {
+                            if (appType === type) {
+                                const isMyHistory = record.approved_by === user?.id && record.status !== 'pending';
+                                if (isMyHistory) {
+                                    setApplications(prev => {
+                                        if (prev.some(x => x.id === record.id)) {
+                                            return prev.map(x => x.id === record.id ? record : x);
+                                        }
+                                        return [record, ...prev];
+                                    });
+                                } else {
+                                    setFadingOutIds(prev => {
+                                        const next = new Set(prev);
+                                        next.add(record.id);
+                                        return next;
+                                    });
+                                    setTimeout(() => {
+                                        setApplications(prev => prev.filter(x => x.id !== record.id));
+                                        setFadingOutIds(prev => {
+                                            const next = new Set(prev);
+                                            next.delete(record.id);
+                                            return next;
+                                        });
+                                    }, 300);
+                                }
+                            }
+                        }
 
-                        const lock = e.record as any;
-
-                        if (e.action === 'create') {
-
-                            setLockedIds(prev => {
+                        const countsData = await approvalsApi.getPendingCounts(user!.id, true);
+                        setCounts(countsData);
+                    } else if (e.action === 'delete') {
+                        setFadingOutIds(prev => {
+                            const next = new Set(prev);
+                            next.add(record.id);
+                            return next;
+                        });
+                        setTimeout(() => {
+                            setApplications(prev => prev.filter(x => x.id !== record.id));
+                            setFadingOutIds(prev => {
                                 const next = new Set(prev);
-                                next.add(lock.application_id);
+                                next.delete(record.id);
                                 return next;
                             });
-                        }
+                        }, 300);
 
-                        if (e.action === 'delete') {
+                        const countsData = await approvalsApi.getPendingCounts(user!.id, true);
+                        setCounts(countsData);
+                    }
+                };
 
-                            setLockedIds(prev => {
-                                const next = new Set(prev);
-                                next.delete(lock.application_id);
-                                return next;
-                            });
-                        }
-                    });
+                await pb.collection('participants_application').subscribe('*', (e) => {
+                    handleRealtimeEvent('individual', e);
+                });
 
+                await pb.collection('institutions').subscribe('*', (e) => {
+                    handleRealtimeEvent('institution', e);
+                });
+
+                await pb.collection('approval_locks').subscribe('*', (e) => {
+                    const lock = e.record as any;
+                    if (e.action === 'create') {
+                        setLockedIds(prev => {
+                            const next = new Set(prev);
+                            next.add(lock.application_id);
+                            return next;
+                        });
+                    }
+                    if (e.action === 'delete') {
+                        setLockedIds(prev => {
+                            const next = new Set(prev);
+                            next.delete(lock.application_id);
+                            return next;
+                        });
+                    }
+                });
             } catch (err) {
                 console.error(err);
             }
@@ -133,20 +183,10 @@ export default function ApprovalsListPage() {
         setupRealtime();
 
         return () => {
-
-            pb.collection(
-                'participants_application'
-            ).unsubscribe('*');
-
-            pb.collection(
-                'institutions'
-            ).unsubscribe('*');
-
-            pb.collection(
-                'approval_locks'
-            ).unsubscribe('*');
+            pb.collection('participants_application').unsubscribe('*').catch(() => {});
+            pb.collection('institutions').unsubscribe('*').catch(() => {});
+            pb.collection('approval_locks').unsubscribe('*').catch(() => {});
         };
-
     }, [appType, activeTab]);
     const handleRowAction = async (
         app: AllocatedItem,
@@ -268,12 +308,13 @@ export default function ApprovalsListPage() {
                                     const genId = isIndividual ? (app as ParticipantsApplicationResponse).participant_id : (app as InstitutionsResponse).institution_id;
 
                                     const isChecking = lockedIds.has(app.id);
+                                    const isFading = fadingOutIds.has(app.id);
 
                                     return (
                                         <tr
                                             key={app.id}
                                             onClick={(e) => handleRowAction(app, e)}
-                                            className={styles.tableRow}
+                                            className={`${styles.tableRow} ${isFading ? styles.tableRowFadeOut : ''}`}
                                             style={isChecking && activeTab === 'pending' ? { backgroundColor: '#fef2f2', opacity: 0.8 } : {}}
                                         >
                                             <td className={styles.boldCell}>{displayName}</td>

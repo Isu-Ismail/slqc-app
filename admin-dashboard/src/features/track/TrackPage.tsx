@@ -94,90 +94,7 @@ export default function TrackPage() {
 
     const CACHE_TTL = 300000; // 5 minutes
 
-    // Load from Cache on mount
-    useEffect(() => {
-        const urlType = searchParams.get('type');
-        const urlQuery = searchParams.get('query');
-        
-        if (urlType === 'individual' || urlType === 'institution') {
-            setActiveTab(urlType);
-            if (urlQuery) {
-                if (urlType === 'individual') setIndividualQuery(urlQuery);
-                else setInstitutionQuery(urlQuery);
-            }
-        } else {
-            const cachedTab = localStorage.getItem('admin_track_tab');
-            if (cachedTab === 'individual' || cachedTab === 'institution') {
-                setActiveTab(cachedTab);
-            }
-        }
 
-        const cachedIndQuery = localStorage.getItem('admin_track_individual_query');
-        const cachedIndRecord = localStorage.getItem('admin_track_individual_record');
-        const cachedIndTime = localStorage.getItem('admin_track_individual_timestamp');
-
-        if (cachedIndQuery) setIndividualQuery(cachedIndQuery);
-
-        if (cachedIndRecord) {
-            try {
-                const parsed = JSON.parse(cachedIndRecord);
-                setIndividualRecord(parsed);
-                setEditName(parsed.full_name);
-                setEditCategory(parsed.category);
-                setEditGender(parsed.gender);
-                setEditDob(parsed.dob ? parsed.dob.split(' ')[0] : '');
-                setEditEmail(parsed.email || '');
-                setEditWhatsapp(parsed.whatsapp_number);
-                setEditGuardianName(parsed.guardian_name);
-                setEditGuardianPhone(parsed.guardian_phone);
-                setEditRequiresAcc(!!parsed.requires_accommodation);
-                setEditCandidatePhotoFile(null);
-            } catch (e) {
-                console.error('Failed to parse cached individual record:', e);
-            }
-        }
-
-        const cachedInstQuery = localStorage.getItem('admin_track_institution_query');
-        const cachedInstData = localStorage.getItem('admin_track_institution_data');
-        const cachedInstTime = localStorage.getItem('admin_track_institution_timestamp');
-
-        if (cachedInstQuery) setInstitutionQuery(cachedInstQuery);
-        if (cachedInstData) {
-            try {
-                const parsed = JSON.parse(cachedInstData);
-                setInstitutionData(parsed);
-                if (parsed.institution) {
-                    const inst = parsed.institution;
-                    setInstEditName(inst.name || '');
-                    setInstEditAddress(inst.address || '');
-                    setInstEditContactPerson(inst.contact_person || '');
-                    setInstEditEmail(inst.email || '');
-                    setInstEditWhatsapp(inst.whatsapp_number || '');
-                    setInstEditPhone(inst.phone_number || '');
-                    setInstEditDocFile(null);
-                    setInstEditLocation(inst.instituition_location || '');
-                    setInstEditBuildingFile(null);
-                }
-            } catch (e) {
-                console.error('Failed to parse cached institution data:', e);
-            }
-        }
-
-        const now = Date.now();
-        if (cachedIndQuery && cachedIndRecord) {
-            const timeDiff = now - Number(cachedIndTime || 0);
-            if (timeDiff > CACHE_TTL) {
-                handleSearchIndividual(cachedIndQuery, true);
-            }
-        }
-        if (cachedInstQuery && cachedInstData) {
-            const timeDiff = now - Number(cachedInstTime || 0);
-            if (timeDiff > CACHE_TTL) {
-                handleSearchInstitution(cachedInstQuery, true);
-            }
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchParams]);
 
     const triggerAlert = (message: string, title = 'Notification', type: 'alert' | 'success' = 'alert') => {
         setAlertModal({ isOpen: true, title, message, type });
@@ -270,6 +187,106 @@ export default function TrackPage() {
             if (!silent) setLoading(false);
         }
     };
+
+    // Load from Cache on mount or handle query search parameters
+    useEffect(() => {
+        const urlType = searchParams.get('type');
+        const urlQuery = searchParams.get('query');
+
+        if (urlType === 'individual' || urlType === 'institution') {
+            setActiveTab(urlType);
+            if (urlQuery) {
+                if (urlType === 'individual') {
+                    setIndividualQuery(urlQuery);
+                    handleSearchIndividual(urlQuery);
+                } else {
+                    setInstitutionQuery(urlQuery);
+                    handleSearchInstitution(urlQuery);
+                }
+            }
+        } else {
+            const cachedTab = localStorage.getItem('admin_track_tab');
+            if (cachedTab === 'individual' || cachedTab === 'institution') {
+                setActiveTab(cachedTab);
+            }
+        }
+
+        // Only load cached values if we aren't performing a URL-based search for that tab
+        const shouldLoadIndCache = !(urlType === 'individual' && urlQuery);
+        const shouldLoadInstCache = !(urlType === 'institution' && urlQuery);
+
+        if (shouldLoadIndCache) {
+            const cachedIndQuery = localStorage.getItem('admin_track_individual_query');
+            const cachedIndRecord = localStorage.getItem('admin_track_individual_record');
+            const cachedIndTime = localStorage.getItem('admin_track_individual_timestamp');
+
+            if (cachedIndQuery) setIndividualQuery(cachedIndQuery);
+
+            if (cachedIndRecord) {
+                try {
+                    const parsed = JSON.parse(cachedIndRecord);
+                    setIndividualRecord(parsed);
+                    setEditName(parsed.full_name);
+                    setEditCategory(parsed.category);
+                    setEditGender(parsed.gender);
+                    setEditDob(parsed.dob ? parsed.dob.split(' ')[0] : '');
+                    setEditEmail(parsed.email || '');
+                    setEditWhatsapp(parsed.whatsapp_number);
+                    setEditGuardianName(parsed.guardian_name);
+                    setEditGuardianPhone(parsed.guardian_phone);
+                    setEditRequiresAcc(!!parsed.requires_accommodation);
+                    setEditCandidatePhotoFile(null);
+                } catch (e) {
+                    console.error('Failed to parse cached individual record:', e);
+                }
+            }
+
+            const now = Date.now();
+            if (cachedIndQuery && cachedIndRecord) {
+                const timeDiff = now - Number(cachedIndTime || 0);
+                if (timeDiff > CACHE_TTL) {
+                    handleSearchIndividual(cachedIndQuery, true);
+                }
+            }
+        }
+
+        if (shouldLoadInstCache) {
+            const cachedInstQuery = localStorage.getItem('admin_track_institution_query');
+            const cachedInstData = localStorage.getItem('admin_track_institution_data');
+            const cachedInstTime = localStorage.getItem('admin_track_institution_timestamp');
+
+            if (cachedInstQuery) setInstitutionQuery(cachedInstQuery);
+            if (cachedInstData) {
+                try {
+                    const parsed = JSON.parse(cachedInstData);
+                    setInstitutionData(parsed);
+                    if (parsed.institution) {
+                        const inst = parsed.institution;
+                        setInstEditName(inst.name || '');
+                        setInstEditAddress(inst.address || '');
+                        setInstEditContactPerson(inst.contact_person || '');
+                        setInstEditEmail(inst.email || '');
+                        setInstEditWhatsapp(inst.whatsapp_number || '');
+                        setInstEditPhone(inst.phone_number || '');
+                        setInstEditDocFile(null);
+                        setInstEditLocation(inst.instituition_location || '');
+                        setInstEditBuildingFile(null);
+                    }
+                } catch (e) {
+                    console.error('Failed to parse cached institution data:', e);
+                }
+            }
+
+            const now = Date.now();
+            if (cachedInstQuery && cachedInstData) {
+                const timeDiff = now - Number(cachedInstTime || 0);
+                if (timeDiff > CACHE_TTL) {
+                    handleSearchInstitution(cachedInstQuery, true);
+                }
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams]);
 
     const handleDeleteIndividual = async (app: ParticipantsApplicationResponse) => {
         const confirmDelete = window.confirm(`Are you sure you want to delete participant ${app.full_name}? This action is permanent and cannot be undone.`);

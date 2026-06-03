@@ -104,11 +104,17 @@
 
 .tableRow {
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, opacity 0.3s, transform 0.3s;
 }
 
 .tableRow:hover {
     background-color: #f1f5f9;
+}
+
+.tableRowFadeOut {
+    opacity: 0 !important;
+    transform: scale(0.96) translateY(-4px);
+    pointer-events: none;
 }
 
 .boldCell {

@@ -51,8 +51,46 @@ onRecordAfterUpdateSuccess((e) => {
             record.set("participant_id", "");
             $app.save(record);
         }
+        
+        // ── Enqueue Confirmation Email on Email Update (Spelling Correction) ──
+        const original = record.original();
+        const originalEmail = original ? original.get("email") : "";
+        const newEmail = record.get("email");
+        if (newEmail && newEmail !== originalEmail) {
+            const fullName = record.get("full_name");
+            const appId = record.get("id");
+            const category = record.get("category");
+
+            const appUrl = "https://al-azhar.duckdns.org/slqc";
+            const trackUrl = `${appUrl}/track?type=individual&query=${appId}`;
+
+            const htmlBody = `
+                <div style="font-family: sans-serif; color: #333; line-height: 1.6;">
+                    <h2>Your Quran Competition Application Received</h2>
+                    <p>Dear ${fullName},</p>
+                    <p>Your application for the Quran Competition (Category: ${category}) has been received successfully.</p>
+                    <p><strong>Your Application ID:</strong> ${appId}</p>
+                    <p>You can track the status of your application using the link below (you will also need your Date of Birth):</p>
+                    <p><a href="${trackUrl}" style="display: inline-block; padding: 10px 15px; background-color: #0d9488; color: white; text-decoration: none; border-radius: 5px;">Track Application Status</a></p>
+                    <p>Thank you,<br/>SLQC 2026 Team</p>
+                </div>
+            `;
+
+            const mailCollection = $app.findCollectionByNameOrId("mail_queue");
+            const mailRecord = new Record(mailCollection);
+            mailRecord.set("to_email", newEmail);
+            mailRecord.set("to_name", fullName);
+            mailRecord.set("subject", `Your Quran Competition Application Received – ${appId}`);
+            mailRecord.set("body_html", htmlBody);
+            mailRecord.set("type", "individual_confirmation");
+            mailRecord.set("status", "pending");
+            mailRecord.set("attempts", 0);
+            mailRecord.set("record_id", appId);
+
+            $app.save(mailRecord);
+        }
     } catch (err) {
-        console.error("participants: failed to assign/clear participant_id: " + err);
+        console.error("participants: failed to assign/clear participant_id or send email on update: " + err);
     }
 }, "participants_application");
 

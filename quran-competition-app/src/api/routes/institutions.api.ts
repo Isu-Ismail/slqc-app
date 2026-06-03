@@ -32,14 +32,20 @@ export const institutionsApi = {
         }
         formData.append('status', 'pending'); // Defaults to pending approval
         
+        const safeName = params.name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+        
         // Append document proof if present
         if (params.document) {
-            formData.append('document', params.document);
+            const ext = params.document.name.split('.').pop() || 'jpg';
+            const renamed = new File([params.document], `${safeName}_id.${ext}`, { type: params.document.type });
+            formData.append('document', renamed);
         }
 
         // Append new fields
         if (params.instituition_building_proof) {
-            formData.append('instituition_building_proof', params.instituition_building_proof);
+            const ext = params.instituition_building_proof.name.split('.').pop() || 'jpg';
+            const renamed = new File([params.instituition_building_proof], `${safeName}_building.${ext}`, { type: params.instituition_building_proof.type });
+            formData.append('instituition_building_proof', renamed);
         }
         if (params.instituition_location) {
             formData.append('instituition_location', params.instituition_location);
@@ -81,8 +87,19 @@ export const institutionsApi = {
             if (params.email !== undefined) formData.append('email', params.email);
             formData.append('phone_number', params.phone_number || '');
             if (params.whatsapp_number !== undefined) formData.append('whatsapp_number', params.whatsapp_number);
-            if (params.document) formData.append('document', params.document);
-            if (params.instituition_building_proof) formData.append('instituition_building_proof', params.instituition_building_proof);
+            const nameToUse = params.name !== undefined ? params.name : record.name;
+            const safeName = nameToUse.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+
+            if (params.document) {
+                const ext = params.document.name.split('.').pop() || 'jpg';
+                const renamed = new File([params.document], `${safeName}_id.${ext}`, { type: params.document.type });
+                formData.append('document', renamed);
+            }
+            if (params.instituition_building_proof) {
+                const ext = params.instituition_building_proof.name.split('.').pop() || 'jpg';
+                const renamed = new File([params.instituition_building_proof], `${safeName}_building.${ext}`, { type: params.instituition_building_proof.type });
+                formData.append('instituition_building_proof', renamed);
+            }
             if (params.instituition_location !== undefined) formData.append('instituition_location', params.instituition_location);
         }
 

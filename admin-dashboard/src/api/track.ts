@@ -85,7 +85,7 @@ export const adminTrackApi = {
             const applications = await pb.collection('participants_application').getFullList<ParticipantsApplicationResponse>({
                 filter: `institution_ref = "${institution.id}"`,
                 sort: '-created',
-                expand: 'approved_by'
+                expand: 'approved_by,institution_ref'
             });
 
             return { institution, applications };
@@ -131,41 +131,5 @@ export const adminTrackApi = {
         return await pb
             .collection(collection)
             .update(id, data);
-    },
-
-    allocateApplications: async (userId: string, count: number, type: 'individual' | 'institution') => {
-        return await pb.send('/api/admin-allocate', {
-            method: 'POST',
-            body: { coordinator_id: userId, count, type }
-        });
-    },
-
-    unallocateApplications: async (userId: string, type: 'individual' | 'institution') => {
-        return await pb.send('/api/admin-unallocate', {
-            method: 'POST',
-            body: { coordinator_id: userId, type }
-        });
-    },
-
-    autoAllocateAll: async (type: 'individual' | 'institution') => {
-        return await pb.send('/api/auto-allocate', {
-            method: 'POST',
-            body: { type }
-        });
-    },
-
-    getUnallocatedCount: async (type?: 'individual' | 'institution') => {
-        try {
-            let url = '/api/unallocated-count';
-            if (type) {
-                url += `?type=${type}`;
-            }
-            return await pb.send(url, {
-                method: 'GET'
-            });
-        } catch (err) {
-            console.error('Error fetching unallocated count:', err);
-            return { success: false, error: 'Network error' };
-        }
     }
 };

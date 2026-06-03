@@ -54,8 +54,9 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
     const submitted = formatDate(record.created);
 
     // Extract real data from the relation field (Note: matches your schema spelling 'approved_by')
-    const expandData = (record as { expand?: { approved_by?: { name?: string, mobile?: string, email?: string } } }).expand;
+    const expandData = (record as { expand?: { approved_by?: { name?: string, mobile?: string, email?: string }, institution_ref?: any } }).expand;
     const approver = expandData?.approved_by;
+    const institution = expandData?.institution_ref;
 
     const approvedByName = approver?.name || "Not Specified!";
     const approverContact = approver?.mobile || "Not Specified!";
@@ -71,7 +72,6 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
         <div class="top-row">
             <div class="top-info">
                 <p><strong>Application ID:</strong> ${record.id}</p>
-                ${record.participant_id ? `<p><strong>Participant ID:</strong> ${record.participant_id}</p>` : ''}
                 <p><strong>Status:</strong> ${record.status.toUpperCase()}</p>
                 <p><strong>Submitted On:</strong> ${submitted}</p>
                 <p><strong>Registration Type:</strong> ${record.registration_type.charAt(0).toUpperCase() + record.registration_type.slice(1)}</p>
@@ -113,6 +113,23 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
                 <div class="field"><span class="fl">Guardian Phone</span><span class="fv">${record.guardian_phone}</span></div>
             </div>
         </div>
+
+        ${institution ? `
+        <div class="section">
+            <div class="section-title">Institution Details</div>
+            <div class="fields">
+                <div class="field-row">
+                    <div class="field half"><span class="fl">Institution Name</span><span class="fv">${institution.name || 'N/A'}</span></div>
+                    <div class="field half"><span class="fl">Institution ID</span><span class="fv">${institution.institution_id || 'N/A'}</span></div>
+                </div>
+                <div class="field-row">
+                    <div class="field half"><span class="fl">Institution Email</span><span class="fv">${institution.email || 'N/A'}</span></div>
+                    <div class="field half"><span class="fl">Phone Number</span><span class="fv">${institution.phone_number || institution.whatsapp_number || 'N/A'}</span></div>
+                </div>
+                <div class="field"><span class="fl">Institution Address</span><span class="fv">${institution.address || 'N/A'}</span></div>
+            </div>
+        </div>
+        ` : ''}
 
         <div class="section">
             <div class="section-title">Additional Information</div>
@@ -170,12 +187,15 @@ ${PRINT_BASE_STYLES}
 .photo-box { width: 110px; height: 140px; border: 1px solid #000; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; background-color: #f9f9f9; }
 .photo-box img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
 .photo-box span { font-size: 10px; color: #888; text-align: center; line-height: 1.4; }
-.section { margin-bottom: 18px; }
+.section { margin-bottom: 12px; }
 .section-title { font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; background: #eee; padding: 5px 8px; border-bottom: 1px solid #000; margin-bottom: 10px; }
 .fields { padding: 0 8px; }
 .field { display: flex; align-items: flex-end; margin-bottom: 8px; }
 .fl { width: 180px; font-size: 13px; font-weight: bold; flex-shrink: 0; }
 .fv { flex: 1; font-size: 13px; border-bottom: 1.5px dashed #999; padding-bottom: 2px; min-height: 18px; }
+.field-row { display: flex; gap: 20px; margin-bottom: 8px; }
+.field.half { flex: 1; margin-bottom: 0; display: flex; align-items: flex-end; }
+.field.half .fl { width: 130px; }
 .sig-area { margin-top: 50px; display: flex; justify-content: space-between; padding: 0 10px; }
 .sig-block { text-align: center; }
 .sig-line { width: 160px; border-top: 1px solid #000; margin-top: 50px; padding-top: 6px; font-size: 12px; font-weight: bold; }

@@ -36,7 +36,31 @@ export default function ApprovalReviewPage() {
         let isMounted = true;
         const collectionName = appType === 'individual' ? 'participants_application' : 'institutions';
 
-
+        const checkAndAcquireLock = async () => {
+            try {
+                const existingLock = await approvalsApi.getLock(id);
+                if (existingLock) {
+                    if (existingLock.locked_by !== pb.authStore.record?.id) {
+                        alert(`Another coordinator (${existingLock.locked_by_name || 'Someone'}) is currently reviewing this application.`);
+                        navigate(`/approvals?type=${appType}`);
+                        return false;
+                    }
+                } else {
+                    // Try to create the lock
+                    await approvalsApi.createLock(
+                        id,
+                        appType,
+                        pb.authStore.record!.id,
+                        pb.authStore.record!.email || "Coordinator"
+                    );
+                }
+                return true;
+            } catch (e) {
+                alert("This application is locked by someone else or could not be locked.");
+                navigate(`/approvals?type=${appType}`);
+                return false;
+            }
+        };
 
         // 2. Fetch the Application
         const fetchApp = async () => {
@@ -61,7 +85,13 @@ export default function ApprovalReviewPage() {
             }
         };
 
-        fetchApp();
+        const init = async () => {
+            const lockOk = await checkAndAcquireLock();
+            if (lockOk && isMounted) {
+                await fetchApp();
+            }
+        };
+        init();
 
         // 3. Cleanup logic when leaving the page
         return () => {
@@ -71,7 +101,7 @@ export default function ApprovalReviewPage() {
                 approvalsApi.releaseLock(id).catch(() => { });
             }
         };
-    }, [id, appType]);
+    }, [id, appType, navigate]);
 
     const submitApprove = async () => {
         if (!application) return;
@@ -327,14 +357,14 @@ export default function ApprovalReviewPage() {
                         <button
                             className={styles.btnApproveNormal}
                             onClick={() => setIsApproveModalOpen(true)}
-                            disabled={processing || application.status !== 'pending'}
+                            disabled={processing || application.status === 'approved'}
                         >
                             {processing ? 'Processing...' : 'Approve & Lock'}
                         </button>
                         <button
                             className={styles.btnRejectNormal}
                             onClick={() => setIsRejectModalOpen(true)}
-                            disabled={processing || application.status !== 'pending'}
+                            disabled={processing || application.status === 'rejected'}
                         >
                             Reject
                         </button>

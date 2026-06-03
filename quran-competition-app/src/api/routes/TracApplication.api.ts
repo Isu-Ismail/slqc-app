@@ -13,7 +13,7 @@ export const trackApplicationApi = {
             if (query.startsWith('APL-')) {
                 return await pb.collection('participants_application').getFirstListItem<ParticipantsApplicationResponse>(
                     `participant_id = "${query}" && dob ~ "${dob}%"`,
-                    { expand: 'approved_by' } // <-- Added expand
+                    { expand: 'approved_by,institution_ref' }
                 );
             }
 
@@ -22,7 +22,7 @@ export const trackApplicationApi = {
                 try {
                     const record = await pb.collection('participants_application').getOne<ParticipantsApplicationResponse>(
                         query,
-                        { expand: 'approved_by' } // <-- Added expand
+                        { expand: 'approved_by,institution_ref' }
                     );
                     if (record && record.dob && record.dob.startsWith(dob)) {
                         return record;
@@ -35,7 +35,7 @@ export const trackApplicationApi = {
             // 3. Search by Aadhaar number and DOB prefix match
             return await pb.collection('participants_application').getFirstListItem<ParticipantsApplicationResponse>(
                 `aadhaar_number = "${query}" && dob ~ "${dob}%"`,
-                { expand: 'approved_by' } // <-- Added expand
+                { expand: 'approved_by,institution_ref' }
             );
         } catch (e) {
             console.error('Error tracking individual application:', e);
@@ -66,7 +66,7 @@ export const trackApplicationApi = {
             const applications = await pb.collection('participants_application').getFullList<ParticipantsApplicationResponse>({
                 filter: `institution_ref = "${institution.id}"`,
                 sort: '-created',
-                expand: 'approved_by' // <-- Added expand for bulk student printing
+                expand: 'approved_by,institution_ref'
             });
 
             return { institution, applications };

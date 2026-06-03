@@ -13,14 +13,13 @@ export default function Step3Location({
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div className={styles.inputGroup}>
-                <label className={styles.label}>Institution Google Maps Link *</label>
+                <label className={styles.label}>Institution Google Maps Link (Optional)</label>
                 <input
                     type="url"
                     className={styles.input}
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     placeholder="e.g. https://maps.app.goo.gl/XXXXXX or https://share.google/..."
-                    required
                 />
                 
                 <div style={{ fontSize: '13px', color: 'var(--text)', lineHeight: '1.5', marginTop: '10px' }}>

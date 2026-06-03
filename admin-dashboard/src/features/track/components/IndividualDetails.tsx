@@ -337,6 +337,59 @@ export default function IndividualDetails({
                     </label>
                 </div>
 
+                {individualRecord.expand?.institution_ref && (
+                    <>
+                        <div className={styles.formGroup} style={{ gridColumn: '1 / -1', marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed #e2e8f0' }}>
+                            <h4 style={{ fontSize: '14px', color: '#0f766e', margin: '0 0 4px 0', textTransform: 'uppercase', fontWeight: 600 }}>Associated Institution Details</h4>
+                        </div>
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel}>Institution Name</label>
+                            <input
+                                type="text"
+                                className={styles.formInput}
+                                value={individualRecord.expand.institution_ref.name || 'N/A'}
+                                disabled={true}
+                            />
+                        </div>
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel}>Institution ID</label>
+                            <input
+                                type="text"
+                                className={styles.formInput}
+                                value={individualRecord.expand.institution_ref.institution_id || 'N/A'}
+                                disabled={true}
+                            />
+                        </div>
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel}>Email Address</label>
+                            <input
+                                type="text"
+                                className={styles.formInput}
+                                value={individualRecord.expand.institution_ref.email || 'N/A'}
+                                disabled={true}
+                            />
+                        </div>
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel}>Contact Phone</label>
+                            <input
+                                type="text"
+                                className={styles.formInput}
+                                value={individualRecord.expand.institution_ref.phone_number || individualRecord.expand.institution_ref.whatsapp_number || 'N/A'}
+                                disabled={true}
+                            />
+                        </div>
+                        <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                            <label className={styles.formLabel}>Institution Address</label>
+                            <input
+                                type="text"
+                                className={styles.formInput}
+                                value={individualRecord.expand.institution_ref.address || 'N/A'}
+                                disabled={true}
+                            />
+                        </div>
+                    </>
+                )}
+
                 <div className={`${styles.formGroup} ${styles.fullWidth}`}>
                     <label className={styles.formLabel}>Aadhaar Card Front Image</label>
                     <div className={styles.filePreviewWrapper}>
