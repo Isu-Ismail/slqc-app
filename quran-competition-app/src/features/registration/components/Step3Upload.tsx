@@ -1,16 +1,22 @@
 // src/features/registration/components/Step3Upload.tsx
 import { useState, useRef, useEffect } from 'react';
 import type { RegistrationFormData } from '../views/register/RegisterPage';
+import { useRegistrationStatus } from '../../../shared/context/StatusContext';
 import styles from './Step3Upload.module.css';
 
 interface Step3Props {
     formData: RegistrationFormData;
     updateForm: <K extends keyof RegistrationFormData>(field: K, value: RegistrationFormData[K]) => void;
+    rulesAccepted: boolean;
+    setRulesAccepted: (val: boolean) => void;
 }
 
 const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
 
-export default function Step3Upload({ formData, updateForm }: Step3Props) {
+export default function Step3Upload({ formData, updateForm, rulesAccepted, setRulesAccepted }: Step3Props) {
+    const { metadata } = useRegistrationStatus();
+    const [showRulesModal, setShowRulesModal] = useState(false);
+
     const aadhaarInputRef = useRef<HTMLInputElement | null>(null);
     const photoInputRef = useRef<HTMLInputElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -186,11 +192,11 @@ export default function Step3Upload({ formData, updateForm }: Step3Props) {
 
     return (
         <div className={styles.stepContainer}>
-            {/* 1. AADHAAR CARD UPLOAD */}
+            {/* 1. AGE VERIFICATION DOCUMENT UPLOAD */}
             <div className={styles.uploadBlock}>
                 <div>
-                    <h3 className={styles.stepTitle}>Aadhaar Card Upload *</h3>
-                    <p className={styles.stepDesc}>Upload a clear scanned copy of the front of your Aadhaar card.</p>
+                    <h3 className={styles.stepTitle}>Age Verification Document *</h3>
+                    <p className={styles.stepDesc}>Upload a clear scanned copy of your Birth Certificate, Aadhaar Card, or Passport.</p>
                 </div>
 
                 {aadhaarError && <div className={styles.errorBox}>{aadhaarError}</div>}
@@ -210,7 +216,7 @@ export default function Step3Upload({ formData, updateForm }: Step3Props) {
                             <polyline points="17 8 12 3 7 8" />
                             <line x1="12" y1="3" x2="12" y2="15" />
                         </svg>
-                        <span className={styles.uploadText}>Upload Aadhaar Card</span>
+                        <span className={styles.uploadText}>Upload Document</span>
                         <span className={styles.uploadHint}>Supports PNG, JPG, JPEG, or PDF (Max 1MB)</span>
                     </div>
                 ) : (
@@ -371,6 +377,68 @@ export default function Step3Upload({ formData, updateForm }: Step3Props) {
                             <button type="button" className={styles.saveBtn} onClick={handleCropApply}>
                                 Crop & Apply
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            {/* Guidelines & Rules Acceptance Block */}
+            <div className={styles.rulesCheckboxBlock} style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', border: '1px solid var(--border)', borderRadius: '12px', backgroundColor: '#f8fafc' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-h)' }}>Guidelines & Regulations</span>
+                    <button 
+                        type="button" 
+                        id="btn-read-individual-rules"
+                        onClick={() => setShowRulesModal(true)} 
+                        className={styles.btnTool}
+                        style={{ padding: '6px 14px', fontSize: '13px', backgroundColor: 'var(--accent)', color: '#fff', border: 'none' }}
+                    >
+                        View Guidelines
+                    </button>
+                </div>
+                
+                <label className={styles.checkboxLabel} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', fontSize: '14px', color: 'var(--text-h)', fontWeight: '500', marginTop: '4px' }}>
+                    <input 
+                        type="checkbox" 
+                        id="accept-individual-rules"
+                        checked={rulesAccepted} 
+                        onChange={(e) => setRulesAccepted(e.target.checked)} 
+                        style={{ marginTop: '3px' }}
+                    />
+                    <span>
+                        I accept the Rules & Regulations and Privacy Policy of the competition.
+                    </span>
+                </label>
+            </div>
+
+            {showRulesModal && (
+                <div className={styles.cropperOverlay}>
+                    <div className={styles.cropperModal} style={{ maxWidth: '600px', height: '80vh' }}>
+                        <div className={styles.cropperHeader}>
+                            <h3>Rules & Regulations</h3>
+                            <button className={styles.closeBtn} onClick={() => setShowRulesModal(false)}>×</button>
+                        </div>
+                        <div className={styles.cropperBody} style={{ flex: 1, overflowY: 'auto', alignItems: 'stretch', padding: '20px', display: 'block' }}>
+                            <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', lineHeight: '1.6', color: '#334155' }}>
+                                {metadata.individual_rules || 'Loading rules & regulations...'}
+                            </div>
+                        </div>
+                        <div className={styles.cropperFooter} style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                            <button type="button" className={styles.cancelBtn} onClick={() => setShowRulesModal(false)}>
+                                Close
+                            </button>
+                            {!rulesAccepted && (
+                                <button 
+                                    type="button" 
+                                    className={styles.saveBtn} 
+                                    onClick={() => {
+                                        setRulesAccepted(true);
+                                        setShowRulesModal(false);
+                                    }}
+                                >
+                                    I Accept Rules
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { pb } from '../../../api/db';
 import styles from './MainLayout.module.css';
@@ -10,7 +10,51 @@ interface MainLayoutProps {
 
 export default function MainLayout({ children }: MainLayoutProps) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
+    const [pendingLanguageCode, setPendingLanguageCode] = useState('en');
+    const [pendingLanguageLabel, setPendingLanguageLabel] = useState('English');
+    const [selectedLanguage, setSelectedLanguage] = useState('English');
     const navigate = useNavigate();
+
+    const languages = [
+        { code: 'en', label: 'English' },
+        { code: 'ar', label: 'العربية' },
+        { code: 'ur', label: 'اردو' },
+        { code: 'ml', label: 'മലയാളം' },
+        { code: 'ta', label: 'தமிழ்' },
+        { code: 'kn', label: 'ಕನ್ನಡ' },
+        { code: 'hi', label: 'हिन्दी' },
+    ];
+
+    const handleSelectLanguage = (code: string, label: string) => {
+        setPendingLanguageCode(code);
+        setPendingLanguageLabel(label);
+    };
+
+    const triggerTranslation = () => {
+        setIsLangMenuOpen(false);
+        const selectEl = document.querySelector('.goog-te-combo') as HTMLSelectElement;
+        if (selectEl) {
+            selectEl.value = pendingLanguageCode;
+            selectEl.dispatchEvent(new Event('change'));
+            setSelectedLanguage(pendingLanguageLabel);
+        }
+    };
+
+    useEffect(() => {
+        if (document.getElementById('google-translate-script')) return;
+
+        const addScript = document.createElement('script');
+        addScript.setAttribute('src', 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit');
+        addScript.setAttribute('id', 'google-translate-script');
+        document.body.appendChild(addScript);
+
+        (window as any).googleTranslateElementInit = () => {
+            new (window as any).google.translate.TranslateElement({
+                pageLanguage: 'en',
+            }, 'google_translate_element');
+        };
+    }, []);
 
     const toggleMobileMenu = () => {
         setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -150,6 +194,59 @@ export default function MainLayout({ children }: MainLayoutProps) {
                         <h2 className={styles.pageHeader}>Organizers Dashboard</h2>
                     </div>
                     <div className={styles.topbarActions}>
+                        <div id="google_translate_element" style={{ display: 'none' }}></div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div className={styles.customTranslateWrapper}>
+                                <button 
+                                    type="button"
+                                    className={styles.translateBtn} 
+                                    onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
+                                    aria-label="Select Language"
+                                >
+                                    <svg className={styles.globeIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <line x1="2" y1="12" x2="22" y2="12" />
+                                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                                    </svg>
+                                    <span className={styles.translateLabel}>{pendingLanguageLabel}</span>
+                                    <svg className={styles.translateChevron} style={{ width: '12px', height: '12px', opacity: 0.7 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <polyline points="6 9 12 15 18 9" />
+                                    </svg>
+                                </button>
+                                
+                                {isLangMenuOpen && (
+                                    <>
+                                        <div className={styles.translateMenuBackdrop} onClick={() => setIsLangMenuOpen(false)} />
+                                        <div className={styles.translateMenu}>
+                                            {languages.map((lang) => (
+                                                <label
+                                                    key={lang.code}
+                                                    className={styles.translateMenuItemLabel}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', cursor: 'pointer', fontSize: '13px', borderRadius: '8px', width: '100%', boxSizing: 'border-box' }}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="lang-select"
+                                                        checked={pendingLanguageCode === lang.code}
+                                                        onChange={() => handleSelectLanguage(lang.code, lang.label)}
+                                                        style={{ accentColor: 'var(--accent)', cursor: 'pointer' }}
+                                                    />
+                                                    <span style={{ color: '#334155', fontWeight: '500' }}>{lang.label}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                            
+                            <button
+                                type="button"
+                                onClick={triggerTranslation}
+                                className={styles.btnTranslateAction}
+                            >
+                                Translate
+                            </button>
+                        </div>
                         <span className={styles.roleBadge}>{user?.designation || 'Staff'}</span>
                     </div>
                 </header>

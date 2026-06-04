@@ -58,9 +58,9 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
     const approver = expandData?.approved_by;
     const institution = expandData?.institution_ref;
 
-    const approvedByName = approver?.name || "Not Specified!";
-    const approverContact = approver?.mobile || "Not Specified!";
-    const approverEmail = approver?.email || "Not Specified!";
+    const approvedByName = approver?.name || (record.status === 'approved' ? "Organising Committee" : "Pending");
+    const approverContact = approver?.mobile || (record.status === 'approved' ? "Official Support" : "N/A");
+    const approverEmail = approver?.email || (record.status === 'approved' ? "support@competition.com" : "");
 
     return `
     <div class="form-page" style="${pageBreak ? 'page-break-after:always;' : ''}">
@@ -97,6 +97,8 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
             <div class="section-title">Personal Details</div>
             <div class="fields">
                 <div class="field"><span class="fl">Full Name</span><span class="fv">${record.full_name}</span></div>
+                <div class="field"><span class="fl">Father's Name</span><span class="fv">${record.father_name || 'N/A'}</span></div>
+                <div class="field"><span class="fl">Father's Phone</span><span class="fv">${record.father_number || 'N/A'}</span></div>
                 <div class="field"><span class="fl">Gender</span><span class="fv">${record.gender.charAt(0).toUpperCase() + record.gender.slice(1)}</span></div>
                 <div class="field"><span class="fl">Date of Birth</span><span class="fv">${dob}</span></div>
                 <div class="field"><span class="fl">Aadhaar Number</span><span class="fv">${record.aadhaar_number}</span></div>
@@ -107,7 +109,7 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
         </div>
 
         <div class="section">
-            <div class="section-title">Guardian / Parent Details</div>
+            <div class="section-title">Guardian Details</div>
             <div class="fields">
                 <div class="field"><span class="fl">Guardian Name</span><span class="fv">${record.guardian_name}</span></div>
                 <div class="field"><span class="fl">Guardian Phone</span><span class="fv">${record.guardian_phone}</span></div>
@@ -137,6 +139,10 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
                 <div class="field"><span class="fl">Requires Accommodation</span><span class="fv">${record.requires_accommodation ? 'Yes' : 'No'}</span></div>
                 ${record.allocated_venue ? `<div class="field"><span class="fl">Allocated Venue</span><span class="fv">${record.allocated_venue}</span></div>` : ''}
             </div>
+        </div>
+
+        <div class="declaration-block" style="margin-top: 25px; padding: 10px; border: 1px dashed #555; border-radius: 4px; font-size: 11px; line-height: 1.4; text-align: justify; margin-bottom: 10px;">
+            <strong>Declaration & Consent:</strong> By signing this application, I hereby declare that all the information provided is true and accurate. I state that I have read, understood, and solemnly agree to obey and follow the rules, regulations, and guidelines laid down by the Organising Committee of the competition.
         </div>
 
         <div class="sig-area">

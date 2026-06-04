@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, Ban, Search, UserPlus, School } from 'lucide-react';
+import { Clock, Ban, Search, UserPlus, School, CalendarDays } from 'lucide-react';
 import { useRegistrationStatus } from '../../../../shared/context/StatusContext';
 import styles from './DashboardPage.module.css';
 
@@ -48,6 +48,25 @@ export default function DashboardPage() {
             { rank: '🌟', title: 'Consolation Prizes (10 Candidates)', value: '₹ 25,000 each', highlight: true }
         ],
         ...metadata
+    };
+
+    const formatEventDate = (dateStr: string): string => {
+        try {
+            const dateObj = new Date(dateStr);
+            const datePart = dateObj.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            const timePart = dateObj.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            return `${datePart} at ${timePart}`;
+        } catch {
+            return dateStr;
+        }
     };
 
     const getTimeMetadata = () => {
@@ -236,6 +255,11 @@ export default function DashboardPage() {
             <section className={styles.welcomeSection}>
                 <div className={styles.welcomeLeft}>
                     <h1 className={styles.welcomeTitle}>State Level Quran Competition</h1>
+                    {stats.event_date && (
+                        <div className={styles.commenceDate}>
+                            <CalendarDays size={16} /> Commence on: {formatEventDate(String(stats.event_date))}
+                        </div>
+                    )}
                     <p className={styles.welcomeDesc}>
                         Welcome to the registration hub for the State Level Quran Recitation and Memorization Competition. Register to participate, track your status, or view competition timelines.
                     </p>

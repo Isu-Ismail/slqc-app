@@ -13,6 +13,8 @@ export interface ParticipantsApplicationResponse extends RecordModel {
     gender: 'male' | 'female';
     email?: string;
     whatsapp_number: string;
+    father_name?: string;
+    father_number?: string;
     guardian_name: string;
     guardian_phone: string;
     requires_accommodation?: boolean;

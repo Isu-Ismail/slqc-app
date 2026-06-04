@@ -81,6 +81,11 @@
     opacity: 0.9;
 }
 
+.btnPrimary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .btnSecondary {
     background-color: transparent;
     color: var(--text-h);

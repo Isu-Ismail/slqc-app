@@ -36,10 +36,12 @@ export default function TimeSettingsForm({ metadata, onUpdate }: Props) {
         e.preventDefault();
         setLoading(true);
         try {
-            const timeRecord = metadata['time'];
-            if (!timeRecord) throw new Error("Time record not found in metadata");
-            
-            await metadataApi.updateMetadata(timeRecord.id, formData);
+            const dbRecord = await metadataApi.getMetadataByKey('time');
+            if (dbRecord) {
+                await metadataApi.updateMetadata(dbRecord.id, formData);
+            } else {
+                await metadataApi.createMetadata('time', formData);
+            }
             alert("Time settings updated successfully!");
             onUpdate();
         } catch (err) {

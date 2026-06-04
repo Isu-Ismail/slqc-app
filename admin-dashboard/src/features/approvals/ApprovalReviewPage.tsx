@@ -268,12 +268,24 @@ export default function ApprovalReviewPage() {
                                     <div>{indivApp.whatsapp_number}</div>
                                 </div>
                                 <div className={styles.detailGroup}>
+                                    <label>Email</label>
+                                    <div>{indivApp.email || 'N/A'}</div>
+                                </div>
+                                <div className={styles.detailGroup}>
+                                    <label>Father Name</label>
+                                    <div>{indivApp.father_name || 'N/A'}</div>
+                                </div>
+                                <div className={styles.detailGroup}>
+                                    <label>Father Phone</label>
+                                    <div>{indivApp.father_number || 'N/A'}</div>
+                                </div>
+                                <div className={styles.detailGroup}>
                                     <label>Guardian Name</label>
-                                    <div>{indivApp.guardian_name}</div>
+                                    <div>{indivApp.guardian_name || 'N/A'}</div>
                                 </div>
                                 <div className={styles.detailGroup}>
                                     <label>Guardian Phone</label>
-                                    <div>{indivApp.guardian_phone}</div>
+                                    <div>{indivApp.guardian_phone || 'N/A'}</div>
                                 </div>
                                 <div className={styles.detailGroup}>
                                     <label>Requires Accommodation?</label>

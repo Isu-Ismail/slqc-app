@@ -57,9 +57,9 @@ export default function DynamicListEditor({ title, metadataKey, metadata, onUpda
     const handleSave = async () => {
         setLoading(true);
         try {
-            const record = metadata[metadataKey];
-            if (record) {
-                await metadataApi.updateMetadata(record.id, items);
+            const dbRecord = await metadataApi.getMetadataByKey(metadataKey);
+            if (dbRecord) {
+                await metadataApi.updateMetadata(dbRecord.id, items);
             } else {
                 await metadataApi.createMetadata(metadataKey, items);
             }

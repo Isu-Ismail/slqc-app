@@ -74,6 +74,18 @@
     text-shadow: 0 2px 8px rgba(0,0,0,0.12);
 }
 
+.commenceDate {
+    font-size: 16px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-top: 8px;
+    margin-bottom: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
 .welcomeDesc {
     font-size: 15px;
     opacity: 0.88;

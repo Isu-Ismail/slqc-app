@@ -14,9 +14,12 @@ export default function StatusToggles({ metadata, onUpdate }: Props) {
     const setStatus = async (key: string, newStatus: 'waiting' | 'open' | 'closed') => {
         setLoading(true);
         try {
-            const record = metadata[key];
-            if (!record) return;
-            await metadataApi.updateMetadata(record.id, { status: newStatus });
+            const dbRecord = await metadataApi.getMetadataByKey(key);
+            if (dbRecord) {
+                await metadataApi.updateMetadata(dbRecord.id, { status: newStatus });
+            } else {
+                await metadataApi.createMetadata(key, { status: newStatus });
+            }
             onUpdate();
         } catch (err) {
             console.error('Failed to update status', err);
@@ -42,7 +45,7 @@ export default function StatusToggles({ metadata, onUpdate }: Props) {
                 <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '8px', gap: '4px' }}>
                     <button 
                         onClick={() => setStatus(key, 'waiting')} 
-                        disabled={loading || !record}
+                        disabled={loading}
                         style={{
                             padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px',
                             backgroundColor: currentStatus === 'waiting' ? '#f59e0b' : 'transparent',
@@ -53,7 +56,7 @@ export default function StatusToggles({ metadata, onUpdate }: Props) {
                     
                     <button 
                         onClick={() => setStatus(key, 'open')} 
-                        disabled={loading || !record}
+                        disabled={loading}
                         style={{
                             padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px',
                             backgroundColor: currentStatus === 'open' ? '#10b981' : 'transparent',
@@ -64,7 +67,7 @@ export default function StatusToggles({ metadata, onUpdate }: Props) {
                     
                     <button 
                         onClick={() => setStatus(key, 'closed')} 
-                        disabled={loading || !record}
+                        disabled={loading}
                         style={{
                             padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px',
                             backgroundColor: currentStatus === 'closed' ? '#ef4444' : 'transparent',

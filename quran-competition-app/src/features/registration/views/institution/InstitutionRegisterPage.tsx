@@ -65,6 +65,7 @@ export default function InstitutionRegisterPage() {
     // Common States
     const [loading, setLoading] = useState(false);
     const [isVerified, setIsVerified] = useState<boolean>(false);
+    const [rulesAccepted, setRulesAccepted] = useState<boolean>(false);
     const { madrasaStatus: status, checkingStatus } = useRegistrationStatus();
 
     // Alert Modal State
@@ -153,6 +154,11 @@ export default function InstitutionRegisterPage() {
 
         if (location.trim() && !isValidGoogleMapsLink(location)) {
             triggerAlert('Please enter a valid Google Maps link for your institution.', 'Invalid Google Maps Link');
+            return;
+        }
+
+        if (!rulesAccepted) {
+            triggerAlert('You must accept the Rules & Regulations and Privacy Policy before submitting.', 'Agreement Required');
             return;
         }
 
@@ -441,6 +447,8 @@ export default function InstitutionRegisterPage() {
                                             <Step3Location
                                                 location={location}
                                                 setLocation={setLocation}
+                                                rulesAccepted={rulesAccepted}
+                                                setRulesAccepted={setRulesAccepted}
                                             />
                                         )}
                                     </div>
@@ -471,7 +479,7 @@ export default function InstitutionRegisterPage() {
                                             <button
                                                 type="submit"
                                                 className={styles.btnSubmit}
-                                                disabled={loading}
+                                                disabled={loading || !rulesAccepted}
                                             >
                                                 {loading ? 'Submitting...' : 'Submit Application'}
                                             </button>

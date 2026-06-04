@@ -13,6 +13,8 @@ export interface CreateApplicationParams {
     gender: 'male' | 'female';
     email?: string;
     whatsapp_number: string;
+    father_name?: string;
+    father_number?: string;
     guardian_name: string;
     guardian_phone: string;
     requires_accommodation?: boolean;
@@ -39,6 +41,12 @@ export const participantsApi = {
             formData.append('email', params.email);
         }
         formData.append('whatsapp_number', params.whatsapp_number);
+        if (params.father_name) {
+            formData.append('father_name', params.father_name);
+        }
+        if (params.father_number) {
+            formData.append('father_number', params.father_number);
+        }
         formData.append('guardian_name', params.guardian_name);
         formData.append('guardian_phone', params.guardian_phone);
         formData.append('requires_accommodation', String(params.requires_accommodation || false));

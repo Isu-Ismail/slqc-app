@@ -24,6 +24,8 @@ export interface RegistrationFormData {
     gender: 'male' | 'female';
     email: string;
     whatsapp_number: string;
+    father_name: string;
+    father_number: string;
     guardian_name: string;
     guardian_phone: string;
     requires_accommodation: boolean;
@@ -59,6 +61,8 @@ const getInitialFormData = (): RegistrationFormData => {
         gender: 'male',
         email: '',
         whatsapp_number: '',
+        father_name: '',
+        father_number: '',
         guardian_name: '',
         guardian_phone: '',
         requires_accommodation: false,
@@ -85,6 +89,7 @@ export default function RegisterPage() {
     });
 
     const [formData, setFormData] = useState<RegistrationFormData>(getInitialFormData());
+    const [rulesAccepted, setRulesAccepted] = useState<boolean>(false);
     const { participantStatus: status, checkingStatus } = useRegistrationStatus();
 
     const triggerAlert = (message: string, title?: string, type: 'success' | 'warning' = 'warning', extraData?: string) => {
@@ -124,8 +129,8 @@ export default function RegisterPage() {
                 return;
             }
         } else if (currentStep === 2) {
-            const { full_name, aadhaar_number, dob, category, whatsapp_number, guardian_name, guardian_phone } = formData;
-            if (!full_name || !aadhaar_number || !dob || !category || !whatsapp_number || !guardian_name || !guardian_phone) {
+            const { full_name, aadhaar_number, dob, category, whatsapp_number, father_name, father_number, guardian_name, guardian_phone } = formData;
+            if (!full_name || !aadhaar_number || !dob || !category || !whatsapp_number || !father_name || !guardian_name || !guardian_phone) {
                 triggerAlert('Please fill all required fields before proceeding.', 'Incomplete Fields');
                 return;
             }
@@ -135,6 +140,14 @@ export default function RegisterPage() {
             }
             if (!validators.isValidMobile(whatsapp_number)) {
                 triggerAlert('Please enter a valid mobile number.', 'Invalid Contact');
+                return;
+            }
+            if (father_number.trim() && !validators.isValidMobile(father_number)) {
+                triggerAlert('Please enter a valid mobile number for the Father.', 'Invalid Father Contact');
+                return;
+            }
+            if (!validators.isValidMobile(guardian_phone)) {
+                triggerAlert('Please enter a valid mobile number for the Guardian.', 'Invalid Guardian Contact');
                 return;
             }
         }
@@ -152,6 +165,10 @@ export default function RegisterPage() {
             triggerAlert('Please upload a passport-size photo before submitting.', 'Photo Required');
             return;
         }
+        if (!rulesAccepted) {
+            triggerAlert('You must accept the Rules & Regulations and Privacy Policy before submitting.', 'Agreement Required');
+            return;
+        }
 
         try {
             const record = await participantsApi.createApplication({
@@ -165,6 +182,8 @@ export default function RegisterPage() {
                 gender: formData.gender,
                 email: formData.email || undefined,
                 whatsapp_number: formData.whatsapp_number,
+                father_name: formData.father_name || undefined,
+                father_number: formData.father_number || undefined,
                 guardian_name: formData.guardian_name,
                 guardian_phone: formData.guardian_phone,
                 requires_accommodation: formData.requires_accommodation,
@@ -191,6 +210,8 @@ export default function RegisterPage() {
                 gender: 'male',
                 email: '',
                 whatsapp_number: '',
+                father_name: '',
+                father_number: '',
                 guardian_name: '',
                 guardian_phone: '',
                 requires_accommodation: false,
@@ -312,7 +333,12 @@ export default function RegisterPage() {
                         <Step2Details formData={formData} updateForm={updateForm} />
                     )}
                     {currentStep === 3 && (
-                        <Step3Upload formData={formData} updateForm={updateForm} />
+                        <Step3Upload 
+                            formData={formData} 
+                            updateForm={updateForm} 
+                            rulesAccepted={rulesAccepted}
+                            setRulesAccepted={setRulesAccepted}
+                        />
                     )}
                 </div>
 
@@ -324,7 +350,13 @@ export default function RegisterPage() {
                     {currentStep < 3 ? (
                         <button onClick={handleNext} className={styles.btnPrimary}>Continue</button>
                     ) : (
-                        <button onClick={handleSubmit} className={styles.btnPrimary}>Submit Application</button>
+                        <button 
+                            onClick={handleSubmit} 
+                            className={styles.btnPrimary}
+                            disabled={!rulesAccepted}
+                        >
+                            Submit Application
+                        </button>
                     )}
                 </div>
             </div>

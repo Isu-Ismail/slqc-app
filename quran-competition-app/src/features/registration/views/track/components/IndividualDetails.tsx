@@ -1,6 +1,8 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import { Lock, Edit, Printer } from 'lucide-react';
 import type { ParticipantsApplicationResponse } from '../../../../../api/types';
+import { useRegistrationStatus } from '../../../../../shared/context/StatusContext';
+import { checkAgeEligibility } from '../../../../../utils/ageChecker';
 import styles from '../TrackPage.module.css';
 import printStyles from './PrintPreviewModal.module.css';
 import PrintPreviewModal, { generateIndividualFormHTML } from './PrintPreviewModal';
@@ -21,6 +23,10 @@ interface IndividualDetailsProps {
     setEditEmail: (val: string) => void;
     editWhatsapp: string;
     setEditWhatsapp: (val: string) => void;
+    editFatherName: string;
+    setEditFatherName: (val: string) => void;
+    editFatherNumber: string;
+    setEditFatherNumber: (val: string) => void;
     editGuardianName: string;
     setEditGuardianName: (val: string) => void;
     editGuardianPhone: string;
@@ -55,6 +61,10 @@ export default function IndividualDetails({
     setEditEmail,
     editWhatsapp,
     setEditWhatsapp,
+    editFatherName,
+    setEditFatherName,
+    editFatherNumber,
+    setEditFatherNumber,
     editGuardianName,
     setEditGuardianName,
     editGuardianPhone,
@@ -75,6 +85,34 @@ export default function IndividualDetails({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const photoInputRef = useRef<HTMLInputElement>(null);
     const [printPreview, setPrintPreview] = useState<string | null>(null);
+
+    const { metadata } = useRegistrationStatus();
+    const eventDate = metadata.event_date;
+    const ageCriteria = metadata.event_age_criteria;
+    const ageBuffer = metadata.age_buffer_months !== undefined ? Number(metadata.age_buffer_months) : 3;
+
+    const eligibility = useMemo(() => {
+        return checkAgeEligibility(
+            editDob,
+            eventDate,
+            ageCriteria || {
+                '5_juz': { min: 0, max: 15 },
+                '15_juz': { min: 0, max: 19 },
+                '30_juz': { min: 0, max: 25 }
+            },
+            ageBuffer
+        );
+    }, [editDob, eventDate, ageCriteria, ageBuffer]);
+
+    useEffect(() => {
+        if (isEditMode && editDob && editCategory) {
+            const currentEligibility = eligibility[editCategory];
+            if (currentEligibility && !currentEligibility.eligible) {
+                setEditCategory('');
+                alert(`Category cleared! Selected Juz is ineligible for this Date of Birth: ${currentEligibility.message}`);
+            }
+        }
+    }, [editDob, editCategory, eligibility, isEditMode, setEditCategory]);
 
     const [isRefetching, setIsRefetching] = useState(false);
     const [refetchSuccess, setRefetchSuccess] = useState(false);
@@ -168,7 +206,7 @@ export default function IndividualDetails({
                 )}
 
                 <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Applicant Name</label>
+                    <label className={styles.formLabel}>Applicant Name {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
                     <input
                         type="text"
                         className={styles.formInput}
@@ -189,16 +227,23 @@ export default function IndividualDetails({
                 </div>
 
                 <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Category</label>
+                    <label className={styles.formLabel}>Category {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
                     {isEditMode && !individualRecord.is_locked ? (
                         <select
                             className={styles.formSelect}
                             value={editCategory}
                             onChange={(e) => setEditCategory(e.target.value as any)}
                         >
-                            <option value="5_juz">5 Juz</option>
-                            <option value="15_juz">15 Juz</option>
-                            <option value="30_juz">30 Juz</option>
+                            <option value="">Select Category</option>
+                            <option value="5_juz" disabled={editDob ? !eligibility['5_juz'].eligible : false}>
+                                5 Juz {editDob && !eligibility['5_juz'].eligible && `(${eligibility['5_juz'].message})`}
+                            </option>
+                            <option value="15_juz" disabled={editDob ? !eligibility['15_juz'].eligible : false}>
+                                15 Juz {editDob && !eligibility['15_juz'].eligible && `(${eligibility['15_juz'].message})`}
+                            </option>
+                            <option value="30_juz" disabled={editDob ? !eligibility['30_juz'].eligible : false}>
+                                30 Juz {editDob && !eligibility['30_juz'].eligible && `(${eligibility['30_juz'].message})`}
+                            </option>
                         </select>
                     ) : (
                         <input
@@ -211,7 +256,7 @@ export default function IndividualDetails({
                 </div>
 
                 <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Gender</label>
+                    <label className={styles.formLabel}>Gender {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
                     {isEditMode && !individualRecord.is_locked ? (
                         <select
                             className={styles.formSelect}
@@ -232,7 +277,7 @@ export default function IndividualDetails({
                 </div>
 
                 <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Date of Birth</label>
+                    <label className={styles.formLabel}>Date of Birth {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
                     <input
                         type="date"
                         className={styles.formInput}
@@ -255,7 +300,7 @@ export default function IndividualDetails({
                 </div>
 
                 <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>WhatsApp Number</label>
+                    <label className={styles.formLabel}>WhatsApp Number {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
                     <input
                         type="text"
                         className={styles.formInput}
@@ -266,22 +311,45 @@ export default function IndividualDetails({
                 </div>
 
                 <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Guardian Name</label>
+                    <label className={styles.formLabel}>Father Name {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
                     <input
                         type="text"
                         className={styles.formInput}
-                        value={isEditMode ? editGuardianName : individualRecord.guardian_name}
+                        value={isEditMode ? editFatherName : (individualRecord.father_name || '')}
+                        disabled={!isEditMode || individualRecord.is_locked}
+                        onChange={(e) => setEditFatherName(e.target.value)}
+                    />
+                </div>
+
+                <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>Father Phone (Optional)</label>
+                    <input
+                        type="text"
+                        className={styles.formInput}
+                        value={isEditMode ? editFatherNumber : (individualRecord.father_number || '')}
+                        placeholder="N/A"
+                        disabled={!isEditMode || individualRecord.is_locked}
+                        onChange={(e) => setEditFatherNumber(e.target.value)}
+                    />
+                </div>
+
+                <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>Guardian Name {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
+                    <input
+                        type="text"
+                        className={styles.formInput}
+                        value={isEditMode ? editGuardianName : (individualRecord.guardian_name || '')}
                         disabled={!isEditMode || individualRecord.is_locked}
                         onChange={(e) => setEditGuardianName(e.target.value)}
                     />
                 </div>
 
                 <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Guardian Phone</label>
+                    <label className={styles.formLabel}>Guardian Phone {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
                     <input
                         type="text"
                         className={styles.formInput}
-                        value={isEditMode ? editGuardianPhone : individualRecord.guardian_phone}
+                        value={isEditMode ? editGuardianPhone : (individualRecord.guardian_phone || '')}
                         disabled={!isEditMode || individualRecord.is_locked}
                         onChange={(e) => setEditGuardianPhone(e.target.value)}
                     />
@@ -463,6 +531,8 @@ export default function IndividualDetails({
                                         (editDob || '').toString().trim() !== (individualRecord.dob ? individualRecord.dob.split(' ')[0] : '').toString().trim() ||
                                         (editEmail || '').toString().trim() !== (individualRecord.email || '').toString().trim() ||
                                         (editWhatsapp || '').toString().trim() !== (individualRecord.whatsapp_number || '').toString().trim() ||
+                                        (editFatherName || '').toString().trim() !== (individualRecord.father_name || '').toString().trim() ||
+                                        (editFatherNumber || '').toString().trim() !== (individualRecord.father_number || '').toString().trim() ||
                                         (editGuardianName || '').toString().trim() !== (individualRecord.guardian_name || '').toString().trim() ||
                                         (editGuardianPhone || '').toString().trim() !== (individualRecord.guardian_phone || '').toString().trim() ||
                                         (!!editRequiresAcc) !== (!!individualRecord.requires_accommodation) ||

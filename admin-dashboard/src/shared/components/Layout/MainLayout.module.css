@@ -262,10 +262,16 @@
 }
 
 .arabicCalligraphy {
-    font-size: 20px;
+    font-size: 16px;
     color: #10b981;
     font-family: serif;
     font-weight: bold;
+}
+
+@media (max-width: 768px) {
+    .arabicCalligraphy {
+        font-size: 12px;
+    }
 }
 
 .content {
@@ -390,4 +396,150 @@
     font-size: 14px;
     font-weight: bold;
     text-transform: capitalize;
+}
+
+/* Custom premium translation dropdown styles */
+.customTranslateWrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.translateBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background-color: #ffffff;
+    border: 1px solid var(--border, #cbd5e1);
+    border-radius: 10px;
+    color: var(--text-h, #334155);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.translateBtn:hover {
+    background-color: #f8fafc;
+    border-color: var(--accent, #10b981);
+}
+
+.globeIcon {
+    width: 15px;
+    height: 15px;
+    color: var(--accent, #10b981);
+}
+
+.translateLabel {
+    min-width: 60px;
+    text-align: left;
+}
+
+.translateMenuBackdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 990;
+    background: transparent;
+}
+
+.translateMenu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 1000;
+    background-color: #ffffff;
+    border: 1px solid var(--border, #cbd5e1);
+    border-radius: 12px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 130px;
+    animation: slideUp 0.15s ease-out;
+}
+
+.translateMenuItem {
+    background: none;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    width: 100%;
+}
+
+.translateMenuItemLabel:hover {
+    background-color: rgba(16, 185, 129, 0.1);
+}
+
+.btnTranslateAction {
+    background-color: var(--accent, #10b981);
+    color: #ffffff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.btnTranslateAction:hover {
+    opacity: 0.9;
+}
+
+/* Push fixed sidebar and mobile backdrop down when Google Translate banner is visible */
+:global(html.translated-ltr) .sidebar,
+:global(html.translated-rtl) .sidebar {
+    top: 40px !important;
+    height: calc(100vh - 40px) !important;
+}
+
+:global(html.translated-ltr) .backdrop,
+:global(html.translated-rtl) .backdrop {
+    top: 40px !important;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 768px) {
+    .translateLabel,
+    .translateChevron {
+        display: none !important;
+    }
+    
+    .translateBtn {
+        padding: 8px !important;
+    }
+
+    .topbar {
+        padding: 0 16px !important;
+    }
+    
+    .topbarActions {
+        gap: 8px !important;
+    }
+    
+    .btnTranslateAction {
+        padding: 6px 10px !important;
+        font-size: 12px !important;
+    }
 }

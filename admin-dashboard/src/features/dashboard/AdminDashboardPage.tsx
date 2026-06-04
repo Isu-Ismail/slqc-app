@@ -196,6 +196,25 @@ export default function AdminDashboardPage() {
         }
     };
 
+    const formatEventDate = (dateStr: string): string => {
+        try {
+            const dateObj = new Date(dateStr);
+            const datePart = dateObj.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            const timePart = dateObj.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            return `${datePart} at ${timePart}`;
+        } catch {
+            return dateStr;
+        }
+    };
+
     // ─────────────────────────────────────────────────────────────────────────
     return (
         <div className={styles.dashboardWrapper}>
@@ -207,6 +226,11 @@ export default function AdminDashboardPage() {
                         <Landmark size={11} /> Admin Dashboard
                     </span>
                     <h1 className={styles.welcomeTitle}>State Level Quran Competition</h1>
+                    {stats.event_date && (
+                        <div className={styles.commenceDate}>
+                            <CalendarDays size={16} /> Commence on: {formatEventDate(String(stats.event_date))}
+                        </div>
+                    )}
                     <p className={styles.welcomeDesc}>
                         Real-time overview of all registrations, timelines, and competition status. Data updates automatically via live subscription.
                     </p>

@@ -53,6 +53,8 @@ export default function TrackPage() {
     const [editDob, setEditDob] = useState('');
     const [editEmail, setEditEmail] = useState('');
     const [editWhatsapp, setEditWhatsapp] = useState('');
+    const [editFatherName, setEditFatherName] = useState('');
+    const [editFatherNumber, setEditFatherNumber] = useState('');
     const [editGuardianName, setEditGuardianName] = useState('');
     const [editGuardianPhone, setEditGuardianPhone] = useState('');
     const [editRequiresAcc, setEditRequiresAcc] = useState(false);
@@ -126,8 +128,10 @@ export default function TrackPage() {
                 setEditDob(record.dob ? record.dob.split(' ')[0] : '');
                 setEditEmail(record.email || '');
                 setEditWhatsapp(record.whatsapp_number);
-                setEditGuardianName(record.guardian_name);
-                setEditGuardianPhone(record.guardian_phone);
+                setEditFatherName(record.father_name || '');
+                setEditFatherNumber(record.father_number || '');
+                setEditGuardianName(record.guardian_name || '');
+                setEditGuardianPhone(record.guardian_phone || '');
                 setEditRequiresAcc(!!record.requires_accommodation);
                 setEditAadhaarFile(null);
                 setEditCandidatePhotoFile(null);
@@ -232,8 +236,10 @@ export default function TrackPage() {
                     setEditDob(parsed.dob ? parsed.dob.split(' ')[0] : '');
                     setEditEmail(parsed.email || '');
                     setEditWhatsapp(parsed.whatsapp_number);
-                    setEditGuardianName(parsed.guardian_name);
-                    setEditGuardianPhone(parsed.guardian_phone);
+                    setEditFatherName(parsed.father_name);
+                    setEditFatherNumber(parsed.father_number || '');
+                    setEditGuardianName(parsed.guardian_name || '');
+                    setEditGuardianPhone(parsed.guardian_phone || '');
                     setEditRequiresAcc(!!parsed.requires_accommodation);
                     setEditCandidatePhotoFile(null);
                 } catch (e) {
@@ -328,6 +334,8 @@ export default function TrackPage() {
             if (editDob) formData.append('dob', editDob);
             formData.append('email', editEmail.trim());
             formData.append('whatsapp_number', editWhatsapp.trim());
+            formData.append('father_name', editFatherName.trim());
+            formData.append('father_number', editFatherNumber.trim());
             formData.append('guardian_name', editGuardianName.trim());
             formData.append('guardian_phone', editGuardianPhone.trim());
             formData.append('requires_accommodation', String(editRequiresAcc));
@@ -559,6 +567,10 @@ export default function TrackPage() {
                         setEditEmail={setEditEmail}
                         editWhatsapp={editWhatsapp}
                         setEditWhatsapp={setEditWhatsapp}
+                        editFatherName={editFatherName}
+                        setEditFatherName={setEditFatherName}
+                        editFatherNumber={editFatherNumber}
+                        setEditFatherNumber={setEditFatherNumber}
                         editGuardianName={editGuardianName}
                         setEditGuardianName={setEditGuardianName}
                         editGuardianPhone={editGuardianPhone}
@@ -615,8 +627,10 @@ export default function TrackPage() {
                             setEditDob(app.dob ? app.dob.split(' ')[0] : '');
                             setEditEmail(app.email || '');
                             setEditWhatsapp(app.whatsapp_number);
-                            setEditGuardianName(app.guardian_name);
-                            setEditGuardianPhone(app.guardian_phone);
+                            setEditFatherName(app.father_name || '');
+                            setEditFatherNumber(app.father_number || '');
+                            setEditGuardianName(app.guardian_name || '');
+                            setEditGuardianPhone(app.guardian_phone || '');
                             setEditRequiresAcc(!!app.requires_accommodation);
                             setEditAadhaarFile(null);
                             setEditCandidatePhotoFile(null);

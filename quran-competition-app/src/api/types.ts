@@ -154,6 +154,8 @@ export type ParticipantsApplicationRecord = {
 	created: IsoAutoDateString
 	dob: IsoDateString
 	email?: string
+	father_name?: string
+	father_number?: string
 	full_name: string
 	gender: ParticipantsApplicationGenderOptions
 	guardian_name: string

@@ -3,6 +3,8 @@ import { metadataApi } from '../../api/metadata';
 import type { MetadataRecord } from '../../api/metadata';
 import StatusToggles from './components/StatusToggles';
 import TimeSettingsForm from './components/TimeSettingsForm';
+import EventSettingsForm from './components/EventSettingsForm';
+import RulesSettingsForm from './components/RulesSettingsForm';
 import DynamicListEditor from './components/DynamicListEditor';
 import StatsRecalculator from './components/StatsRecalculator';
 import styles from './ControlPanelPage.module.css';
@@ -75,20 +77,22 @@ export default function ControlPanelPage() {
     return (
         <div className={styles.container}>
             <div className={styles.grid}>
-                <StatusToggles metadata={metadata} onUpdate={() => {}} />
-                <TimeSettingsForm metadata={metadata} onUpdate={() => {}} />
+                <StatusToggles metadata={metadata} onUpdate={() => loadMetadata(false, true)} />
+                <TimeSettingsForm metadata={metadata} onUpdate={() => loadMetadata(false, true)} />
+                <EventSettingsForm metadata={metadata} onUpdate={() => loadMetadata(false, true)} />
+                <RulesSettingsForm metadata={metadata} onUpdate={() => loadMetadata(false, true)} />
                 <DynamicListEditor 
                     title="Timeline Events" 
                     metadataKey="events"
                     metadata={metadata}
-                    onUpdate={() => {}}
+                    onUpdate={() => loadMetadata(false, true)}
                     template={{ date: '', title: '', desc: '', active: true }}
                 />
                 <DynamicListEditor 
                     title="Grand Prizes" 
                     metadataKey="prizes"
                     metadata={metadata}
-                    onUpdate={() => {}}
+                    onUpdate={() => loadMetadata(false, true)}
                     template={{ rank: '🏅', title: '', value: '', highlight: false }}
                 />
                 <StatsRecalculator onUpdate={() => {}} />
