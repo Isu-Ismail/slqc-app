@@ -12,7 +12,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
     const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
     const [pendingLanguageCode, setPendingLanguageCode] = useState('en');
     const [pendingLanguageLabel, setPendingLanguageLabel] = useState('English');
-    const [selectedLanguage, setSelectedLanguage] = useState('English');
     const location = useLocation();
     const { participantStatus, madrasaStatus } = useRegistrationStatus();
 
@@ -41,7 +40,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
         if (selectEl) {
             selectEl.value = pendingLanguageCode;
             selectEl.dispatchEvent(new Event('change'));
-            setSelectedLanguage(pendingLanguageLabel);
         }
     };
 
@@ -176,7 +174,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                     </div>
 
                     <div className={styles.topbarActions}>
-                        <div id="google_translate_element" style={{ display: 'none' }}></div>
+                        <div id="google_translate_element" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 }}></div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <div className={styles.customTranslateWrapper}>
                                 <button 

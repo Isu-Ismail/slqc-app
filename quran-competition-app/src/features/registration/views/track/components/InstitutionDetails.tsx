@@ -5,6 +5,7 @@ import type { ParticipantsApplicationResponse, InstitutionsResponse } from '../.
 import styles from '../TrackPage.module.css';
 import printStyles from './PrintPreviewModal.module.css';
 import PrintPreviewModal, { generateAttendanceSheetHTML, generateAllFormsHTML } from './PrintPreviewModal';
+import { useRegistrationStatus } from '../../../../../shared/context/StatusContext';
 
 interface InstitutionDetailsProps {
     institutionData: {
@@ -75,6 +76,7 @@ export default function InstitutionDetails({
     const instFileInputRef = useRef<HTMLInputElement>(null);
     const instBuildingFileInputRef = useRef<HTMLInputElement>(null);
     const [printPreview, setPrintPreview] = useState<{ title: string; html: string } | null>(null);
+    const { metadata } = useRegistrationStatus();
 
     const [isRefetching, setIsRefetching] = useState(false);
     const [refetchSuccess, setRefetchSuccess] = useState(false);
@@ -421,7 +423,7 @@ export default function InstitutionDetails({
                                 onClick={() => {
                                     setPrintPreview({
                                         title: 'All Application Forms',
-                                        html: generateAllFormsHTML(institutionData.applications)
+                                        html: generateAllFormsHTML(institutionData.applications, metadata.print_template)
                                     });
                                 }}
                             >

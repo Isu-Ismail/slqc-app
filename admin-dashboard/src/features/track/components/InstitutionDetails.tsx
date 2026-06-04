@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Lock, Edit, Printer, FileText, ChevronDown, ChevronUp, CheckCircle, XCircle, Unlock, RefreshCw } from 'lucide-react';
 import { pb } from '../../../api/db';
 import { adminTrackApi } from '../../../api/track';
@@ -7,6 +7,7 @@ import styles from '../TrackPage.module.css';
 import printStyles from './PrintPreviewModal.module.css';
 import PrintPreviewModal from './PrintPreviewModal';
 import { generateAttendanceSheetHTML, generateAllFormsHTML } from './printTemplates';
+import { metadataApi } from '../../../api/metadata';
 
 interface InstitutionDetailsProps {
     institutionData: {
@@ -80,6 +81,16 @@ export default function InstitutionDetails({
 
     const [isRefetching, setIsRefetching] = useState(false);
     const [refetchSuccess, setRefetchSuccess] = useState(false);
+    const [printTemplate, setPrintTemplate] = useState<string>('');
+
+    useEffect(() => {
+        metadataApi.getAllMetadata().then(records => {
+            const tpl = records.find(r => r.key === 'print_template');
+            if (tpl && typeof tpl.value === 'string') {
+                setPrintTemplate(tpl.value);
+            }
+        }).catch(err => console.error("Failed to load print template in InstitutionDetails:", err));
+    }, []);
 
     const handleRefetch = async () => {
         if (!onRefresh) return;
@@ -502,7 +513,7 @@ export default function InstitutionDetails({
                                 onClick={() => {
                                     setPrintPreview({
                                         title: 'All Application Forms',
-                                        html: generateAllFormsHTML(institutionData.applications)
+                                        html: generateAllFormsHTML(institutionData.applications, printTemplate)
                                     });
                                 }}
                             >

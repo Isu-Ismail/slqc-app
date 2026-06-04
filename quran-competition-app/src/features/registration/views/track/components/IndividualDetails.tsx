@@ -558,7 +558,7 @@ export default function IndividualDetails({
             <div className={printStyles.downloadBar}>
                 <button
                     className={printStyles.downloadBtn}
-                    onClick={() => setPrintPreview(generateIndividualFormHTML(individualRecord))}
+                    onClick={() => setPrintPreview(generateIndividualFormHTML(individualRecord, metadata.print_template))}
                 >
                     <Printer size={15} /> Print Application Form
                 </button>

@@ -226,7 +226,7 @@ export default function AdminDashboardPage() {
                         <Landmark size={11} /> Admin Dashboard
                     </span>
                     <h1 className={styles.welcomeTitle}>State Level Quran Competition</h1>
-                    {stats.event_date && (
+                    {!!stats.event_date && (
                         <div className={styles.commenceDate}>
                             <CalendarDays size={16} /> Commence on: {formatEventDate(String(stats.event_date))}
                         </div>
