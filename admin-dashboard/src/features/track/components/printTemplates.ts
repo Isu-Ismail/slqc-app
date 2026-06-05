@@ -1,5 +1,6 @@
 import { pb } from '../../../api/db';
 import type { ParticipantsApplicationResponse, InstitutionsResponse } from '../../../api/track';
+import { FORM_FIELDS_CONFIG, getCategoryLabel } from '../../../config/fieldsConfig';
 
 // ─── Template Generators ───────────────────────────────────────
 
@@ -95,6 +96,7 @@ function parseCustomTemplate(
         .replace(/\{\{guardian_name\}\}/g, record.guardian_name || 'N/A')
         .replace(/\{\{guardian_phone\}\}/g, record.guardian_phone || 'N/A')
         .replace(/\{\{requires_accommodation\}\}/g, record.requires_accommodation ? 'Yes' : 'No')
+        .replace(/\{\{selected_juz\}\}/g, record.selected_juz || 'N/A')
         .replace(/\{\{allocated_venue\}\}/g, record.allocated_venue || 'N/A')
         .replace(/\{\{institution_details\}\}/g, instHtml);
 }
@@ -120,6 +122,29 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
         const parsed = parseCustomTemplate(customTemplate, record, institution, dob, submitted, approvedByName, approverContact, approverEmail, photoUrl);
         return `<div class="form-page" style="${pageBreak ? 'page-break-after:always;' : ''}">${parsed}</div>`;
     }
+
+    const candidateFieldsHtml = FORM_FIELDS_CONFIG
+        .filter(f => f.section === 'candidate' && f.showInPrint && !f.customFormRender)
+        .map(f => {
+            let val = (record as any)[f.key];
+            if (f.type === 'date' && val) val = formatDate(val);
+            if (f.key === 'gender' && val) val = val.charAt(0).toUpperCase() + val.slice(1);
+            return `<div class="field"><span class="fl">${f.label}</span><span class="fv">${val || 'N/A'}</span></div>`;
+        }).join('\n');
+
+    const categoryVal = getCategoryLabel(record.category);
+    const selectedJuzVal = record.selected_juz || 'N/A';
+    const customFieldsHtml = `
+        <div class="field"><span class="fl">Category</span><span class="fv">${categoryVal}</span></div>
+        <div class="field"><span class="fl">Selected Juz Range</span><span class="fv">${selectedJuzVal}</span></div>
+    `;
+
+    const guardianFieldsHtml = FORM_FIELDS_CONFIG
+        .filter(f => f.section === 'guardian' && f.showInPrint && !f.customFormRender)
+        .map(f => {
+            const val = (record as any)[f.key];
+            return `<div class="field"><span class="fl">${f.label}</span><span class="fv">${val || 'N/A'}</span></div>`;
+        }).join('\n');
 
     return `
     <div class="form-page" style="${pageBreak ? 'page-break-after:always;' : ''}">
@@ -155,23 +180,15 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
         <div class="section">
             <div class="section-title">Personal Details</div>
             <div class="fields">
-                <div class="field"><span class="fl">Full Name</span><span class="fv">${record.full_name}</span></div>
-                <div class="field"><span class="fl">Father's Name</span><span class="fv">${record.father_name || 'N/A'}</span></div>
-                <div class="field"><span class="fl">Father's Phone</span><span class="fv">${record.father_number || 'N/A'}</span></div>
-                <div class="field"><span class="fl">Gender</span><span class="fv">${record.gender.charAt(0).toUpperCase() + record.gender.slice(1)}</span></div>
-                <div class="field"><span class="fl">Date of Birth</span><span class="fv">${dob}</span></div>
-                <div class="field"><span class="fl">Aadhaar Number</span><span class="fv">${record.aadhaar_number}</span></div>
-                <div class="field"><span class="fl">Category</span><span class="fv">${categoryLabel(record.category)}</span></div>
-                <div class="field"><span class="fl">Email</span><span class="fv">${record.email || 'N/A'}</span></div>
-                <div class="field"><span class="fl">WhatsApp Number</span><span class="fv">${record.whatsapp_number}</span></div>
+                ${candidateFieldsHtml}
+                ${customFieldsHtml}
             </div>
         </div>
 
         <div class="section">
             <div class="section-title">Guardian Details</div>
             <div class="fields">
-                <div class="field"><span class="fl">Guardian Name</span><span class="fv">${record.guardian_name}</span></div>
-                <div class="field"><span class="fl">Guardian Phone</span><span class="fv">${record.guardian_phone}</span></div>
+                ${guardianFieldsHtml}
             </div>
         </div>
 

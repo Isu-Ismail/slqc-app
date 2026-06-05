@@ -19,6 +19,7 @@ export default function AdminDashboardPage() {
     const [metadata, setMetadata] = useState<Record<string, unknown>>({});
     const user = pb.authStore.model;
     const isAdmin = user?.designation === 'admin';
+    const pad = (n: number) => String(n).padStart(2, '0');
 
     // ── Load metadata & subscribe to realtime ────────────────────────────────
     useEffect(() => {
@@ -262,7 +263,7 @@ export default function AdminDashboardPage() {
                             <div className={styles.bannerTimer}>
                                 {[{ v: timeLeft.days, l: 'Days' }, { v: timeLeft.hours, l: 'Hours' }, { v: timeLeft.minutes, l: 'Min' }, { v: timeLeft.seconds, l: 'Sec' }].map(({ v, l }) => (
                                     <div key={l} className={styles.bannerTimeSegment}>
-                                        <span className={styles.bannerTimeValue}>{v}</span>
+                                        <span className={styles.bannerTimeValue}>{pad(v)}</span>
                                         <span className={styles.bannerTimeLabel}>{l}</span>
                                     </div>
                                 ))}

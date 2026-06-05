@@ -1,67 +1,31 @@
 /* src/features/registration/views/institution/InstitutionRegisterPage.module.css */
 .pageWrapper {
     display: flex;
-    flex-direction: column;
+    flex: 1;
+    justify-content: center;
     align-items: center;
-    width: 100%;
-    max-width: 100%;
-    min-height: 100vh;
     padding: 40px 20px;
-    background-color: var(--bg);
     box-sizing: border-box;
-    overflow-x: hidden;
-}
-
-.container {
-    max-width: 600px;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.tabs {
-    display: flex;
-    border-bottom: 1px solid var(--border);
-    gap: 16px;
-    margin-bottom: 24px;
-}
-
-.tabBtn {
-    background: none;
-    border: none;
-    padding: 10px 4px;
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text-muted, #6b7280);
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: all 0.2s ease;
-}
-
-.tabBtn:hover {
-    color: var(--text-h);
-}
-
-.activeTab {
-    color: var(--accent);
-    border-bottom-color: var(--accent);
 }
 
 .card {
     background-color: var(--card-bg);
     border: 1px solid var(--border);
     box-shadow: var(--shadow);
-    padding: 32px;
+    padding: 40px;
     border-radius: 12px;
+    max-width: 650px;
+    width: 100%;
+    text-align: left;
     display: flex;
     flex-direction: column;
     gap: 24px;
     box-sizing: border-box;
-    max-width: 100%;
 }
 
 .cardHeader h2 {
-    font-size: 22px;
-    font-weight: 800;
+    font-size: 24px;
+    font-weight: 600;
     color: var(--text-h);
     margin: 0 0 6px 0;
 }
@@ -86,7 +50,7 @@
 }
 
 .label {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--text-h);
 }
@@ -94,9 +58,9 @@
 .input, .textarea {
     background-color: #ffffff;
     border: 1px solid var(--border);
-    padding: 12px 16px;
+    padding: 14px 16px;
     border-radius: 8px;
-    font-size: 14px;
+    font-size: 16px;
     color: var(--text-h);
     outline: none;
     transition: all 0.2s ease;
@@ -119,13 +83,20 @@
     gap: 20px;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     .pageWrapper {
-        padding: 20px 12px;
+        padding: 0 !important;
+        background-color: transparent !important;
     }
     
     .card {
-        padding: 20px 16px;
+        padding: 24px 16px !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        background-color: transparent !important;
         gap: 20px;
     }
 
@@ -139,13 +110,22 @@
     }
 
     .captchaBody {
-        flex-wrap: wrap;
-        gap: 12px;
+        display: grid !important;
+        grid-template-columns: auto 1fr !important;
+        gap: 12px !important;
+        align-items: center !important;
     }
 
     .captchaInput {
-        max-width: 100%;
-        flex: 1 1 100%;
+        grid-column: span 2 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        flex: none !important;
+    }
+
+    .captchaVerifiedText {
+        grid-column: span 2 !important;
     }
 
     .fileControl {

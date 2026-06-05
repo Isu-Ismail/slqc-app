@@ -143,6 +143,62 @@ export default function MainLayout({ children }: MainLayoutProps) {
                     </NavLink>
                 </nav>
 
+                {/* Translate widget inside sidebar for mobile */}
+                <div className={styles.sidebarTranslate}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+                        <div className={styles.customTranslateWrapperSidebar}>
+                            <button 
+                                type="button"
+                                className={styles.translateBtnSidebar} 
+                                onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
+                                aria-label="Select Language"
+                            >
+                                <svg className={styles.globeIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="2" y1="12" x2="22" y2="12" />
+                                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                                </svg>
+                                <span className={styles.translateLabelSidebar}>{pendingLanguageLabel}</span>
+                                <svg className={styles.translateChevron} style={{ width: '12px', height: '12px', opacity: 0.7 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                            </button>
+                            
+                            {isLangMenuOpen && (
+                                <>
+                                    <div className={styles.translateMenuBackdrop} onClick={() => setIsLangMenuOpen(false)} />
+                                    <div className={styles.translateMenuSidebar}>
+                                        {languages.map((lang) => (
+                                            <label
+                                                key={lang.code}
+                                                className={styles.translateMenuItemLabel}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', cursor: 'pointer', fontSize: '13px', borderRadius: '8px', width: '100%', boxSizing: 'border-box' }}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="lang-select-sidebar"
+                                                    checked={pendingLanguageCode === lang.code}
+                                                    onChange={() => handleSelectLanguage(lang.code, lang.label)}
+                                                    style={{ accentColor: 'var(--accent)', cursor: 'pointer' }}
+                                                />
+                                                <span style={{ color: '#334155', fontWeight: '500' }}>{lang.label}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                        
+                        <button
+                            type="button"
+                            onClick={triggerTranslation}
+                            className={styles.btnTranslateActionSidebar}
+                        >
+                            Translate
+                        </button>
+                    </div>
+                </div>
+
                 <div className={styles.sidebarFooter}>
                     <span className={styles.footerText}>State Level Quran Competition</span>
                     <span className={styles.footerYear}>State Committee © 2026</span>
@@ -152,9 +208,43 @@ export default function MainLayout({ children }: MainLayoutProps) {
             {/* Main Page Area */}
             <div className={styles.mainWrapper}>
                 <header className={styles.topbar}>
-                    <div className={styles.topbarLeft}>
-                        {/* Mobile Hamburger Burger Button */}
-                        <button className={styles.burgerButton} onClick={toggleMobileMenu} aria-label="Toggle Menu">
+                    {/* Left side: Logo & SLQC Portal title (unified for PC & Mobile) */}
+                    <div className={styles.topbarBranding}>
+                        <img src="./logo.svg" className={styles.topbarLogo} alt="SLQC Logo" />
+                        <h2 className={styles.topbarTitle}>SLQC Portal</h2>
+                    </div>
+
+                    {/* Right side: Status Indicator & Hamburger Burger Menu (burger only on Mobile) */}
+                    <div className={styles.topbarRightActions}>
+                        {/* Google Translate API Hidden Target Container */}
+                        <div id="google_translate_element" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 }}></div>
+
+                        {/* Status Badge */}
+                        <div className={
+                            currentStatus === 'waiting'
+                                ? styles.topbarStatusBadgeWaiting
+                                : currentStatus === 'closed'
+                                    ? styles.topbarStatusBadgeClosed
+                                    : styles.topbarStatusBadge
+                        }>
+                            <span className={
+                                currentStatus === 'waiting'
+                                    ? styles.statusIndicatorWaiting
+                                    : currentStatus === 'closed'
+                                        ? styles.statusIndicatorClosed
+                                        : styles.statusIndicator
+                            }></span>
+                            <span className={styles.topbarStatusText}>
+                                {currentStatus === 'waiting'
+                                    ? 'Registration Not Started'
+                                    : currentStatus === 'closed'
+                                        ? 'Registration Closed'
+                                        : 'Registration Open'}
+                            </span>
+                        </div>
+
+                        {/* Hamburger button (shows only on mobile via CSS) */}
+                        <button className={styles.topbarBurgerButton} onClick={toggleMobileMenu} aria-label="Toggle Menu">
                             <svg className={styles.burgerIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                                 {isMobileMenuOpen ? (
                                     <>
@@ -170,84 +260,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
                                 )}
                             </svg>
                         </button>
-                        <h2 className={styles.pageHeader}>Candidate Portal</h2>
-                    </div>
-
-                    <div className={styles.topbarActions}>
-                        <div id="google_translate_element" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 }}></div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div className={styles.customTranslateWrapper}>
-                                <button 
-                                    type="button"
-                                    className={styles.translateBtn} 
-                                    onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
-                                    aria-label="Select Language"
-                                >
-                                    <svg className={styles.globeIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <circle cx="12" cy="12" r="10" />
-                                        <line x1="2" y1="12" x2="22" y2="12" />
-                                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                                    </svg>
-                                    <span className={styles.translateLabel}>{pendingLanguageLabel}</span>
-                                    <svg className={styles.translateChevron} style={{ width: '12px', height: '12px', opacity: 0.7 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <polyline points="6 9 12 15 18 9" />
-                                    </svg>
-                                </button>
-                                
-                                {isLangMenuOpen && (
-                                    <>
-                                        <div className={styles.translateMenuBackdrop} onClick={() => setIsLangMenuOpen(false)} />
-                                        <div className={styles.translateMenu}>
-                                            {languages.map((lang) => (
-                                                <label
-                                                    key={lang.code}
-                                                    className={styles.translateMenuItemLabel}
-                                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', cursor: 'pointer', fontSize: '13px', borderRadius: '8px', width: '100%', boxSizing: 'border-box' }}
-                                                >
-                                                    <input
-                                                        type="radio"
-                                                        name="lang-select"
-                                                        checked={pendingLanguageCode === lang.code}
-                                                        onChange={() => handleSelectLanguage(lang.code, lang.label)}
-                                                        style={{ accentColor: 'var(--accent)', cursor: 'pointer' }}
-                                                    />
-                                                    <span style={{ color: '#334155', fontWeight: '500' }}>{lang.label}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                            
-                            <button
-                                type="button"
-                                onClick={triggerTranslation}
-                                className={styles.btnTranslateAction}
-                            >
-                                Translate
-                            </button>
-                        </div>
-                        <div className={
-                            currentStatus === 'waiting'
-                                ? styles.statusBadgeWaiting
-                                : currentStatus === 'closed'
-                                    ? styles.statusBadgeClosed
-                                    : styles.statusBadge
-                        }>
-                            <span className={
-                                currentStatus === 'waiting'
-                                    ? styles.statusIndicatorWaiting
-                                    : currentStatus === 'closed'
-                                        ? styles.statusIndicatorClosed
-                                        : styles.statusIndicator
-                            }></span>
-                            {currentStatus === 'waiting'
-                                ? 'Registration Not Started'
-                                : currentStatus === 'closed'
-                                    ? 'Registration Closed'
-                                    : 'Registration Open'}
-                        </div>
-                        <span className={styles.arabicCalligraphy}>المسابقة القرآنية</span>
                     </div>
                 </header>
 

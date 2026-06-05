@@ -7,6 +7,7 @@ import OrganisersPage from './features/organisers/OrganisersPage';
 import TrackPage from './features/track/TrackPage';
 import ApprovalsListPage from './features/approvals/ApprovalsListPage';
 import ApprovalReviewPage from './features/approvals/ApprovalReviewPage';
+import ApplicationsListPage from './features/applications/ApplicationsListPage';
 import MainLayout from './shared/components/Layout/MainLayout';
 
 // 1. IMPORTANT: Import pb at the top so the router can use it!
@@ -101,6 +102,16 @@ function App() {
                         <RequireAuth>
                             <MainLayout>
                                 <ApprovalReviewPage />
+                            </MainLayout>
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/applications"
+                    element={
+                        <RequireAuth>
+                            <MainLayout>
+                                <ApplicationsListPage />
                             </MainLayout>
                         </RequireAuth>
                     }

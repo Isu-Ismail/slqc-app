@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import type { RegistrationFormData } from '../views/register/RegisterPage';
 import { useRegistrationStatus } from '../../../shared/context/StatusContext';
 import styles from './Step3Upload.module.css';
+import { parseMarkdownToHtml } from '../../../shared/utils/markdown';
 
 interface Step3Props {
     formData: RegistrationFormData;
@@ -61,6 +62,13 @@ export default function Step3Upload({ formData, updateForm, rulesAccepted, setRu
         setPhotoPreview(url);
         return () => URL.revokeObjectURL(url);
     }, [formData.candidate_photo]);
+
+    // Scroll to top when cropper or rules modal opens
+    useEffect(() => {
+        if (showCropper || showRulesModal) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [showCropper, showRulesModal]);
 
     // Canvas redrawing for cropper
     useEffect(() => {
@@ -419,9 +427,10 @@ export default function Step3Upload({ formData, updateForm, rulesAccepted, setRu
                             <button className={styles.closeBtn} onClick={() => setShowRulesModal(false)}>×</button>
                         </div>
                         <div className={styles.cropperBody} style={{ flex: 1, overflowY: 'auto', alignItems: 'stretch', padding: '20px', display: 'block' }}>
-                            <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', lineHeight: '1.6', color: '#334155' }}>
-                                {metadata.individual_rules || 'Loading rules & regulations...'}
-                            </div>
+                            <div 
+                                style={{ fontFamily: 'inherit', fontSize: '14px', lineHeight: '1.6', color: '#334155' }}
+                                dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(metadata.individual_rules || 'Loading rules & regulations...') }}
+                            />
                         </div>
                         <div className={styles.cropperFooter} style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                             <button type="button" className={styles.cancelBtn} onClick={() => setShowRulesModal(false)}>

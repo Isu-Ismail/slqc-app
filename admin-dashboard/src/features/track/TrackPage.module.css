@@ -601,3 +601,36 @@
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
 }
+
+@media (max-width: 768px) {
+    .pageWrapper {
+        padding: 0 !important;
+        background-color: transparent !important;
+    }
+    .container {
+        gap: 0 !important;
+    }
+    .searchCard, .detailsCard {
+        padding: 24px 16px !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        background-color: transparent !important;
+    }
+    .detailsHeader {
+        padding-bottom: 16px !important;
+        margin-bottom: 16px !important;
+    }
+    .detailsActions {
+        margin-top: 16px !important;
+        padding-top: 16px !important;
+    }
+}
+
+@media (max-width: 640px) {
+    .hideMobile {
+        display: none !important;
+    }
+}

@@ -7,6 +7,7 @@ import { Search } from 'lucide-react';
 import styles from './TrackPage.module.css';
 import IndividualDetails from './components/IndividualDetails';
 import InstitutionDetails from './components/InstitutionDetails';
+import { FORM_FIELDS_CONFIG, getJuzOptionsForCategory } from '../../config/fieldsConfig';
 import { pb } from '../../api/db';
 
 const isValidGoogleMapsLink = (url: string): boolean => {
@@ -47,19 +48,27 @@ export default function TrackPage() {
 
     // Edit Form States
     const [isEditMode, setIsEditMode] = useState(false);
-    const [editName, setEditName] = useState('');
-    const [editCategory, setEditCategory] = useState<'5_juz' | '15_juz' | '30_juz' | ''>('');
-    const [editGender, setEditGender] = useState<'male' | 'female'>('male');
-    const [editDob, setEditDob] = useState('');
-    const [editEmail, setEditEmail] = useState('');
-    const [editWhatsapp, setEditWhatsapp] = useState('');
-    const [editFatherName, setEditFatherName] = useState('');
-    const [editFatherNumber, setEditFatherNumber] = useState('');
-    const [editGuardianName, setEditGuardianName] = useState('');
-    const [editGuardianPhone, setEditGuardianPhone] = useState('');
-    const [editRequiresAcc, setEditRequiresAcc] = useState(false);
+    const [editData, setEditData] = useState<Record<string, any>>({});
     const [editAadhaarFile, setEditAadhaarFile] = useState<File | null>(null);
     const [editCandidatePhotoFile, setEditCandidatePhotoFile] = useState<File | null>(null);
+
+    const updateEditField = (key: string, value: any) => {
+        setEditData(prev => ({ ...prev, [key]: value }));
+    };
+
+    const initializeEditData = (record: any) => {
+        const data: Record<string, any> = {};
+        FORM_FIELDS_CONFIG.forEach(field => {
+            let val = (record as any)[field.key];
+            if (field.type === 'date' && val) {
+                val = val.split(' ')[0];
+            }
+            data[field.key] = val || '';
+        });
+        setEditData(data);
+        setEditAadhaarFile(null);
+        setEditCandidatePhotoFile(null);
+    };
 
     // Institution Edit Form States
     const [isInstEditMode, setIsInstEditMode] = useState(false);
@@ -122,19 +131,7 @@ export default function TrackPage() {
                 localStorage.setItem('admin_track_individual_timestamp', Date.now().toString());
                 localStorage.setItem('admin_track_tab', 'individual');
 
-                setEditName(record.full_name);
-                setEditCategory(record.category);
-                setEditGender(record.gender);
-                setEditDob(record.dob ? record.dob.split(' ')[0] : '');
-                setEditEmail(record.email || '');
-                setEditWhatsapp(record.whatsapp_number);
-                setEditFatherName(record.father_name || '');
-                setEditFatherNumber(record.father_number || '');
-                setEditGuardianName(record.guardian_name || '');
-                setEditGuardianPhone(record.guardian_phone || '');
-                setEditRequiresAcc(!!record.requires_accommodation);
-                setEditAadhaarFile(null);
-                setEditCandidatePhotoFile(null);
+                initializeEditData(record);
                 return true;
             } else {
                 if (!silent) triggerAlert('No application found matching the search term.', 'Not Found');
@@ -230,18 +227,7 @@ export default function TrackPage() {
                 try {
                     const parsed = JSON.parse(cachedIndRecord);
                     setIndividualRecord(parsed);
-                    setEditName(parsed.full_name);
-                    setEditCategory(parsed.category);
-                    setEditGender(parsed.gender);
-                    setEditDob(parsed.dob ? parsed.dob.split(' ')[0] : '');
-                    setEditEmail(parsed.email || '');
-                    setEditWhatsapp(parsed.whatsapp_number);
-                    setEditFatherName(parsed.father_name);
-                    setEditFatherNumber(parsed.father_number || '');
-                    setEditGuardianName(parsed.guardian_name || '');
-                    setEditGuardianPhone(parsed.guardian_phone || '');
-                    setEditRequiresAcc(!!parsed.requires_accommodation);
-                    setEditCandidatePhotoFile(null);
+                    initializeEditData(parsed);
                 } catch (e) {
                     console.error('Failed to parse cached individual record:', e);
                 }
@@ -320,26 +306,34 @@ export default function TrackPage() {
 
     const handleSaveIndividualChanges = async () => {
         if (!individualRecord) return;
-        if (!editName.trim() || !editWhatsapp.trim() || !editGuardianName.trim() || !editGuardianPhone.trim()) {
-            triggerAlert('Please fill in all required fields.', 'Validation Error');
-            return;
+
+        // Dynamic Validation
+        for (const field of FORM_FIELDS_CONFIG) {
+            const val = editData[field.key];
+            const valStr = val !== undefined && val !== null ? String(val).trim() : '';
+            if (field.required && !valStr) {
+                if (field.key === 'selected_juz') {
+                    if (getJuzOptionsForCategory(editData.category).length > 0) {
+                        triggerAlert('Please select a Juz range option.', 'Validation Error');
+                        return;
+                    }
+                } else {
+                    triggerAlert(`Please fill in "${field.label}".`, 'Validation Error');
+                    return;
+                }
+            }
         }
 
         setLoading(true);
         try {
             const formData = new FormData();
-            formData.append('full_name', editName.trim());
-            formData.append('category', editCategory);
-            formData.append('gender', editGender);
-            if (editDob) formData.append('dob', editDob);
-            formData.append('email', editEmail.trim());
-            formData.append('whatsapp_number', editWhatsapp.trim());
-            formData.append('father_name', editFatherName.trim());
-            formData.append('father_number', editFatherNumber.trim());
-            formData.append('guardian_name', editGuardianName.trim());
-            formData.append('guardian_phone', editGuardianPhone.trim());
-            formData.append('requires_accommodation', String(editRequiresAcc));
-            
+            FORM_FIELDS_CONFIG.forEach(field => {
+                if (field.key !== 'requires_accommodation') {
+                    formData.append(field.key, String(editData[field.key] ?? '').trim());
+                }
+            });
+            formData.append('requires_accommodation', String(!!editData.requires_accommodation));
+
             if (editAadhaarFile) {
                 formData.append('aadhaar_front', editAadhaarFile);
             }
@@ -456,7 +450,7 @@ export default function TrackPage() {
                 <div className={styles.searchCard}>
                     <div className={styles.cardHeader}>
                         <h2>Application Tracking</h2>
-                        <p>Search via any detail (Name, Phone, ID, Aadhaar) without DOB or passcode.</p>
+                        <p>Search by name, ID, phone, Aadhaar or email.</p>
                     </div>
 
                     <div className={styles.tabs}>
@@ -488,7 +482,7 @@ export default function TrackPage() {
                                     <input
                                         type="text"
                                         className={styles.input}
-                                        placeholder="Name, Phone, Aadhaar, ID, Email..."
+                                        placeholder="Name · APL-xxx · email@… · 10-digit mobile · 12-digit Aadhaar…"
                                         value={individualQuery}
                                         onChange={(e) => setIndividualQuery(e.target.value)}
                                         onKeyDown={(e) => e.key === 'Enter' && handleSearchIndividual()}
@@ -520,7 +514,7 @@ export default function TrackPage() {
                                     <input
                                         type="text"
                                         className={styles.input}
-                                        placeholder="Institution Name, Phone, Email, ID..."
+                                        placeholder="Name · INST-xxx · email@… · 6–10 digit mobile…"
                                         value={institutionQuery}
                                         onChange={(e) => setInstitutionQuery(e.target.value)}
                                         onKeyDown={(e) => e.key === 'Enter' && handleSearchInstitution()}
@@ -555,28 +549,8 @@ export default function TrackPage() {
                         individualRecord={individualRecord}
                         isEditMode={isEditMode}
                         setIsEditMode={setIsEditMode}
-                        editName={editName}
-                        setEditName={setEditName}
-                        editCategory={editCategory}
-                        setEditCategory={setEditCategory}
-                        editGender={editGender}
-                        setEditGender={setEditGender}
-                        editDob={editDob}
-                        setEditDob={setEditDob}
-                        editEmail={editEmail}
-                        setEditEmail={setEditEmail}
-                        editWhatsapp={editWhatsapp}
-                        setEditWhatsapp={setEditWhatsapp}
-                        editFatherName={editFatherName}
-                        setEditFatherName={setEditFatherName}
-                        editFatherNumber={editFatherNumber}
-                        setEditFatherNumber={setEditFatherNumber}
-                        editGuardianName={editGuardianName}
-                        setEditGuardianName={setEditGuardianName}
-                        editGuardianPhone={editGuardianPhone}
-                        setEditGuardianPhone={setEditGuardianPhone}
-                        editRequiresAcc={editRequiresAcc}
-                        setEditRequiresAcc={setEditRequiresAcc}
+                        editData={editData}
+                        updateEditField={updateEditField}
                         editAadhaarFile={editAadhaarFile}
                         setEditAadhaarFile={setEditAadhaarFile}
                         editCandidatePhotoFile={editCandidatePhotoFile}
@@ -621,19 +595,7 @@ export default function TrackPage() {
                         getStatusClass={getStatusClass}
                         onViewIndividual={(app) => {
                             setIndividualRecord(app);
-                            setEditName(app.full_name);
-                            setEditCategory(app.category);
-                            setEditGender(app.gender);
-                            setEditDob(app.dob ? app.dob.split(' ')[0] : '');
-                            setEditEmail(app.email || '');
-                            setEditWhatsapp(app.whatsapp_number);
-                            setEditFatherName(app.father_name || '');
-                            setEditFatherNumber(app.father_number || '');
-                            setEditGuardianName(app.guardian_name || '');
-                            setEditGuardianPhone(app.guardian_phone || '');
-                            setEditRequiresAcc(!!app.requires_accommodation);
-                            setEditAadhaarFile(null);
-                            setEditCandidatePhotoFile(null);
+                            initializeEditData(app);
                             setIsEditMode(false);
                             setActiveTab('individual');
                             localStorage.setItem('admin_track_tab', 'individual');

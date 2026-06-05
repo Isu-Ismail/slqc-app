@@ -150,6 +150,9 @@ export default function InstitutionDetails({
                     <p className={styles.instSubText} style={{ margin: '2px 0 0 0' }}>Institution ID: {institutionData.institution?.institution_id || institutionData.institution?.id}</p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div className={`${styles.statusBadge} ${getStatusClass(institutionData.institution?.status || '')}`} style={{ fontSize: '11px', padding: '4px 10px' }}>
+                        {institutionData.institution?.status.toUpperCase()}
+                    </div>
                     {onRefresh && (
                         <button
                             type="button"
@@ -170,14 +173,11 @@ export default function InstitutionDetails({
                         >
                             {isRefetching ? <RefreshCw size={14} className={styles.spin} /> : refetchSuccess ? '✓' : (
                                 <>
-                                    <RefreshCw size={14} /> <span className={styles.btnText}>Recheck Status</span>
+                                    <RefreshCw size={14} /> <span className={styles.hideMobile}>Recheck Status</span>
                                 </>
                             )}
                         </button>
                     )}
-                    <div className={`${styles.statusBadge} ${getStatusClass(institutionData.institution?.status || '')}`} style={{ fontSize: '11px', padding: '4px 10px' }}>
-                        {institutionData.institution?.status.toUpperCase()}
-                    </div>
                     <button
                         type="button"
                         onClick={() => setIsMinimized(!isMinimized)}
@@ -185,7 +185,9 @@ export default function InstitutionDetails({
                         style={{ padding: '4px 8px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px', height: '28px' }}
                     >
                         {isMinimized ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-                        {isMinimized ? 'Show Details' : 'Hide Details'}
+                        <span className={styles.hideMobile}>
+                            {isMinimized ? 'Show Details' : 'Hide Details'}
+                        </span>
                     </button>
                 </div>
             </div>

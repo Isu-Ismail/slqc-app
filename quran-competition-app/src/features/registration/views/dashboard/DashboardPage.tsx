@@ -27,6 +27,8 @@ interface PrizeItem {
 
 export default function DashboardPage() {
     const { metadata } = useRegistrationStatus();
+    const [activeCategory, setActiveCategory] = useState<'5_juz' | '15_juz' | '30_juz'>('5_juz');
+    const pad = (n: number) => String(n).padStart(2, '0');
 
     // Default configuration merged with real-time metadata from Context
     const stats: Record<string, any> = {
@@ -69,8 +71,8 @@ export default function DashboardPage() {
         }
     };
 
-    const getTimeMetadata = () => {
-        const timeVal = stats.time;
+    const getTimeMetadata = (cat = activeCategory) => {
+        const timeVal = stats[`time_${cat}`] || stats.time;
         let obj = {
             startDate: '2026-05-01T00:00:00',
             endDate: '2026-06-19T00:00:00',
@@ -102,7 +104,7 @@ export default function DashboardPage() {
 
     useEffect(() => {
         const tick = () => {
-            const timeInfo = getTimeMetadata();
+            const timeInfo = getTimeMetadata(activeCategory);
             const now = new Date().getTime();
             const start = new Date(timeInfo.startDate).getTime();
             const end = new Date(timeInfo.endDate).getTime();
@@ -131,7 +133,7 @@ export default function DashboardPage() {
         tick();
         const timer = setInterval(tick, 1000);
         return () => clearInterval(timer);
-    }, [stats.time]);
+    }, [stats.time, activeCategory]);
 
     // Simple getter — metadata values for stats are now plain integers
     const getStatNumber = (key: string): number => {
@@ -141,8 +143,8 @@ export default function DashboardPage() {
         return isNaN(parsed) ? 0 : parsed;
     };
 
-    const getFormattedDeadline = (): string => {
-        const timeInfo = getTimeMetadata();
+    const getFormattedDeadline = (cat = activeCategory): string => {
+        const timeInfo = getTimeMetadata(cat);
         const now = new Date().getTime();
         const start = new Date(timeInfo.startDate).getTime();
         const activeDeadline = now < start ? timeInfo.startDate : timeInfo.endDate;
@@ -173,7 +175,11 @@ export default function DashboardPage() {
     };
 
     const eventsList: EventItem[] = Array.isArray(stats.events) ? stats.events : [];
-    const prizesList: PrizeItem[] = Array.isArray(stats.prizes) ? stats.prizes : [];
+    const prizesList: PrizeItem[] = Array.isArray(stats[`prizes_${activeCategory}`])
+        ? stats[`prizes_${activeCategory}`]
+        : Array.isArray(stats.prizes)
+            ? stats.prizes
+            : [];
 
     const getStatus = (key: string): 'waiting' | 'open' | 'closed' => {
         const val = stats[key];
@@ -251,6 +257,7 @@ export default function DashboardPage() {
 
     return (
         <div className={styles.dashboardWrapper}>
+
             {/* Welcome banner with integrated countdown timer */}
             <section className={styles.welcomeSection}>
                 <div className={styles.welcomeLeft}>
@@ -284,19 +291,19 @@ export default function DashboardPage() {
                             <span className={styles.bannerTimerTitle}>{activeTitle}</span>
                             <div className={styles.bannerTimer}>
                                 <div className={styles.bannerTimeSegment}>
-                                    <span className={styles.bannerTimeValue}>{timeLeft.days}</span>
+                                    <span className={styles.bannerTimeValue}>{pad(timeLeft.days)}</span>
                                     <span className={styles.bannerTimeLabel}>Days</span>
                                 </div>
                                 <div className={styles.bannerTimeSegment}>
-                                    <span className={styles.bannerTimeValue}>{timeLeft.hours}</span>
+                                    <span className={styles.bannerTimeValue}>{pad(timeLeft.hours)}</span>
                                     <span className={styles.bannerTimeLabel}>Hours</span>
                                 </div>
                                 <div className={styles.bannerTimeSegment}>
-                                    <span className={styles.bannerTimeValue}>{timeLeft.minutes}</span>
+                                    <span className={styles.bannerTimeValue}>{pad(timeLeft.minutes)}</span>
                                     <span className={styles.bannerTimeLabel}>Min</span>
                                 </div>
                                 <div className={styles.bannerTimeSegment}>
-                                    <span className={styles.bannerTimeValue}>{timeLeft.seconds}</span>
+                                    <span className={styles.bannerTimeValue}>{pad(timeLeft.seconds)}</span>
                                     <span className={styles.bannerTimeLabel}>Sec</span>
                                 </div>
                             </div>
@@ -353,7 +360,36 @@ export default function DashboardPage() {
 
                 {/* Dynamic Prize Pool & Category Rewards */}
                 <div className={styles.sectionCard}>
-                    <h3 className={styles.sectionTitle}>State Level Grand Prizes</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+                        <h3 className={styles.sectionTitle} style={{ borderBottom: 'none', paddingBottom: 0, margin: 0 }}>State Level Grand Prizes</h3>
+                        <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '3px', borderRadius: '20px' }}>
+                            {(['5_juz', '15_juz', '30_juz'] as const).map(cat => (
+                                <button
+                                    key={cat}
+                                    type="button"
+                                    onClick={() => setActiveCategory(cat)}
+                                    style={{
+                                        background: activeCategory === cat ? '#ffffff' : 'transparent',
+                                        color: activeCategory === cat ? '#059669' : '#64748b',
+                                        border: 'none',
+                                        padding: '6px 12px',
+                                        borderRadius: '16px',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        fontSize: '12px',
+                                        transition: 'all 0.2s ease',
+                                        whiteSpace: 'nowrap',
+                                        boxShadow: activeCategory === cat ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+                                        outline: 'none'
+                                    }}
+                                >
+                                    {cat === '5_juz' && '5 Juz'}
+                                    {cat === '15_juz' && '15 Juz'}
+                                    {cat === '30_juz' && '30 Juz'}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                     <div className={prizesList.length > 3 ? styles.prizesContainer : ''}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                             {prizesList.map((prz, idx) => (

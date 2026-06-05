@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRegistrationStatus } from '../../../../../shared/context/StatusContext';
 import styles from '../InstitutionRegisterPage.module.css';
+import { parseMarkdownToHtml } from '../../../../../shared/utils/markdown';
 
 interface Step3LocationProps {
     location: string;
@@ -29,6 +30,9 @@ export default function Step3Location({
                     onChange={(e) => setLocation(e.target.value)}
                     placeholder="e.g. https://maps.app.goo.gl/XXXXXX or https://share.google/..."
                 />
+                <p style={{ fontSize: '13px', color: '#059669', margin: '6px 0 0 0', fontWeight: '500' }}>
+                    💡 Providing this link helps accelerate the verification process and ensures a smoother approval of your institution.
+                </p>
                 
                 <div style={{ fontSize: '13px', color: 'var(--text)', lineHeight: '1.5', marginTop: '10px' }}>
                     <p style={{ margin: '0 0 6px 0', fontWeight: '600' }}>How to get the link:</p>
@@ -127,9 +131,10 @@ export default function Step3Location({
                             </button>
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'block' }}>
-                            <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', lineHeight: '1.6', color: '#334155' }}>
-                                {metadata.institution_rules || 'Loading rules & regulations...'}
-                            </div>
+                            <div 
+                                style={{ fontFamily: 'inherit', fontSize: '14px', lineHeight: '1.6', color: '#334155' }}
+                                dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(metadata.institution_rules || 'Loading rules & regulations...') }}
+                            />
                         </div>
                         <div style={{
                             display: 'flex',

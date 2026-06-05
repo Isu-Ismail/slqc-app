@@ -8,6 +8,7 @@ interface AlertModalProps {
     type?: 'success' | 'warning';
     extraData?: string;
     onClose: () => void;
+    onTrack?: () => void;
 }
 
 export default function AlertModal({ 
@@ -16,7 +17,8 @@ export default function AlertModal({
     message, 
     type = 'warning', 
     extraData, 
-    onClose 
+    onClose,
+    onTrack
 }: AlertModalProps) {
     const [copied, setCopied] = useState(false);
 
@@ -89,7 +91,12 @@ export default function AlertModal({
                 )}
                 
                 <div className={styles.actions}>
-                    <button type="button" className={styles.button} onClick={onClose}>
+                    {onTrack && (
+                        <button type="button" className={styles.button} onClick={onTrack}>
+                            Track Application
+                        </button>
+                    )}
+                    <button type="button" className={onTrack ? styles.buttonSecondary : styles.button} onClick={onClose}>
                         Dismiss
                     </button>
                 </div>

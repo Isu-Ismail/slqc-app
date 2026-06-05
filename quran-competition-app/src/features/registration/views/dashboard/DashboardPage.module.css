@@ -246,16 +246,19 @@
 }
 
 .bannerTimeValue {
-    font-size: 30px;
+    font-size: 28px;
     font-weight: 800;
     color: #0d9488;
     background-color: #ffffff;
-    padding: 6px 12px;
-    border-radius: 10px;
-    min-width: 52px;
-    display: inline-block;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
     box-shadow: 0 6px 14px -4px rgba(0, 0, 0, 0.12);
     letter-spacing: -0.02em;
+    line-height: 1;
 }
 
 .bannerTimeLabel {
@@ -651,9 +654,9 @@
     }
 
     .bannerTimeValue {
-        font-size: 24px;
-        min-width: 44px;
-        padding: 5px 9px;
+        font-size: 20px;
+        width: 44px;
+        height: 44px;
     }
 
     .bannerTimeLabel { font-size: 9px; }

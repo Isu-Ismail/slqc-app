@@ -104,3 +104,22 @@
     border: 1px solid #f87171;
     text-align: center;
 }
+
+@media (max-width: 640px) {
+    .loginCard {
+        max-width: 100% !important;
+        height: 100vh !important;
+        border-radius: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        padding: 24px !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+    .loginContainer {
+        padding: 0 !important;
+        background-color: white !important;
+        background-image: none !important;
+    }
+}

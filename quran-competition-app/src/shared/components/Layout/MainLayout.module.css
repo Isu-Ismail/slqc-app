@@ -133,7 +133,7 @@
 }
 
 .topbar {
-    height: 72px;
+    height: 80px;
     background-color: var(--card-bg);
     border-bottom: 1px solid var(--border);
     display: flex;
@@ -302,8 +302,8 @@
 }
 
 .burgerIcon {
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     stroke: var(--text-h);
 }
 
@@ -340,34 +340,30 @@
     to { opacity: 1; }
 }
 
-/* Mobile Responsiveness */
+/* Mobile Responsiveness & Desktop Drawer Mode */
+.sidebar {
+    transform: none;
+}
+
 @media (max-width: 1024px) {
     .sidebar {
         transform: translateX(-100%);
     }
-    
+
     .sidebarOpen {
         transform: translateX(0);
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
     }
-    
+
     .mainWrapper {
         margin-left: 0;
         width: 100%;
     }
-    
-    .topbar {
-        padding: 0 20px;
+
+    .topbarBurgerButton {
+        display: flex !important;
     }
-    
-    .content {
-        padding: 24px 16px;
-    }
-    
-    .burgerButton {
-        display: flex;
-    }
-    
+
     .backdropVisible {
         display: block;
     }
@@ -495,26 +491,212 @@
     }
 }
 
+/* Sidebar Translate Widget (Visible everywhere now!) */
+.sidebarTranslate {
+    display: block;
+}
+
+.customTranslateWrapperSidebar {
+    position: relative;
+    width: 100%;
+}
+
+.translateBtnSidebar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 14px;
+    background-color: #ffffff;
+    border: 1px solid var(--border, #cbd5e1);
+    border-radius: 10px;
+    color: var(--text-h, #334155);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
+}
+
+.translateBtnSidebar:hover {
+    background-color: #f8fafc;
+    border-color: var(--accent, #10b981);
+}
+
+.translateLabelSidebar {
+    text-align: left;
+    flex: 1;
+}
+
+.translateMenuSidebar {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background-color: #ffffff;
+    border: 1px solid var(--border, #cbd5e1);
+    border-radius: 12px;
+    box-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.1), 0 -8px 10px -6px rgba(0, 0, 0, 0.1);
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    animation: slideUp 0.15s ease-out;
+}
+
+.btnTranslateActionSidebar {
+    background-color: var(--accent, #10b981);
+    color: #ffffff;
+    border: none;
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+    transition: opacity 0.2s ease;
+}
+
+.btnTranslateActionSidebar:hover {
+    opacity: 0.9;
+}
+
+/* Unified Topbar Branding & Logo styling */
+.topbarBranding {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.topbarLogo {
+    height: 56px;
+    width: auto;
+}
+
+.topbarTitle {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text-h);
+    margin: 0;
+    line-height: 1;
+}
+
+/* Unified Topbar Right Actions */
+.topbarRightActions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+/* Burger Button on topbar - Mobile & PC */
+.topbarBurgerButton {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--text-h);
+    cursor: pointer;
+    padding: 8px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+}
+
+.topbarBurgerButton:hover {
+    background-color: #f4f5f8;
+}
+
+/* Status Badge Topbar */
+.topbarStatusBadge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background-color: #ecfdf5;
+    border: 1px solid #d1fae5;
+    color: #065f46;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.topbarStatusBadgeWaiting {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background-color: #fef9c3;
+    border: 1px solid #fef08a;
+    color: #854d0e;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.topbarStatusBadgeClosed {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background-color: #fee2e2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.topbarStatusText {
+    font-size: 13px;
+}
+
 @media (max-width: 768px) {
-    .translateLabel,
-    .translateChevron {
-        display: none !important;
+    .layoutContainer {
+        background-color: #ffffff !important;
     }
-    
-    .translateBtn {
-        padding: 8px !important;
+
+    .mainWrapper {
+        background-color: #ffffff !important;
+    }
+
+    .content {
+        padding: 0 !important;
+        background-color: #ffffff !important;
     }
 
     .topbar {
         padding: 0 16px !important;
+        background-color: #ffffff !important;
+        border-bottom: 1px solid var(--border);
     }
-    
-    .topbarActions {
-        gap: 8px !important;
+
+    .topbarLogo {
+        height: 38px;
     }
-    
-    .btnTranslateAction {
-        padding: 6px 10px !important;
-        font-size: 12px !important;
+
+    .topbarTitle {
+        font-size: 18px;
+    }
+
+    .topbarBurgerButton {
+        display: flex !important;
+        padding: 4px !important;
+        margin: 0 !important;
+    }
+
+    /* Resized Status Badge on mobile topbar */
+    .topbarStatusBadge, 
+    .topbarStatusBadgeWaiting, 
+    .topbarStatusBadgeClosed {
+        padding: 4px 8px !important;
+        border-radius: 12px !important;
+    }
+
+    .topbarStatusText {
+        display: none !important; /* hide label, keep dot indicator only on mobile to free space */
     }
 }

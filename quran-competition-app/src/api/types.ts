@@ -170,6 +170,7 @@ export type ParticipantsApplicationRecord = {
 	status: ParticipantsApplicationStatusOptions
 	updated: IsoAutoDateString
 	whatsapp_number: string
+	selected_juz?: string
 }
 
 export type UsersRecord = {

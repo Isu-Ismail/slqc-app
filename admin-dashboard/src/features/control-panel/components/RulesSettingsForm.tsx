@@ -158,6 +158,7 @@ export default function RulesSettingsForm({ metadata, onUpdate }: Props) {
             <div class="field"><span class="fl">Date of Birth</span><span class="fv">{{dob}}</span></div>
             <div class="field"><span class="fl">Aadhaar Number</span><span class="fv">{{aadhaar_number}}</span></div>
             <div class="field"><span class="fl">Category</span><span class="fv">{{category}}</span></div>
+            <div class="field"><span class="fl">Selected Juz Range</span><span class="fv">{{selected_juz}}</span></div>
             <div class="field"><span class="fl">Email</span><span class="fv">{{email}}</span></div>
             <div class="field"><span class="fl">WhatsApp Number</span><span class="fv">{{whatsapp_number}}</span></div>
         </div>

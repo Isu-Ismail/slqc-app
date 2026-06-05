@@ -288,4 +288,25 @@
     margin-top: 4px;
     display: block;
     font-weight: 600;
+}
+
+@media (max-width: 768px) {
+    .captchaBody {
+        display: grid !important;
+        grid-template-columns: auto 1fr !important;
+        gap: 12px !important;
+        align-items: center !important;
+    }
+
+    .captchaInput {
+        grid-column: span 2 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        flex: none !important;
+    }
+
+    .captchaVerifiedText {
+        grid-column: span 2 !important;
+    }
 }

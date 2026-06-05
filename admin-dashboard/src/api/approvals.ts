@@ -285,4 +285,163 @@ export const approvalsApi = {
                         );
             });
     },
+
+    /**
+     * Manually enqueue a confirmation e-mail for an approved institution.
+     * The mail_queue cron job picks it up every 3 minutes.
+     */
+    sendInstitutionConfirmationMail: async (
+        recordId: string,
+        toEmail: string,
+        institutionName: string,
+        institutionId: string,
+        passcode: string
+    ): Promise<void> => {
+        const appUrl = 'https://al-azhar.duckdns.org/slqc';
+        const trackUrl = `${appUrl}/track?type=institution&query=${recordId}`;
+
+        const htmlBody = `
+            <div style="font-family: sans-serif; color: #333; line-height: 1.6;">
+                <h2>Institution Approved – SLQC 2026</h2>
+                <p>Dear ${institutionName},</p>
+                <p>Congratulations! Your institution's registration for the SLQC Quran Competition has been <strong>approved</strong>.</p>
+                <p><strong>Institution ID:</strong> ${institutionId}</p>
+                <p><strong>Your Passcode:</strong> ${passcode}</p>
+                <p>Please keep this passcode secure. You will need it to track your status, submit candidates, and manage your registration.</p>
+                <p>You can track the status of your registration using the link below:</p>
+                <p><a href="${trackUrl}" style="display: inline-block; padding: 10px 15px; background-color: #0d9488; color: white; text-decoration: none; border-radius: 5px;">Track Institution Status</a></p>
+                <p>Thank you,<br/>SLQC 2026 Team</p>
+            </div>
+        `;
+
+        await pb.collection('mail_queue').create({
+            to_email: toEmail,
+            to_name: institutionName,
+            subject: `Institution Approved – SLQC 2026 | ID: ${institutionId}`,
+            body_html: htmlBody,
+            type: 'institution_confirmation',
+            status: 'pending',
+            attempts: 0,
+            record_id: recordId,
+        });
+    },
+
+    /**
+     * Manually enqueue a confirmation e-mail for an approved individual participant.
+     * The mail_queue cron job picks it up every 3 minutes.
+     */
+    sendIndividualConfirmationMail: async (
+        recordId: string,
+        toEmail: string,
+        fullName: string,
+        participantId: string,
+        category: string
+    ): Promise<void> => {
+        const appUrl = 'https://al-azhar.duckdns.org/slqc';
+        const trackUrl = `${appUrl}/track?type=individual&query=${recordId}`;
+
+        const htmlBody = `
+            <div style="font-family: sans-serif; color: #333; line-height: 1.6;">
+                <h2>Application Approved – SLQC 2026</h2>
+                <p>Dear ${fullName},</p>
+                <p>Congratulations! Your application for the SLQC Quran Competition (Category: ${category}) has been <strong>approved</strong>.</p>
+                <p><strong>Your Participant ID:</strong> ${participantId}</p>
+                <p>You can track the status of your application using the link below (you will also need your Date of Birth):</p>
+                <p><a href="${trackUrl}" style="display: inline-block; padding: 10px 15px; background-color: #0d9488; color: white; text-decoration: none; border-radius: 5px;">Track Application Status</a></p>
+                <p>Thank you,<br/>SLQC 2026 Team</p>
+            </div>
+        `;
+
+        await pb.collection('mail_queue').create({
+            to_email: toEmail,
+            to_name: fullName,
+            subject: `Application Approved – SLQC 2026 | ID: ${participantId}`,
+            body_html: htmlBody,
+            type: 'individual_confirmation',
+            status: 'pending',
+            attempts: 0,
+            record_id: recordId,
+        });
+    },
+
+    /**
+     * Manually enqueue a rejection e-mail for an individual participant.
+     * Apologetic in tone, includes the rejection reason.
+     */
+    sendIndividualRejectionMail: async (
+        recordId: string,
+        toEmail: string,
+        fullName: string,
+        category: string,
+        rejectionReason: string
+    ): Promise<void> => {
+        const appUrl = 'https://al-azhar.duckdns.org/slqc';
+        const trackUrl = `${appUrl}/track?type=individual&query=${recordId}`;
+
+        const htmlBody = `
+            <div style="font-family: sans-serif; color: #333; line-height: 1.6;">
+                <h2>Application Status Update – SLQC 2026</h2>
+                <p>Dear ${fullName},</p>
+                <p>Thank you sincerely for taking the time to apply for the SLQC 2026 Quran Competition (Category: ${category}).</p>
+                <p>We regret to inform you that, after careful review, we are <strong>unable to approve</strong> your application at this time.</p>
+                <p><strong>Reason:</strong> ${rejectionReason}</p>
+                <p>We understand this may be disappointing, and we truly appreciate your enthusiasm and dedication. We encourage you to address the above concern and consider reapplying in a future registration window.</p>
+                <p>You can still check the status of your application using the link below:</p>
+                <p><a href="${trackUrl}" style="display: inline-block; padding: 10px 15px; background-color: #6b7280; color: white; text-decoration: none; border-radius: 5px;">View Application Status</a></p>
+                <p>If you have any questions, please do not hesitate to reach out to us.</p>
+                <p>Warm regards,<br/>SLQC 2026 Team</p>
+            </div>
+        `;
+
+        await pb.collection('mail_queue').create({
+            to_email: toEmail,
+            to_name: fullName,
+            subject: `Regarding Your SLQC 2026 Application – Important Update`,
+            body_html: htmlBody,
+            type: 'individual_rejection',
+            status: 'pending',
+            attempts: 0,
+            record_id: recordId,
+        });
+    },
+
+    /**
+     * Manually enqueue a rejection e-mail for an institution.
+     * Apologetic in tone, includes the rejection reason.
+     */
+    sendInstitutionRejectionMail: async (
+        recordId: string,
+        toEmail: string,
+        institutionName: string,
+        rejectionReason: string
+    ): Promise<void> => {
+        const appUrl = 'https://al-azhar.duckdns.org/slqc';
+        const trackUrl = `${appUrl}/track?type=institution&query=${recordId}`;
+
+        const htmlBody = `
+            <div style="font-family: sans-serif; color: #333; line-height: 1.6;">
+                <h2>Institution Registration Status Update – SLQC 2026</h2>
+                <p>Dear ${institutionName},</p>
+                <p>Thank you for submitting your institution's registration for the SLQC 2026 Quran Competition.</p>
+                <p>After careful review by our team, we regret to inform you that we are <strong>unable to approve</strong> your registration at this time.</p>
+                <p><strong>Reason:</strong> ${rejectionReason}</p>
+                <p>We sincerely appreciate your interest and the effort put into this application. We encourage you to address the concern noted above and consider reapplying during the next registration period.</p>
+                <p>You may check the current status of your registration using the link below:</p>
+                <p><a href="${trackUrl}" style="display: inline-block; padding: 10px 15px; background-color: #6b7280; color: white; text-decoration: none; border-radius: 5px;">View Registration Status</a></p>
+                <p>Should you have any questions or require clarification, please feel free to contact us.</p>
+                <p>Warm regards,<br/>SLQC 2026 Team</p>
+            </div>
+        `;
+
+        await pb.collection('mail_queue').create({
+            to_email: toEmail,
+            to_name: institutionName,
+            subject: `Regarding Your SLQC 2026 Institution Registration – Important Update`,
+            body_html: htmlBody,
+            type: 'institution_rejection',
+            status: 'pending',
+            attempts: 0,
+            record_id: recordId,
+        });
+    },
 };

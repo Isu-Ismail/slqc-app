@@ -10,39 +10,49 @@ interface Props {
 
 export default function TimeSettingsForm({ metadata, onUpdate }: Props) {
     const [loading, setLoading] = useState(false);
-    const timeRecord = metadata['time'];
+    const [category, setCategory] = useState<'5_juz' | '15_juz' | '30_juz'>('5_juz');
     const [formData, setFormData] = useState({
-        startDate: timeRecord?.value?.startDate || '',
-        endDate: timeRecord?.value?.endDate || '',
-        startDescription: timeRecord?.value?.startDescription || '',
-        endDescription: timeRecord?.value?.endDescription || ''
+        startDate: '',
+        endDate: '',
+        startDescription: 'Registration Opens In',
+        endDescription: 'Registration Closes In'
     });
 
     useEffect(() => {
-        const timeRecord = metadata['time'];
+        const timeKey = `time_${category}`;
+        // Fall back to general 'time' config if category-specific is not set
+        const timeRecord = metadata[timeKey] || metadata['time'];
         if (timeRecord && timeRecord.value) {
             Promise.resolve().then(() => {
                 setFormData({
                     startDate: timeRecord.value.startDate || '',
                     endDate: timeRecord.value.endDate || '',
-                    startDescription: timeRecord.value.startDescription || '',
-                    endDescription: timeRecord.value.endDescription || ''
+                    startDescription: timeRecord.value.startDescription || 'Registration Opens In',
+                    endDescription: timeRecord.value.endDescription || 'Registration Closes In'
                 });
             });
+        } else {
+            setFormData({
+                startDate: '',
+                endDate: '',
+                startDescription: 'Registration Opens In',
+                endDescription: 'Registration Closes In'
+            });
         }
-    }, [metadata]);
+    }, [metadata, category]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
+        const timeKey = `time_${category}`;
         try {
-            const dbRecord = await metadataApi.getMetadataByKey('time');
+            const dbRecord = await metadataApi.getMetadataByKey(timeKey);
             if (dbRecord) {
                 await metadataApi.updateMetadata(dbRecord.id, formData);
             } else {
-                await metadataApi.createMetadata('time', formData);
+                await metadataApi.createMetadata(timeKey, formData);
             }
-            alert("Time settings updated successfully!");
+            alert(`${category.replace('_', ' ').toUpperCase()} time settings updated successfully!`);
             onUpdate();
         } catch (err) {
             console.error("Failed to update time settings", err);
@@ -54,8 +64,27 @@ export default function TimeSettingsForm({ metadata, onUpdate }: Props) {
 
     return (
         <div className={styles.card}>
-            <div className={styles.cardHeader}>
-                <h2 className={styles.cardTitle}>Global Time Settings</h2>
+            <div className={styles.cardHeader} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '12px' }}>
+                <h2 className={styles.cardTitle}>Category Time Settings</h2>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                    {(['5_juz', '15_juz', '30_juz'] as const).map(cat => (
+                        <button
+                            key={cat}
+                            type="button"
+                            onClick={() => setCategory(cat)}
+                            className={styles.btnOutline}
+                            style={{
+                                padding: '4px 10px',
+                                fontSize: '12px',
+                                backgroundColor: category === cat ? 'var(--accent, #0f766e)' : 'transparent',
+                                color: category === cat ? '#ffffff' : 'var(--accent, #0f766e)',
+                                borderColor: 'var(--accent, #0f766e)'
+                            }}
+                        >
+                            {cat.replace('_', ' ').toUpperCase()}
+                        </button>
+                    ))}
+                </div>
             </div>
             
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -107,7 +136,7 @@ export default function TimeSettingsForm({ metadata, onUpdate }: Props) {
                 </div>
 
                 <button type="submit" className={styles.btnPrimary} disabled={loading} style={{ alignSelf: 'flex-start', marginTop: '8px' }}>
-                    {loading ? 'Saving...' : 'Save Time Settings'}
+                    {loading ? 'Saving...' : `Save ${category.replace('_', ' ').toUpperCase()} Settings`}
                 </button>
             </form>
         </div>

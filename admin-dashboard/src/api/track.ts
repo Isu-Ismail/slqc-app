@@ -2,6 +2,40 @@
 import { pb } from './db';
 import type { RecordModel } from 'pocketbase';
 
+// ── Result cache — avoids repeat DB round-trips for the same query ────────────
+// Entries expire after 60 seconds. Max 50 entries (LRU-style eviction).
+const TRACK_CACHE_TTL = 60_000;
+const MAX_CACHE_SIZE  = 50;
+
+type CacheEntry<T> = { data: T; ts: number };
+const indivCache = new Map<string, CacheEntry<any>>();
+const instCache  = new Map<string, CacheEntry<any>>();
+
+function cacheGet<T>(map: Map<string, CacheEntry<T>>, key: string): T | null {
+    const entry = map.get(key);
+    if (!entry) return null;
+    if (Date.now() - entry.ts > TRACK_CACHE_TTL) { map.delete(key); return null; }
+    return entry.data;
+}
+function cacheSet<T>(map: Map<string, CacheEntry<T>>, key: string, data: T) {
+    if (map.size >= MAX_CACHE_SIZE) {
+        // evict oldest
+        const oldest = map.keys().next().value;
+        if (oldest) map.delete(oldest);
+    }
+    map.set(key, { data, ts: Date.now() });
+}
+/** Call this when a record is updated so stale cache is dropped immediately */
+export function invalidateTrackCache(recordId?: string) {
+    if (recordId) {
+        indivCache.forEach((_, k) => { if (k.includes(recordId)) indivCache.delete(k); });
+        instCache.forEach((_, k)  => { if (k.includes(recordId)) instCache.delete(k);  });
+    } else {
+        indivCache.clear();
+        instCache.clear();
+    }
+}
+
 export interface ParticipantsApplicationResponse extends RecordModel {
     registration_type: 'individual' | 'institution';
     institution_id?: string;
@@ -26,6 +60,7 @@ export interface ParticipantsApplicationResponse extends RecordModel {
     approved_by?: string;
     participant_id?: string;
     allocated_venue?: string;
+    selected_juz?: string;
 }
 
 export interface InstitutionsResponse extends RecordModel {
@@ -45,35 +80,108 @@ export interface InstitutionsResponse extends RecordModel {
     passcode?: string;
 }
 
+/**
+ * Classify a raw query string and return the precise PocketBase filter
+ * to use for it — avoids full-table OR scans on every search.
+ *
+ * Rules (checked in order):
+ *  1. starts with "INST-" (case-insensitive)  → institution_id exact match
+ *  2. starts with "APL-"  (case-insensitive)  → participant_id exact match
+ *  3. has "@" and a dot after it              → email exact match
+ *  4. all digits, length > 10                 → aadhaar_number exact match
+ *  5. all digits, length 6–10                 → whatsapp_number exact match
+ *  6. all digits, other lengths               → id exact match (PocketBase internal)
+ *  7. otherwise                               → full_name partial match (~)
+ */
+type QueryType =
+    | 'institution_id'
+    | 'participant_id'
+    | 'email'
+    | 'aadhaar'
+    | 'phone'
+    | 'record_id'
+    | 'name';
+
+function classifyQuery(raw: string): { type: QueryType; filter: string } {
+    const q = raw.trim().replace(/"/g, '\\"');
+    const upper = q.toUpperCase();
+
+    if (upper.startsWith('INST-')) {
+        return { type: 'institution_id', filter: `institution_id = "${q}"` };
+    }
+    if (upper.startsWith('APL-')) {
+        return { type: 'participant_id', filter: `participant_id = "${q}"` };
+    }
+    if (q.includes('@') && /\.[a-zA-Z]{2,}/.test(q.split('@')[1] || '')) {
+        return { type: 'email', filter: `email = "${q}"` };
+    }
+    const digits = q.replace(/\D/g, '');
+    if (digits === q) {
+        // pure numeric string
+        if (q.length > 10) {
+            return { type: 'aadhaar', filter: `aadhaar_number = "${q}"` };
+        }
+        if (q.length >= 6) {
+            return { type: 'phone', filter: `whatsapp_number = "${q}"` };
+        }
+        return { type: 'record_id', filter: `id = "${q}"` };
+    }
+    // Default: partial name match (also catches PocketBase 15-char record IDs with mixed chars)
+    return { type: 'name', filter: `full_name ~ "${q}" || id = "${q}"` };
+}
+
+/** Same classifier but for institution-side fields */
+function classifyInstitutionQuery(raw: string): { type: QueryType; filter: string } {
+    const q = raw.trim().replace(/"/g, '\\"');
+    const upper = q.toUpperCase();
+
+    if (upper.startsWith('INST-')) {
+        return { type: 'institution_id', filter: `institution_id = "${q}"` };
+    }
+    if (q.includes('@') && /\.[a-zA-Z]{2,}/.test(q.split('@')[1] || '')) {
+        return { type: 'email', filter: `email = "${q}"` };
+    }
+    const digits = q.replace(/\D/g, '');
+    if (digits === q) {
+        if (q.length >= 6) {
+            return { type: 'phone', filter: `whatsapp_number = "${q}" || phone_number = "${q}"` };
+        }
+        return { type: 'record_id', filter: `id = "${q}"` };
+    }
+    return { type: 'name', filter: `name ~ "${q}" || id = "${q}"` };
+}
+
 export const adminTrackApi = {
-    // Permissive search for Individual Application
+    // Smart search for Individual Application
     trackIndividual: async (queryStr: string): Promise<ParticipantsApplicationResponse | null> => {
+        const key = `indiv:${queryStr.trim().toLowerCase()}`;
+        const cached = cacheGet<ParticipantsApplicationResponse>(indivCache, key);
+        if (cached) return cached;
+
         try {
-            const q = queryStr.trim().replace(/"/g, '\\"');
-
-            // Highly permissive search: exact match for ID, Participant ID, Aadhaar, Phone, Email OR partial match for name
-            const filter = `id = "${q}" || participant_id = "${q}" || aadhaar_number = "${q}" || whatsapp_number = "${q}" || email = "${q}" || full_name ~ "${q}"`;
-
-            // ADDED institution_ref TO EXPAND
-            return await pb.collection('participants_application').getFirstListItem<ParticipantsApplicationResponse>(filter, {
+            const { filter } = classifyQuery(queryStr.trim());
+            const record = await pb.collection('participants_application').getFirstListItem<ParticipantsApplicationResponse>(filter, {
                 expand: 'approved_by,institution_ref'
             });
+            if (record) cacheSet(indivCache, key, record);
+            return record;
         } catch (e) {
             console.error('Error tracking individual application:', e);
             return null;
         }
     },
 
-    // Permissive search for Institution
+    // Smart search for Institution
     trackInstitution: async (queryStr: string): Promise<{
         institution: InstitutionsResponse | null;
         applications: ParticipantsApplicationResponse[];
     }> => {
-        try {
-            const q = queryStr.trim().replace(/"/g, '\\"');
+        const key = `inst:${queryStr.trim().toLowerCase()}`;
+        const cached = cacheGet<{ institution: InstitutionsResponse; applications: ParticipantsApplicationResponse[] }>(instCache, key);
+        if (cached) return cached;
 
-            // Permissive search for institution: ID, Institution ID, Email, Phone, WhatsApp OR partial match for name
-            const filter = `id = "${q}" || institution_id = "${q}" || email = "${q}" || phone_number = "${q}" || whatsapp_number = "${q}" || name ~ "${q}"`;
+        try {
+            const { filter } = classifyInstitutionQuery(queryStr.trim());
 
             const institution = await pb.collection('institutions').getFirstListItem<InstitutionsResponse>(filter, {
                 expand: 'approved_by'
@@ -90,19 +198,26 @@ export const adminTrackApi = {
                 expand: 'approved_by,institution_ref'
             });
 
-            return { institution, applications };
+            const result = { institution, applications };
+            cacheSet(instCache, key, result);
+            return result;
         } catch (e) {
             console.error('Error tracking institution applications:', e);
             return { institution: null, applications: [] };
         }
     },
 
+
     updateApplication: async (id: string, formData: FormData): Promise<ParticipantsApplicationResponse> => {
-        return await pb.collection('participants_application').update<ParticipantsApplicationResponse>(id, formData);
+        const result = await pb.collection('participants_application').update<ParticipantsApplicationResponse>(id, formData);
+        invalidateTrackCache(id);
+        return result;
     },
 
     updateInstitution: async (id: string, formData: FormData): Promise<InstitutionsResponse> => {
-        return await pb.collection('institutions').update<InstitutionsResponse>(id, formData);
+        const result = await pb.collection('institutions').update<InstitutionsResponse>(id, formData);
+        invalidateTrackCache(id);
+        return result;
     },
 
     updateStatusAndLock: async (

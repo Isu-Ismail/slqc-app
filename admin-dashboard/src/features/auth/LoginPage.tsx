@@ -34,7 +34,7 @@ export default function LoginPage() {
             <div className={styles.loginCard}>
                 <div className={styles.loginHeader}>
                     <img src={logoSvg} alt="SLQC Logo" className={styles.logo} />
-                    <h2>Admin Dashboard</h2>
+                    <h2>SLQC Admin Portal</h2>
                     <p>Sign in to manage the Quran Competition</p>
                 </div>
 

@@ -99,6 +99,7 @@ function parseCustomTemplate(
         .replace(/\{\{guardian_name\}\}/g, record.guardian_name || 'N/A')
         .replace(/\{\{guardian_phone\}\}/g, record.guardian_phone || 'N/A')
         .replace(/\{\{requires_accommodation\}\}/g, record.requires_accommodation ? 'Yes' : 'No')
+        .replace(/\{\{selected_juz\}\}/g, record.selected_juz || 'N/A')
         .replace(/\{\{allocated_venue\}\}/g, record.allocated_venue || 'N/A')
         .replace(/\{\{institution_details\}\}/g, instHtml);
 }
@@ -166,6 +167,7 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
                 <div class="field"><span class="fl">Date of Birth</span><span class="fv">${dob}</span></div>
                 <div class="field"><span class="fl">Aadhaar Number</span><span class="fv">${record.aadhaar_number}</span></div>
                 <div class="field"><span class="fl">Category</span><span class="fv">${categoryLabel(record.category)}</span></div>
+                <div class="field"><span class="fl">Selected Juz Range</span><span class="fv">${record.selected_juz || 'N/A'}</span></div>
                 <div class="field"><span class="fl">Email</span><span class="fv">${record.email || 'N/A'}</span></div>
                 <div class="field"><span class="fl">WhatsApp Number</span><span class="fv">${record.whatsapp_number}</span></div>
             </div>

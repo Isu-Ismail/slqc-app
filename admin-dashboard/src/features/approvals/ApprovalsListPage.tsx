@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { pb } from '../../api/db';
-import { RefreshCw, Lock } from 'lucide-react';
+import { RefreshCw, Lock, Mail, CheckCircle } from 'lucide-react';
 import { approvalsApi } from '../../api/approvals';
 import type { AllocatedItem } from '../../api/approvals';
 import type { ParticipantsApplicationResponse, InstitutionsResponse } from '../../api/track';
@@ -10,10 +10,37 @@ import styles from './Approvals.module.css';
 
 export default function ApprovalsListPage() {
     const location = useLocation();
-    const queryType = new URLSearchParams(location.search).get('type') as 'individual' | 'institution' || 'individual';
+    const navigate = useNavigate();
+    const params = new URLSearchParams(location.search);
 
-    const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
-    const [appType, setAppType] = useState<'individual' | 'institution'>(queryType);
+    const hasParams = params.has('type') || params.has('tab');
+
+    // On first render with no params (e.g. sidebar click), redirect to the last saved selection
+    const savedType = (sessionStorage.getItem('approvals_type') as 'individual' | 'institution') || 'individual';
+    const savedTab  = (sessionStorage.getItem('approvals_tab')  as 'pending' | 'history')        || 'pending';
+
+    const queryType = (params.get('type') as 'individual' | 'institution') || savedType;
+    const queryTab  = (params.get('tab')  as 'pending' | 'history')        || savedTab;
+
+    const activeTab = queryTab;
+    const appType   = queryType;
+
+    // Redirect bare /approvals to /approvals?type=...&tab=... so URL always has params
+    useEffect(() => {
+        if (!hasParams) {
+            navigate(`/approvals?type=${savedType}&tab=${savedTab}`, { replace: true });
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Persist selection to sessionStorage whenever URL params change
+    useEffect(() => {
+        if (hasParams) {
+            sessionStorage.setItem('approvals_type', queryType);
+            sessionStorage.setItem('approvals_tab',  queryTab);
+        }
+    }, [queryType, queryTab, hasParams]);
+
     const user = pb.authStore.model;
 
     const initialAppsCache = user ? approvalsApi.getCachedAllocatedApplications(user.id, activeTab === 'pending', appType) : null;
@@ -22,9 +49,17 @@ export default function ApprovalsListPage() {
     const [applications, setApplications] = useState<AllocatedItem[]>(initialAppsCache || []);
     const [counts, setCounts] = useState(initialCountsCache || { individual: 0, institution: 0 });
     const [loading, setLoading] = useState(!initialAppsCache);
-    const navigate = useNavigate();
     const [lockedIds, setLockedIds] = useState<Set<string>>(new Set());
     const [fadingOutIds, setFadingOutIds] = useState<Set<string>>(new Set());
+    const [sendingMailId, setSendingMailId] = useState<string | null>(null);
+    const [sentMailIds, setSentMailIds] = useState<Set<string>>(new Set());
+
+    /** Update both type and tab in the URL, preserving the other param */
+    const setActiveTab = (tab: 'pending' | 'history') =>
+        navigate(`/approvals?type=${appType}&tab=${tab}`, { replace: true });
+
+    const setAppType = (type: 'individual' | 'institution') =>
+        navigate(`/approvals?type=${type}&tab=${activeTab}`, { replace: true });
 
     const fetchApplications = async (force = false) => {
         if (!user) return;
@@ -188,6 +223,51 @@ export default function ApprovalsListPage() {
             pb.collection('approval_locks').unsubscribe('*').catch(() => {});
         };
     }, [appType, activeTab]);
+    const handleRowSendMail = async (app: AllocatedItem, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (sendingMailId) return;
+        const isApproved = app.status === 'approved';
+        setSendingMailId(app.id);
+        try {
+            if (appType === 'institution') {
+                const inst = app as InstitutionsResponse;
+                if (!inst.email) { alert('No email on record for this institution.'); return; }
+                if (isApproved) {
+                    if (!inst.institution_id) { alert('No Institution ID yet — cannot send approval mail.'); return; }
+                    await approvalsApi.sendInstitutionConfirmationMail(
+                        app.id, inst.email, inst.name, inst.institution_id, inst.passcode || ''
+                    );
+                } else {
+                    await approvalsApi.sendInstitutionRejectionMail(
+                        app.id, inst.email, inst.name,
+                        app.rejection_reason || 'Your application did not meet the eligibility criteria.'
+                    );
+                }
+            } else {
+                const indiv = app as ParticipantsApplicationResponse;
+                if (!indiv.email) { alert('No email on record for this applicant.'); return; }
+                if (isApproved) {
+                    if (!indiv.participant_id) { alert('No Participant ID yet — cannot send approval mail.'); return; }
+                    await approvalsApi.sendIndividualConfirmationMail(
+                        app.id, indiv.email, indiv.full_name, indiv.participant_id, indiv.category
+                    );
+                } else {
+                    await approvalsApi.sendIndividualRejectionMail(
+                        app.id, indiv.email, indiv.full_name, indiv.category,
+                        app.rejection_reason || 'Your application did not meet the eligibility criteria.'
+                    );
+                }
+            }
+            setSentMailIds(prev => { const n = new Set(prev); n.add(app.id); return n; });
+            setTimeout(() => setSentMailIds(prev => { const n = new Set(prev); n.delete(app.id); return n; }), 4000);
+        } catch (err) {
+            console.error(err);
+            alert('Failed to enqueue email. Please try again.');
+        } finally {
+            setSendingMailId(null);
+        }
+    };
+
     const handleRowAction = async (
         app: AllocatedItem,
         e: React.MouseEvent
@@ -195,7 +275,7 @@ export default function ApprovalsListPage() {
         e.stopPropagation();
 
         if (activeTab === 'history') {
-            navigate(`/approvals/${app.id}?type=${appType}`);
+            navigate(`/approvals/${app.id}?type=${appType}&tab=${activeTab}`);
             return;
         }
 
@@ -229,7 +309,7 @@ export default function ApprovalsListPage() {
             );
 
             navigate(
-                `/approvals/${app.id}?type=${appType}`
+                `/approvals/${app.id}?type=${appType}&tab=${activeTab}`
             );
 
         } catch (err) {
@@ -335,7 +415,7 @@ export default function ApprovalsListPage() {
                                                 )}
                                             </td>
                                             <td>
-                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                                     <button
                                                         className={styles.reviewBtn}
                                                         disabled={isChecking && activeTab === 'pending'}
@@ -356,6 +436,57 @@ export default function ApprovalsListPage() {
                                                             Track
                                                         </button>
                                                     )}
+                                                    {activeTab === 'history' && (() => {
+                                                        const appEmail = appType === 'institution'
+                                                            ? (app as InstitutionsResponse).email
+                                                            : (app as ParticipantsApplicationResponse).email;
+                                                        const isApproved = app.status === 'approved';
+                                                        const isSent = sentMailIds.has(app.id);
+                                                        const isSending = sendingMailId === app.id;
+                                                        if (!appEmail) return null;
+                                                        return (
+                                                            <button
+                                                                onClick={(e) => handleRowSendMail(app, e)}
+                                                                disabled={!!sendingMailId}
+                                                                style={{
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '4px',
+                                                                    padding: '5px 10px',
+                                                                    fontSize: '12px',
+                                                                    fontWeight: 600,
+                                                                    borderRadius: '6px',
+                                                                    border: isSent
+                                                                        ? '1.5px solid #16a34a'
+                                                                        : isApproved
+                                                                            ? '1.5px solid #0891b2'
+                                                                            : '1.5px solid #d97706',
+                                                                    backgroundColor: isSent
+                                                                        ? '#f0fdf4'
+                                                                        : isApproved
+                                                                            ? '#e0f2fe'
+                                                                            : '#fef3c7',
+                                                                    color: isSent
+                                                                        ? '#16a34a'
+                                                                        : isApproved
+                                                                            ? '#0c4a6e'
+                                                                            : '#92400e',
+                                                                    cursor: sendingMailId ? 'wait' : 'pointer',
+                                                                    transition: 'all 0.2s ease',
+                                                                    whiteSpace: 'nowrap',
+                                                                }}
+                                                                title={`Send ${isApproved ? 'approval' : 'rejection'} email to ${appEmail}`}
+                                                            >
+                                                                {isSent ? (
+                                                                    <><CheckCircle size={13} /> Queued ✓</>
+                                                                ) : isSending ? (
+                                                                    <><Mail size={13} /> Sending...</>
+                                                                ) : (
+                                                                    <><Mail size={13} /> {isApproved ? 'Approval' : 'Rejection'} Mail</>
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </td>
                                         </tr>

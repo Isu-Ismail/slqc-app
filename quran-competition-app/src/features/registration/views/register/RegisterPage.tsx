@@ -8,6 +8,7 @@ import { validators } from '../../../../utils/validators';
 import { participantsApi } from '../../../../api/routes/participants.api';
 import { Clock, Ban } from 'lucide-react';
 import styles from './RegisterPage.module.css';
+import { getJuzOptionsForCategory, FORM_FIELDS_CONFIG } from '../../../../config/fieldsConfig';
 
 import { useRegistrationStatus } from '../../../../shared/context/StatusContext';
 
@@ -31,6 +32,7 @@ export interface RegistrationFormData {
     requires_accommodation: boolean;
     aadhaar_front: File | null;
     candidate_photo: File | null;
+    selected_juz: string;
 }
 
 const CACHE_KEY = 'quran_competition_registration_form';
@@ -68,6 +70,7 @@ const getInitialFormData = (): RegistrationFormData => {
         requires_accommodation: false,
         aadhaar_front: null,
         candidate_photo: null,
+        selected_juz: '',
     };
 };
 
@@ -129,26 +132,42 @@ export default function RegisterPage() {
                 return;
             }
         } else if (currentStep === 2) {
-            const { full_name, aadhaar_number, dob, category, whatsapp_number, father_name, father_number, guardian_name, guardian_phone } = formData;
-            if (!full_name || !aadhaar_number || !dob || !category || !whatsapp_number || !father_name || !guardian_name || !guardian_phone) {
-                triggerAlert('Please fill all required fields before proceeding.', 'Incomplete Fields');
-                return;
-            }
-            if (!validators.isValidAadhaar(aadhaar_number)) {
-                triggerAlert('Please enter a mathematically valid Aadhaar number.', 'Invalid Aadhaar');
-                return;
-            }
-            if (!validators.isValidMobile(whatsapp_number)) {
-                triggerAlert('Please enter a valid mobile number.', 'Invalid Contact');
-                return;
-            }
-            if (father_number.trim() && !validators.isValidMobile(father_number)) {
-                triggerAlert('Please enter a valid mobile number for the Father.', 'Invalid Father Contact');
-                return;
-            }
-            if (!validators.isValidMobile(guardian_phone)) {
-                triggerAlert('Please enter a valid mobile number for the Guardian.', 'Invalid Guardian Contact');
-                return;
+            for (const field of FORM_FIELDS_CONFIG) {
+                const val = (formData as any)[field.key];
+                const valStr = val !== undefined && val !== null ? String(val).trim() : '';
+
+                // Required check
+                if (field.required && !valStr) {
+                    if (field.key === 'selected_juz') {
+                        if (getJuzOptionsForCategory(formData.category).length > 0) {
+                            triggerAlert('Please select a Juz option before proceeding.', 'Juz Option Required');
+                            return;
+                        }
+                    } else {
+                        triggerAlert(`Please enter a value for "${field.label}".`, 'Incomplete Fields');
+                        return;
+                    }
+                }
+
+                // Format validations
+                if (valStr && field.validationType) {
+                    if (field.validationType === 'aadhaar') {
+                        if (!validators.isValidAadhaar(valStr)) {
+                            triggerAlert('Please enter a mathematically valid Aadhaar number.', 'Invalid Aadhaar');
+                            return;
+                        }
+                    } else if (field.validationType === 'phone') {
+                        if (!validators.isValidMobile(valStr)) {
+                            triggerAlert(`Please enter a valid mobile number for "${field.label}".`, 'Invalid Contact');
+                            return;
+                        }
+                    } else if (field.validationType === 'email') {
+                        if (!validators.isValidEmail(valStr)) {
+                            triggerAlert(`Please enter a valid email address for "${field.label}".`, 'Invalid Email');
+                            return;
+                        }
+                    }
+                }
             }
         }
         setCurrentStep((prev) => Math.min(prev + 1, 3));
@@ -188,7 +207,8 @@ export default function RegisterPage() {
                 guardian_phone: formData.guardian_phone,
                 requires_accommodation: formData.requires_accommodation,
                 aadhaar_front: formData.aadhaar_front,
-                candidate_photo: formData.candidate_photo
+                candidate_photo: formData.candidate_photo,
+                selected_juz: formData.selected_juz || undefined
             });
 
             triggerAlert(
@@ -216,7 +236,8 @@ export default function RegisterPage() {
                 guardian_phone: '',
                 requires_accommodation: false,
                 aadhaar_front: null,
-                candidate_photo: null
+                candidate_photo: null,
+                selected_juz: ''
             });
             sessionStorage.removeItem(CACHE_KEY);
             setCurrentStep(1);

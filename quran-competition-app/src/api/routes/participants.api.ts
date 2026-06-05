@@ -20,6 +20,7 @@ export interface CreateApplicationParams {
     requires_accommodation?: boolean;
     aadhaar_front: File;
     candidate_photo: File;
+    selected_juz?: string;
 }
 
 export const participantsApi = {
@@ -50,6 +51,9 @@ export const participantsApi = {
         formData.append('guardian_name', params.guardian_name);
         formData.append('guardian_phone', params.guardian_phone);
         formData.append('requires_accommodation', String(params.requires_accommodation || false));
+        if (params.selected_juz) {
+            formData.append('selected_juz', params.selected_juz);
+        }
         
         const safeName = params.full_name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
         const aadhaarExt = params.aadhaar_front.name.split('.').pop() || 'jpg';

@@ -82,7 +82,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 <Link to="/" className={styles.brand} onClick={closeMobileMenu}>
                     <img src={logoSvg} className={styles.logoSvg} alt="SLQC Logo" />
                     <div className={styles.brandText}>
-                        <span className={styles.brandTitle}>Admin Panel</span>
+                        <span className={styles.brandTitle}>SLQC Admin Portal</span>
                         <span className={styles.brandSubtitle}>SLQC 2026</span>
                     </div>
                 </Link>
@@ -113,6 +113,20 @@ export default function MainLayout({ children }: MainLayoutProps) {
                             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                         </svg>
                         Track Application
+                    </NavLink>
+
+                    <NavLink
+                        to="/applications"
+                        className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
+                        onClick={closeMobileMenu}
+                    >
+                        <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                            <line x1="3" y1="9" x2="21" y2="9" />
+                            <line x1="3" y1="15" x2="21" y2="15" />
+                            <line x1="9" y1="9" x2="9" y2="21" />
+                        </svg>
+                        Applications
                     </NavLink>
 
                     <NavLink
@@ -161,6 +175,59 @@ export default function MainLayout({ children }: MainLayoutProps) {
                     )}
                 </nav>
 
+                <div className={styles.sidebarTranslate}>
+                    <div className={styles.customTranslateWrapper}>
+                        <button 
+                            type="button"
+                            className={styles.translateBtn} 
+                            onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
+                            aria-label="Select Language"
+                        >
+                            <svg className={styles.globeIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="2" y1="12" x2="22" y2="12" />
+                                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                            </svg>
+                            <span className={styles.translateLabel}>{pendingLanguageLabel}</span>
+                            <svg className={styles.translateChevron} style={{ width: '12px', height: '12px', opacity: 0.7 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="6 9 12 15 18 9" />
+                            </svg>
+                        </button>
+                        
+                        {isLangMenuOpen && (
+                            <>
+                                <div className={styles.translateMenuBackdrop} onClick={() => setIsLangMenuOpen(false)} />
+                                <div className={styles.translateMenu}>
+                                    {languages.map((lang) => (
+                                        <label
+                                            key={lang.code}
+                                            className={styles.translateMenuItemLabel}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', cursor: 'pointer', fontSize: '13px', borderRadius: '8px', width: '100%', boxSizing: 'border-box' }}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="lang-select"
+                                                checked={pendingLanguageCode === lang.code}
+                                                onChange={() => handleSelectLanguage(lang.code, lang.label)}
+                                                style={{ accentColor: 'var(--accent)', cursor: 'pointer' }}
+                                            />
+                                            <span style={{ color: '#334155', fontWeight: '500' }}>{lang.label}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                    
+                    <button
+                        type="button"
+                        onClick={triggerTranslation}
+                        className={styles.btnTranslateAction}
+                    >
+                        Translate
+                    </button>
+                </div>
+
                 <div className={styles.sidebarFooter}>
                     <button className={styles.logoutButton} onClick={handleLogout}>
                         Logout
@@ -172,7 +239,13 @@ export default function MainLayout({ children }: MainLayoutProps) {
             {/* Main Page Area */}
             <div className={styles.mainWrapper}>
                 <header className={styles.topbar}>
-                    <div className={styles.topbarLeft}>
+                    <div className={styles.topbarBranding}>
+                        <img src={logoSvg} className={styles.topbarLogo} alt="Logo" />
+                        <h2 className={styles.topbarTitle}>SLQC Admin Portal</h2>
+                    </div>
+                    <div className={styles.topbarActions}>
+                        <div id="google_translate_element" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 }}></div>
+                        <span className={styles.roleBadge}>{user?.designation || 'Staff'}</span>
                         <button className={styles.burgerButton} onClick={toggleMobileMenu} aria-label="Toggle Menu">
                             <svg className={styles.burgerIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                                 {isMobileMenuOpen ? (
@@ -189,63 +262,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
                                 )}
                             </svg>
                         </button>
-                        <h2 className={styles.pageHeader}>Organizers Dashboard</h2>
-                    </div>
-                    <div className={styles.topbarActions}>
-                        <div id="google_translate_element" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 }}></div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div className={styles.customTranslateWrapper}>
-                                <button 
-                                    type="button"
-                                    className={styles.translateBtn} 
-                                    onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
-                                    aria-label="Select Language"
-                                >
-                                    <svg className={styles.globeIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <circle cx="12" cy="12" r="10" />
-                                        <line x1="2" y1="12" x2="22" y2="12" />
-                                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                                    </svg>
-                                    <span className={styles.translateLabel}>{pendingLanguageLabel}</span>
-                                    <svg className={styles.translateChevron} style={{ width: '12px', height: '12px', opacity: 0.7 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <polyline points="6 9 12 15 18 9" />
-                                    </svg>
-                                </button>
-                                
-                                {isLangMenuOpen && (
-                                    <>
-                                        <div className={styles.translateMenuBackdrop} onClick={() => setIsLangMenuOpen(false)} />
-                                        <div className={styles.translateMenu}>
-                                            {languages.map((lang) => (
-                                                <label
-                                                    key={lang.code}
-                                                    className={styles.translateMenuItemLabel}
-                                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', cursor: 'pointer', fontSize: '13px', borderRadius: '8px', width: '100%', boxSizing: 'border-box' }}
-                                                >
-                                                    <input
-                                                        type="radio"
-                                                        name="lang-select"
-                                                        checked={pendingLanguageCode === lang.code}
-                                                        onChange={() => handleSelectLanguage(lang.code, lang.label)}
-                                                        style={{ accentColor: 'var(--accent)', cursor: 'pointer' }}
-                                                    />
-                                                    <span style={{ color: '#334155', fontWeight: '500' }}>{lang.label}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                            
-                            <button
-                                type="button"
-                                onClick={triggerTranslation}
-                                className={styles.btnTranslateAction}
-                            >
-                                Translate
-                            </button>
-                        </div>
-                        <span className={styles.roleBadge}>{user?.designation || 'Staff'}</span>
                     </div>
                 </header>
 

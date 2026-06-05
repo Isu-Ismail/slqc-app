@@ -192,3 +192,19 @@
     color: #94a3b8;
     font-style: italic;
 }
+
+@media (max-width: 768px) {
+    .container {
+        padding: 12px;
+    }
+    .header {
+        margin-bottom: 16px;
+    }
+    .tableContainer {
+        border-radius: 8px;
+    }
+    .table th, .table td {
+        padding: 8px;
+        font-size: 12px;
+    }
+}

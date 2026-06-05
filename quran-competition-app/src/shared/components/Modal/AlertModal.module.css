@@ -132,6 +132,7 @@
 .actions {
     display: flex;
     justify-content: flex-end;
+    gap: 12px;
     margin-top: 4px;
 }
 
@@ -144,11 +145,28 @@
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: all 0.2s;
 }
 
 .button:hover {
     opacity: 0.9;
+}
+
+.buttonSecondary {
+    background-color: var(--bg-shade, #f3f4f6);
+    color: var(--text-h);
+    border: 1px solid var(--border);
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.buttonSecondary:hover {
+    background-color: var(--border);
+    color: var(--text-h);
 }
 
 @keyframes fadeIn {

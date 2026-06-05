@@ -101,8 +101,18 @@
     background-color: var(--code-bg);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
+    .pageWrapper {
+        padding: 0 !important;
+        background-color: transparent !important;
+    }
     .card {
-        padding: 24px 16px;
+        padding: 24px 16px !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        background-color: transparent !important;
     }
 }

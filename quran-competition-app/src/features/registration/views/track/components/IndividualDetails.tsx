@@ -1,38 +1,17 @@
-import { useRef, useState, useEffect, useMemo } from 'react';
+import { useRef, useState } from 'react';
 import { Lock, Edit, Printer } from 'lucide-react';
 import type { ParticipantsApplicationResponse } from '../../../../../api/types';
 import { useRegistrationStatus } from '../../../../../shared/context/StatusContext';
-import { checkAgeEligibility } from '../../../../../utils/ageChecker';
 import styles from '../TrackPage.module.css';
-import printStyles from './PrintPreviewModal.module.css';
+import { CATEGORIES_CONFIG, getJuzOptionsForCategory, getCategoryLabel, FORM_FIELDS_CONFIG } from '../../../../../config/fieldsConfig';
 import PrintPreviewModal, { generateIndividualFormHTML } from './PrintPreviewModal';
 
 interface IndividualDetailsProps {
     individualRecord: ParticipantsApplicationResponse;
     isEditMode: boolean;
     setIsEditMode: (val: boolean) => void;
-    editName: string;
-    setEditName: (val: string) => void;
-    editCategory: '5_juz' | '15_juz' | '30_juz' | '';
-    setEditCategory: (val: '5_juz' | '15_juz' | '30_juz' | '') => void;
-    editGender: 'male' | 'female';
-    setEditGender: (val: 'male' | 'female') => void;
-    editDob: string;
-    setEditDob: (val: string) => void;
-    editEmail: string;
-    setEditEmail: (val: string) => void;
-    editWhatsapp: string;
-    setEditWhatsapp: (val: string) => void;
-    editFatherName: string;
-    setEditFatherName: (val: string) => void;
-    editFatherNumber: string;
-    setEditFatherNumber: (val: string) => void;
-    editGuardianName: string;
-    setEditGuardianName: (val: string) => void;
-    editGuardianPhone: string;
-    setEditGuardianPhone: (val: string) => void;
-    editRequiresAcc: boolean;
-    setEditRequiresAcc: (val: boolean) => void;
+    editData: Record<string, any>;
+    updateEditField: (key: string, value: any) => void;
     editAadhaarFile: File | null;
     setEditAadhaarFile: (val: File | null) => void;
     editCandidatePhotoFile: File | null;
@@ -49,28 +28,8 @@ export default function IndividualDetails({
     individualRecord,
     isEditMode,
     setIsEditMode,
-    editName,
-    setEditName,
-    editCategory,
-    setEditCategory,
-    editGender,
-    setEditGender,
-    editDob,
-    setEditDob,
-    editEmail,
-    setEditEmail,
-    editWhatsapp,
-    setEditWhatsapp,
-    editFatherName,
-    setEditFatherName,
-    editFatherNumber,
-    setEditFatherNumber,
-    editGuardianName,
-    setEditGuardianName,
-    editGuardianPhone,
-    setEditGuardianPhone,
-    editRequiresAcc,
-    setEditRequiresAcc,
+    editData,
+    updateEditField,
     editAadhaarFile,
     setEditAadhaarFile,
     editCandidatePhotoFile,
@@ -87,32 +46,6 @@ export default function IndividualDetails({
     const [printPreview, setPrintPreview] = useState<string | null>(null);
 
     const { metadata } = useRegistrationStatus();
-    const eventDate = metadata.event_date;
-    const ageCriteria = metadata.event_age_criteria;
-    const ageBuffer = metadata.age_buffer_months !== undefined ? Number(metadata.age_buffer_months) : 3;
-
-    const eligibility = useMemo(() => {
-        return checkAgeEligibility(
-            editDob,
-            eventDate,
-            ageCriteria || {
-                '5_juz': { min: 0, max: 15 },
-                '15_juz': { min: 0, max: 19 },
-                '30_juz': { min: 0, max: 25 }
-            },
-            ageBuffer
-        );
-    }, [editDob, eventDate, ageCriteria, ageBuffer]);
-
-    useEffect(() => {
-        if (isEditMode && editDob && editCategory) {
-            const currentEligibility = eligibility[editCategory];
-            if (currentEligibility && !currentEligibility.eligible) {
-                setEditCategory('');
-                alert(`Category cleared! Selected Juz is ineligible for this Date of Birth: ${currentEligibility.message}`);
-            }
-        }
-    }, [editDob, editCategory, eligibility, isEditMode, setEditCategory]);
 
     const [isRefetching, setIsRefetching] = useState(false);
     const [refetchSuccess, setRefetchSuccess] = useState(false);
@@ -139,6 +72,9 @@ export default function IndividualDetails({
             <div className={styles.detailsHeader}>
                 <h3>Application Details</h3>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div className={`${styles.statusBadge} ${getStatusClass(individualRecord.status)}`}>
+                        {individualRecord.status.toUpperCase()}
+                    </div>
                     {onRefresh && (
                         <button
                             type="button"
@@ -156,12 +92,24 @@ export default function IndividualDetails({
                                 borderColor: refetchSuccess ? '#10b981' : undefined
                             }}
                         >
-                            {isRefetching ? 'Refetching...' : refetchSuccess ? 'Refetched successfully! ✓' : 'Recheck Status ↻'}
+                            {isRefetching ? (
+                                <>
+                                    <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite', marginRight: '4px' }}>↻</span>
+                                    <span className={styles.hideMobile}>Refetching...</span>
+                                </>
+                            ) : refetchSuccess ? (
+                                <>
+                                    <span style={{ marginRight: '4px' }}>✓</span>
+                                    <span className={styles.hideMobile}>Refetched successfully!</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span style={{ marginRight: '4px' }}>↻</span>
+                                    <span className={styles.hideMobile}>Recheck Status</span>
+                                </>
+                            )}
                         </button>
                     )}
-                    <div className={`${styles.statusBadge} ${getStatusClass(individualRecord.status)}`}>
-                        {individualRecord.status.toUpperCase()}
-                    </div>
                 </div>
             </div>
 
@@ -205,167 +153,154 @@ export default function IndividualDetails({
                     </div>
                 )}
 
-                <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Applicant Name {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
-                    <input
-                        type="text"
-                        className={styles.formInput}
-                        value={isEditMode ? editName : individualRecord.full_name}
-                        disabled={!isEditMode || individualRecord.is_locked}
-                        onChange={(e) => setEditName(e.target.value)}
-                    />
-                </div>
+                {/* Dynamic fields from config */}
+                {FORM_FIELDS_CONFIG.map((field) => {
+                    const value = isEditMode ? (editData[field.key] ?? '') : ((individualRecord as any)[field.key] ?? '');
+                    const isEditable = field.editable && isEditMode && !individualRecord.is_locked;
 
-                <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Aadhaar Number</label>
-                    <input
-                        type="text"
-                        className={styles.formInput}
-                        value={individualRecord.aadhaar_number}
-                        disabled={true}
-                    />
-                </div>
+                    // Custom renders
+                    if (field.key === 'category') {
+                        return (
+                            <div key={field.key} className={styles.formGroup}>
+                                <label className={styles.formLabel}>{field.label} {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
+                                {isEditable ? (
+                                    <select
+                                        className={styles.formSelect}
+                                        value={value}
+                                        onChange={(e) => {
+                                            const nextCat = e.target.value;
+                                            updateEditField('category', nextCat);
+                                            const foundCat = CATEGORIES_CONFIG.find(c => c.key === nextCat);
+                                            if (foundCat && foundCat.defaultJuz) {
+                                                updateEditField('selected_juz', foundCat.defaultJuz);
+                                            } else {
+                                                updateEditField('selected_juz', '');
+                                            }
+                                        }}
+                                    >
+                                        <option value="">Select Category</option>
+                                        {CATEGORIES_CONFIG.map((cat) => (
+                                            <option key={cat.key} value={cat.key}>
+                                                {cat.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        className={styles.formInput}
+                                        value={getCategoryLabel(value)}
+                                        disabled={true}
+                                    />
+                                )}
+                            </div>
+                        );
+                    }
 
-                <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Category {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
-                    {isEditMode && !individualRecord.is_locked ? (
-                        <select
-                            className={styles.formSelect}
-                            value={editCategory}
-                            onChange={(e) => setEditCategory(e.target.value as any)}
-                        >
-                            <option value="">Select Category</option>
-                            <option value="5_juz" disabled={editDob ? !eligibility['5_juz'].eligible : false}>
-                                5 Juz {editDob && !eligibility['5_juz'].eligible && `(${eligibility['5_juz'].message})`}
-                            </option>
-                            <option value="15_juz" disabled={editDob ? !eligibility['15_juz'].eligible : false}>
-                                15 Juz {editDob && !eligibility['15_juz'].eligible && `(${eligibility['15_juz'].message})`}
-                            </option>
-                            <option value="30_juz" disabled={editDob ? !eligibility['30_juz'].eligible : false}>
-                                30 Juz {editDob && !eligibility['30_juz'].eligible && `(${eligibility['30_juz'].message})`}
-                            </option>
-                        </select>
-                    ) : (
-                        <input
-                            type="text"
-                            className={styles.formInput}
-                            value={individualRecord.category.replace('_', ' ')}
-                            disabled={true}
-                        />
-                    )}
-                </div>
+                    if (field.key === 'selected_juz') {
+                        const currentCategory = isEditMode ? editData.category : individualRecord.category;
+                        return (
+                            <div key={field.key} className={styles.formGroup}>
+                                <label className={styles.formLabel}>Selected Juz Range {isEditMode && getJuzOptionsForCategory(currentCategory).length > 0 && <span style={{ color: '#ef4444' }}>*</span>}</label>
+                                {isEditable ? (
+                                    getJuzOptionsForCategory(currentCategory).length > 0 ? (
+                                        <select
+                                            className={styles.formSelect}
+                                            value={value}
+                                            onChange={(e) => updateEditField('selected_juz', e.target.value)}
+                                        >
+                                            <option value="">Select Option</option>
+                                            {getJuzOptionsForCategory(currentCategory).map((opt) => (
+                                                <option key={opt} value={opt}>
+                                                    {opt}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <input
+                                            type="text"
+                                            className={styles.formInput}
+                                            value={value || 'Juz 1-30: Full Quran (آلم to ٱلنَّاس)'}
+                                            disabled={true}
+                                        />
+                                    )
+                                ) : (
+                                    <input
+                                        type="text"
+                                        className={styles.formInput}
+                                        value={value || 'N/A'}
+                                        disabled={true}
+                                    />
+                                )}
+                            </div>
+                        );
+                    }
 
-                <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Gender {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
-                    {isEditMode && !individualRecord.is_locked ? (
-                        <select
-                            className={styles.formSelect}
-                            value={editGender}
-                            onChange={(e) => setEditGender(e.target.value as any)}
-                        >
-                            <option value="male">Male</option>
-                            <option value="female">Female</option>
-                        </select>
-                    ) : (
-                        <input
-                            type="text"
-                            className={styles.formInput}
-                            value={individualRecord.gender}
-                            disabled={true}
-                        />
-                    )}
-                </div>
+                    if (field.key === 'gender') {
+                        return (
+                            <div key={field.key} className={styles.formGroup}>
+                                <label className={styles.formLabel}>Gender {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
+                                {isEditable ? (
+                                    <select
+                                        className={styles.formSelect}
+                                        value={value}
+                                        onChange={(e) => updateEditField('gender', e.target.value)}
+                                    >
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                    </select>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        className={styles.formInput}
+                                        value={value}
+                                        disabled={true}
+                                    />
+                                )}
+                            </div>
+                        );
+                    }
 
-                <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Date of Birth {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
-                    <input
-                        type="date"
-                        className={styles.formInput}
-                        value={isEditMode ? editDob : (individualRecord.dob ? individualRecord.dob.substring(0,10) : '')}
-                        disabled={!isEditMode || individualRecord.is_locked}
-                        onChange={(e) => setEditDob(e.target.value)}
-                    />
-                </div>
+                    if (field.key === 'requires_accommodation') {
+                        const checkboxLabelStyle = (active: boolean, locked: boolean) => {
+                            if (locked) return styles.checkboxLabelDisabled;
+                            return active ? styles.checkboxLabelActive : styles.checkboxLabel;
+                        };
 
-                <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Email</label>
-                    <input
-                        type="email"
-                        className={styles.formInput}
-                        placeholder="N/A"
-                        value={isEditMode ? editEmail : (individualRecord.email || '')}
-                        disabled={!isEditMode || individualRecord.is_locked}
-                        onChange={(e) => setEditEmail(e.target.value)}
-                    />
-                </div>
+                        return (
+                            <div key={field.key} className={`${styles.formGroup} ${styles.fullWidthCheckbox}`}>
+                                <label className={checkboxLabelStyle(isEditMode, individualRecord.is_locked)}>
+                                    <input
+                                        type="checkbox"
+                                        checked={!!value}
+                                        disabled={!isEditable}
+                                        onChange={(e) => updateEditField('requires_accommodation', e.target.checked)}
+                                    />
+                                    <span>Requires Accommodation</span>
+                                </label>
+                            </div>
+                        );
+                    }
 
-                <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>WhatsApp Number {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
-                    <input
-                        type="text"
-                        className={styles.formInput}
-                        value={isEditMode ? editWhatsapp : individualRecord.whatsapp_number}
-                        disabled={!isEditMode || individualRecord.is_locked}
-                        onChange={(e) => setEditWhatsapp(e.target.value)}
-                    />
-                </div>
+                    // For Aadhaar Number (always disabled, non-editable)
+                    const isDisabled = !isEditable || field.key === 'aadhaar_number';
 
-                <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Father Name {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
-                    <input
-                        type="text"
-                        className={styles.formInput}
-                        value={isEditMode ? editFatherName : (individualRecord.father_name || '')}
-                        disabled={!isEditMode || individualRecord.is_locked}
-                        onChange={(e) => setEditFatherName(e.target.value)}
-                    />
-                </div>
-
-                <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Father Phone (Optional)</label>
-                    <input
-                        type="text"
-                        className={styles.formInput}
-                        value={isEditMode ? editFatherNumber : (individualRecord.father_number || '')}
-                        placeholder="N/A"
-                        disabled={!isEditMode || individualRecord.is_locked}
-                        onChange={(e) => setEditFatherNumber(e.target.value)}
-                    />
-                </div>
-
-                <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Guardian Name {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
-                    <input
-                        type="text"
-                        className={styles.formInput}
-                        value={isEditMode ? editGuardianName : (individualRecord.guardian_name || '')}
-                        disabled={!isEditMode || individualRecord.is_locked}
-                        onChange={(e) => setEditGuardianName(e.target.value)}
-                    />
-                </div>
-
-                <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Guardian Phone {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
-                    <input
-                        type="text"
-                        className={styles.formInput}
-                        value={isEditMode ? editGuardianPhone : (individualRecord.guardian_phone || '')}
-                        disabled={!isEditMode || individualRecord.is_locked}
-                        onChange={(e) => setEditGuardianPhone(e.target.value)}
-                    />
-                </div>
-
-                <div className={`${styles.formGroup} ${styles.fullWidthCheckbox}`}>
-                    <label className={checkboxLabelStyle(isEditMode, individualRecord.is_locked)}>
-                        <input
-                            type="checkbox"
-                            checked={isEditMode ? editRequiresAcc : !!individualRecord.requires_accommodation}
-                            disabled={!isEditMode || individualRecord.is_locked}
-                            onChange={(e) => setEditRequiresAcc(e.target.checked)}
-                        />
-                        <span>Requires Accommodation</span>
-                    </label>
-                </div>
+                    return (
+                        <div key={field.key} className={styles.formGroup}>
+                            <label className={styles.formLabel}>
+                                {field.label} {isEditMode && field.required && <span style={{ color: '#ef4444' }}>*</span>}
+                            </label>
+                            <input
+                                type={field.type === 'tel' ? 'text' : field.type}
+                                className={styles.formInput}
+                                value={field.type === 'date' && typeof value === 'string' ? value.substring(0, 10) : value}
+                                disabled={isDisabled}
+                                placeholder={field.placeholder || 'N/A'}
+                                onChange={(e) => updateEditField(field.key, e.target.value)}
+                            />
+                        </div>
+                    );
+                })}
 
                 {(() => {
                     const institutionRef = (individualRecord.expand as any)?.institution_ref;
@@ -453,21 +388,19 @@ export default function IndividualDetails({
                                 />
                                 <button 
                                     type="button" 
-                                    className={styles.btnUpload}
+                                    className={styles.btnSecondary}
                                     onClick={() => fileInputRef.current?.click()}
                                 >
-                                    Choose New Image
+                                    {editAadhaarFile ? 'Change Selected Aadhaar' : 'Upload New Aadhaar'}
                                 </button>
-                                <span className={styles.fileName}>
-                                    {editAadhaarFile ? editAadhaarFile.name : (individualRecord.aadhaar_front ? 'Keep existing image' : 'No file selected')}
-                                </span>
+                                {editAadhaarFile && <span className={styles.selectedFileName}>{editAadhaarFile.name}</span>}
                             </div>
                         )}
                     </div>
                 </div>
 
                 <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                    <label className={styles.formLabel}>Passport Size Photo</label>
+                    <label className={styles.formLabel}>Passport-size Candidate Photo</label>
                     <div className={styles.filePreviewWrapper}>
                         {!isEditMode && individualRecord.candidate_photo && (
                             <a 
@@ -476,7 +409,7 @@ export default function IndividualDetails({
                                 rel="noopener noreferrer"
                                 className={styles.previewLink}
                             >
-                                View Uploaded Passport Photo ↗
+                                View Uploaded Candidate Photo ↗
                             </a>
                         )}
                         
@@ -495,85 +428,60 @@ export default function IndividualDetails({
                                 />
                                 <button 
                                     type="button" 
-                                    className={styles.btnUpload}
+                                    className={styles.btnSecondary}
                                     onClick={() => photoInputRef.current?.click()}
                                 >
-                                    Choose New Photo
+                                    {editCandidatePhotoFile ? 'Change Selected Photo' : 'Upload New Photo'}
                                 </button>
-                                <span className={styles.fileName}>
-                                    {editCandidatePhotoFile ? editCandidatePhotoFile.name : (individualRecord.candidate_photo ? 'Keep existing photo' : 'No file selected')}
-                                </span>
+                                {editCandidatePhotoFile && <span className={styles.selectedFileName}>{editCandidatePhotoFile.name}</span>}
                             </div>
                         )}
                     </div>
                 </div>
             </div>
 
-            <div className={styles.detailsActions}>
-                {!individualRecord.is_locked && (
-                    <>
-                        {isEditMode ? (
-                            <>
-                                <button 
-                                    className={styles.btnSecondary} 
-                                    onClick={() => setIsEditMode(false)}
-                                    disabled={loading}
-                                >
-                                    Cancel
-                                </button>
-                                <button 
-                                    className={styles.btnPrimary} 
-                                    onClick={handleSaveIndividualChanges}
-                                    disabled={loading || !(
-                                        (editName || '').toString().trim() !== (individualRecord.full_name || '').toString().trim() ||
-                                        (editCategory || '').toString().trim() !== (individualRecord.category || '').toString().trim() ||
-                                        (editGender || '').toString().trim() !== (individualRecord.gender || 'male').toString().trim() ||
-                                        (editDob || '').toString().trim() !== (individualRecord.dob ? individualRecord.dob.split(' ')[0] : '').toString().trim() ||
-                                        (editEmail || '').toString().trim() !== (individualRecord.email || '').toString().trim() ||
-                                        (editWhatsapp || '').toString().trim() !== (individualRecord.whatsapp_number || '').toString().trim() ||
-                                        (editFatherName || '').toString().trim() !== (individualRecord.father_name || '').toString().trim() ||
-                                        (editFatherNumber || '').toString().trim() !== (individualRecord.father_number || '').toString().trim() ||
-                                        (editGuardianName || '').toString().trim() !== (individualRecord.guardian_name || '').toString().trim() ||
-                                        (editGuardianPhone || '').toString().trim() !== (individualRecord.guardian_phone || '').toString().trim() ||
-                                        (!!editRequiresAcc) !== (!!individualRecord.requires_accommodation) ||
-                                        editAadhaarFile !== null ||
-                                        editCandidatePhotoFile !== null
-                                    )}
-                                >
-                                    {loading ? 'Saving...' : 'Save Changes'}
-                                </button>
-                            </>
-                        ) : (
-                            <button 
-                                className={styles.btnPrimary} 
-                                onClick={() => setIsEditMode(true)}
-                            >
-                                Edit Application Details
-                            </button>
-                        )}
-                    </>
-                )}
-            </div>
+            {isEditMode && !individualRecord.is_locked && (
+                <div className={styles.detailsActions} style={{ borderTop: '1px solid var(--border)', paddingTop: '20px', marginTop: '20px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                    <button
+                        type="button"
+                        className={styles.btnSecondary}
+                        onClick={() => setIsEditMode(false)}
+                        disabled={loading}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        className={styles.btnPrimary}
+                        onClick={handleSaveIndividualChanges}
+                        disabled={loading}
+                    >
+                        {loading ? 'Saving...' : 'Save Changes'}
+                    </button>
+                </div>
+            )}
 
-            <div className={printStyles.downloadBar}>
-                <button
-                    className={printStyles.downloadBtn}
-                    onClick={() => setPrintPreview(generateIndividualFormHTML(individualRecord, metadata.print_template))}
-                >
-                    <Printer size={15} /> Print Application Form
-                </button>
-            </div>
+            {!isEditMode && individualRecord.status === 'approved' && (
+                <div className={styles.detailsActions} style={{ borderTop: '1px solid var(--border)', paddingTop: '20px', marginTop: '20px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                    <button
+                        type="button"
+                        className={styles.btnPrimary}
+                        onClick={() => setPrintPreview(individualRecord.id)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                    >
+                        <Printer size={16} /> Print Registration Card
+                    </button>
+                </div>
+            )}
 
-            <PrintPreviewModal
-                isOpen={!!printPreview}
-                onClose={() => setPrintPreview(null)}
-                title="Application Form Preview"
-                htmlContent={printPreview || ''}
-            />
+            {printPreview && (
+                <PrintPreviewModal 
+                    isOpen={true} 
+                    onClose={() => setPrintPreview(null)} 
+                    title="Print Registration Card"
+                    htmlContent={generateIndividualFormHTML(individualRecord, metadata?.print_template)}
+                />
+            )}
         </div>
     );
-}
-
-function checkboxLabelStyle(isEditMode: boolean, isLocked?: boolean) {
-    return isEditMode && !isLocked ? styles.checkboxLabel : `${styles.checkboxLabel} ${styles.disabledCheckboxLabel || ''}`;
 }

@@ -4,6 +4,7 @@ import { pb } from '../../api/db';
 import { approvalsApi, type AllocatedItem } from '../../api/approvals';
 import { adminTrackApi } from '../../api/track';
 import type { ParticipantsApplicationResponse, InstitutionsResponse } from '../../api/track';
+import { Mail, CheckCircle } from 'lucide-react';
 import styles from './Approvals.module.css';
 
 export default function ApprovalReviewPage() {
@@ -12,11 +13,15 @@ export default function ApprovalReviewPage() {
     const location = useLocation();
     const searchParams = new URLSearchParams(location.search);
     const appType = (searchParams.get('type') as 'individual' | 'institution') || 'individual';
+    const returnTab = (searchParams.get('tab') as 'pending' | 'history') || 'pending';
+    const backUrl = `/approvals?type=${appType}&tab=${returnTab}`;
 
     const [application, setApplication] = useState<AllocatedItem | null>(null);
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
     const [fullscreenImg, setFullscreenImg] = useState<string | null>(null);
+    const [sendingMail, setSendingMail] = useState(false);
+    const [mailSent, setMailSent] = useState(false);
 
     // Modal states
     const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
@@ -42,7 +47,7 @@ export default function ApprovalReviewPage() {
                 if (existingLock) {
                     if (existingLock.locked_by !== pb.authStore.record?.id) {
                         alert(`Another coordinator (${existingLock.locked_by_name || 'Someone'}) is currently reviewing this application.`);
-                        navigate(`/approvals?type=${appType}`);
+                        navigate(backUrl);
                         return false;
                     }
                 } else {
@@ -57,7 +62,7 @@ export default function ApprovalReviewPage() {
                 return true;
             } catch (e) {
                 alert("This application is locked by someone else or could not be locked.");
-                navigate(`/approvals?type=${appType}`);
+                navigate(backUrl);
                 return false;
             }
         };
@@ -127,9 +132,7 @@ export default function ApprovalReviewPage() {
 
 
 
-            navigate(
-                `/approvals?type=${appType}`
-            );
+            navigate(backUrl);
 
         } catch (e) {
 
@@ -176,9 +179,7 @@ export default function ApprovalReviewPage() {
 
 
 
-            navigate(
-                `/approvals?type=${appType}`
-            );
+            navigate(backUrl);
 
         } catch (e) {
 
@@ -192,6 +193,76 @@ export default function ApprovalReviewPage() {
             );
         }
     };
+    const handleSendMail = async () => {
+        if (!application) return;
+        setSendingMail(true);
+        try {
+            const isApproved = application.status === 'approved';
+
+            if (appType === 'institution') {
+                const inst = application as InstitutionsResponse;
+                if (!inst.email) {
+                    alert('This institution has no email address on record.');
+                    return;
+                }
+                if (isApproved) {
+                    if (!inst.institution_id) {
+                        alert('Cannot send approval mail: institution does not have an Institution ID yet.');
+                        return;
+                    }
+                    await approvalsApi.sendInstitutionConfirmationMail(
+                        application.id,
+                        inst.email,
+                        inst.name,
+                        inst.institution_id,
+                        inst.passcode || ''
+                    );
+                } else {
+                    await approvalsApi.sendInstitutionRejectionMail(
+                        application.id,
+                        inst.email,
+                        inst.name,
+                        application.rejection_reason || 'Your application did not meet the eligibility criteria.'
+                    );
+                }
+            } else {
+                const indiv = application as ParticipantsApplicationResponse;
+                if (!indiv.email) {
+                    alert('This applicant has no email address on record.');
+                    return;
+                }
+                if (isApproved) {
+                    if (!indiv.participant_id) {
+                        alert('Cannot send approval mail: participant does not have a Participant ID yet.');
+                        return;
+                    }
+                    await approvalsApi.sendIndividualConfirmationMail(
+                        application.id,
+                        indiv.email,
+                        indiv.full_name,
+                        indiv.participant_id,
+                        indiv.category
+                    );
+                } else {
+                    await approvalsApi.sendIndividualRejectionMail(
+                        application.id,
+                        indiv.email,
+                        indiv.full_name,
+                        indiv.category,
+                        application.rejection_reason || 'Your application did not meet the eligibility criteria.'
+                    );
+                }
+            }
+            setMailSent(true);
+            setTimeout(() => setMailSent(false), 4000);
+        } catch (e) {
+            console.error(e);
+            alert('Failed to enqueue email. Please try again.');
+        } finally {
+            setSendingMail(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className={styles.loading}>
@@ -206,11 +277,7 @@ export default function ApprovalReviewPage() {
                 <h2>Application Not Found</h2>
 
                 <button
-                    onClick={() =>
-                        navigate(
-                            `/approvals?type=${appType}`
-                        )
-                    }
+                    onClick={() => navigate(backUrl)}
                     className={styles.btnSecondary}
                 >
                     Go Back
@@ -254,6 +321,10 @@ export default function ApprovalReviewPage() {
                                 <div className={styles.detailGroup}>
                                     <label>Category</label>
                                     <div>{indivApp.category.replace('_', ' ')}</div>
+                                </div>
+                                <div className={styles.detailGroup}>
+                                    <label>Selected Juz Range</label>
+                                    <div>{indivApp.selected_juz || 'N/A'}</div>
                                 </div>
                                 <div className={styles.detailGroup}>
                                     <label>Gender</label>
@@ -383,19 +454,68 @@ export default function ApprovalReviewPage() {
                         <button
                             className={styles.btnCancelNormal}
                             onClick={async () => {
-
                                 if (id) {
                                     await approvalsApi.releaseLock(id);
                                 }
-
-                                navigate(
-                                    `/approvals?type=${appType}`
-                                );
+                                navigate(backUrl);
                             }}
                             disabled={processing}
                         >
                             Cancel
                         </button>
+
+                        {/* Send Mail — shown for approved OR rejected applications that have an email */}
+                        {(application.status === 'approved' || application.status === 'rejected') && (
+                            (appType === 'institution' && (instApp as InstitutionsResponse).email) ||
+                            (appType === 'individual' && (indivApp as ParticipantsApplicationResponse).email)
+                        ) && (() => {
+                            const isApproved = application.status === 'approved';
+                            const recipientEmail = appType === 'institution'
+                                ? (instApp as InstitutionsResponse).email
+                                : (indivApp as ParticipantsApplicationResponse).email;
+                            return (
+                                <button
+                                    onClick={handleSendMail}
+                                    disabled={sendingMail || processing}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '8px 16px',
+                                        borderRadius: '8px',
+                                        border: mailSent
+                                            ? '1.5px solid #16a34a'
+                                            : isApproved
+                                                ? '1.5px solid #0891b2'
+                                                : '1.5px solid #d97706',
+                                        backgroundColor: mailSent
+                                            ? '#f0fdf4'
+                                            : isApproved
+                                                ? '#e0f2fe'
+                                                : '#fef3c7',
+                                        color: mailSent
+                                            ? '#16a34a'
+                                            : isApproved
+                                                ? '#0c4a6e'
+                                                : '#92400e',
+                                        fontWeight: 600,
+                                        fontSize: '13px',
+                                        cursor: sendingMail ? 'wait' : 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        marginLeft: 'auto',
+                                    }}
+                                    title={`Send ${isApproved ? 'approval' : 'rejection'} email to ${recipientEmail}`}
+                                >
+                                    {mailSent ? (
+                                        <><CheckCircle size={15} /> Mail Queued!</>
+                                    ) : sendingMail ? (
+                                        <><Mail size={15} /> Sending...</>
+                                    ) : (
+                                        <><Mail size={15} /> Send {isApproved ? 'Approval' : 'Rejection'} Mail</>
+                                    )}
+                                </button>
+                            );
+                        })()}
                     </div>
                 </div>
 

@@ -5,6 +5,7 @@ import { validators } from '../../../utils/validators';
 import { useRegistrationStatus } from '../../../shared/context/StatusContext';
 import { checkAgeEligibility } from '../../../utils/ageChecker';
 import styles from './Step2Details.module.css';
+import { CATEGORIES_CONFIG, getJuzOptionsForCategory, FORM_FIELDS_CONFIG } from '../../../config/fieldsConfig';
 
 interface Step2Props {
     formData: RegistrationFormData;
@@ -12,16 +13,7 @@ interface Step2Props {
 }
 
 interface ValidationErrors {
-    full_name?: string;
-    aadhaar_number?: string;
-    dob?: string;
-    category?: string;
-    email?: string;
-    whatsapp_number?: string;
-    father_name?: string;
-    father_number?: string;
-    guardian_name?: string;
-    guardian_phone?: string;
+    [key: string]: string | undefined;
 }
 
 export default function Step2Details({ formData, updateForm }: Step2Props) {
@@ -58,118 +50,111 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
         }
     }, [formData.dob, formData.category, eligibility, updateForm]);
 
-    const handleAadhaarBlur = () => {
-        if (!formData.aadhaar_number) {
-            setErrors(prev => ({ ...prev, aadhaar_number: 'Aadhaar number is required.' }));
+    const validateField = (key: string, value: any) => {
+        const fieldConfig = FORM_FIELDS_CONFIG.find(f => f.key === key);
+        if (!fieldConfig) return;
+
+        // 1. Required Check
+        if (fieldConfig.required && (value === undefined || value === null || String(value).trim() === '')) {
+            setErrors(prev => ({ ...prev, [key]: `${fieldConfig.label} is required.` }));
             return;
         }
-        const isValid = validators.isValidAadhaar(formData.aadhaar_number);
-        if (!isValid) {
-            setErrors(prev => ({ 
-                ...prev, 
-                aadhaar_number: 'Invalid Aadhaar number (must be 12 digits and mathematically valid).' 
-            }));
-        } else {
-            setErrors(prev => {
-                const copy = { ...prev };
-                delete copy.aadhaar_number;
-                return copy;
-            });
+
+        // 2. Validation Type Check
+        if (value) {
+            if (fieldConfig.validationType === 'aadhaar') {
+                if (!validators.isValidAadhaar(value)) {
+                    setErrors(prev => ({ ...prev, [key]: 'Invalid Aadhaar number (must be 12 digits and mathematically valid).' }));
+                    return;
+                }
+            } else if (fieldConfig.validationType === 'phone') {
+                if (!validators.isValidMobile(value)) {
+                    setErrors(prev => ({ ...prev, [key]: 'Please enter a valid 10-digit mobile number starting with 6-9.' }));
+                    return;
+                }
+            } else if (fieldConfig.validationType === 'email') {
+                if (!validators.isValidEmail(value)) {
+                    setErrors(prev => ({ ...prev, [key]: 'Please enter a valid email address.' }));
+                    return;
+                }
+            }
         }
+
+        // Clean up error if valid
+        setErrors(prev => {
+            const copy = { ...prev };
+            delete copy[key];
+            return copy;
+        });
     };
 
-    const handleMobileBlur = () => {
-        if (!formData.whatsapp_number) {
-            setErrors(prev => ({ ...prev, whatsapp_number: 'Mobile number is required.' }));
-            return;
+    const renderField = (field: typeof FORM_FIELDS_CONFIG[0]) => {
+        if (field.customFormRender) {
+            return null;
         }
-        const isValid = validators.isValidMobile(formData.whatsapp_number);
-        if (!isValid) {
-            setErrors(prev => ({ 
-                ...prev, 
-                whatsapp_number: 'Please enter a valid 10-digit mobile number starting with 6-9.' 
-            }));
-        } else {
-            setErrors(prev => {
-                const copy = { ...prev };
-                delete copy.whatsapp_number;
-                return copy;
-            });
-        }
-    };
 
-    const handleEmailBlur = () => {
-        if (!formData.email) return; // Optional in form schema, but validate if entered
-        const isValid = validators.isValidEmail(formData.email);
-        if (!isValid) {
-            setErrors(prev => ({ 
-                ...prev, 
-                email: 'Please enter a valid email address.' 
-            }));
-        } else {
-            setErrors(prev => {
-                const copy = { ...prev };
-                delete copy.email;
-                return copy;
-            });
-        }
-    };
+        const isError = !!errors[field.key];
+        const errorMsg = errors[field.key];
 
-    const handleFatherPhoneBlur = () => {
-        if (!formData.father_number) {
-            setErrors(prev => {
-                const copy = { ...prev };
-                delete copy.father_number;
-                return copy;
-            });
-            return;
+        if (field.key === 'gender') {
+            return (
+                <div key={field.key} className={field.gridSpan === 2 ? styles.inputGroupFull : styles.inputGroup}>
+                    <label className={styles.inputLabel}>{field.label} {field.required && <span style={{ color: '#ef4444' }}>*</span>}</label>
+                    <div className={styles.buttonGroup}>
+                        <button
+                            type="button"
+                            className={`${styles.selectorButton} ${formData.gender === 'male' ? styles.selectorButtonActive : ''}`}
+                            onClick={() => {
+                                updateForm('gender', 'male');
+                                validateField('gender', 'male');
+                            }}
+                        >
+                            Male
+                        </button>
+                        <button
+                            type="button"
+                            className={`${styles.selectorButton} ${formData.gender === 'female' ? styles.selectorButtonActive : ''}`}
+                            onClick={() => {
+                                updateForm('gender', 'female');
+                                validateField('gender', 'female');
+                            }}
+                        >
+                            Female
+                        </button>
+                    </div>
+                    {isError && <span className={styles.errorMessage}>{errorMsg}</span>}
+                </div>
+            );
         }
-        const isValid = validators.isValidMobile(formData.father_number);
-        if (!isValid) {
-            setErrors(prev => ({ 
-                ...prev, 
-                father_number: 'Please enter a valid 10-digit mobile number starting with 6-9.' 
-            }));
-        } else {
-            setErrors(prev => {
-                const copy = { ...prev };
-                delete copy.father_number;
-                return copy;
-            });
-        }
-    };
 
-    const handleGuardianPhoneBlur = () => {
-        if (!formData.guardian_phone) {
-            setErrors(prev => ({ ...prev, guardian_phone: 'Guardian phone is required.' }));
-            return;
-        }
-        const isValid = validators.isValidMobile(formData.guardian_phone);
-        if (!isValid) {
-            setErrors(prev => ({ 
-                ...prev, 
-                guardian_phone: 'Please enter a valid 10-digit mobile number starting with 6-9.' 
-            }));
-        } else {
-            setErrors(prev => {
-                const copy = { ...prev };
-                delete copy.guardian_phone;
-                return copy;
-            });
-        }
-    };
-
-    const handleRequiredBlur = (field: keyof ValidationErrors, label: string) => {
-        const val = formData[field as keyof RegistrationFormData];
-        if (!val) {
-            setErrors(prev => ({ ...prev, [field]: `${label} is required.` }));
-        } else {
-            setErrors(prev => {
-                const copy = { ...prev };
-                delete copy[field];
-                return copy;
-            });
-        }
+        return (
+            <div key={field.key} className={field.gridSpan === 2 ? styles.inputGroupFull : styles.inputGroup}>
+                <label className={styles.inputLabel} htmlFor={field.key}>
+                    {field.label} {field.required && <span style={{ color: '#ef4444' }}>*</span>}
+                </label>
+                <input
+                    type={field.type}
+                    id={field.key}
+                    maxLength={field.validationType === 'aadhaar' ? 12 : field.validationType === 'phone' ? 10 : undefined}
+                    className={`${styles.inputField} ${isError ? styles.inputError : ''}`}
+                    placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                    value={(formData as any)[field.key] || ''}
+                    onChange={(e) => {
+                        let val = e.target.value;
+                        if (field.validationType === 'aadhaar' || field.validationType === 'phone') {
+                            val = val.replace(/\D/g, '');
+                        }
+                        updateForm(field.key as keyof RegistrationFormData, val as any);
+                    }}
+                    onBlur={() => validateField(field.key, (formData as any)[field.key])}
+                />
+                {isError ? (
+                    <span className={styles.errorMessage}>{errorMsg}</span>
+                ) : field.validationType === 'aadhaar' ? (
+                    <span className={styles.inputHint}>12-digit unique identification number. Will be mathematically verified.</span>
+                ) : null}
+            </div>
+        );
     };
 
     return (
@@ -180,136 +165,38 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
             </div>
 
             <div className={styles.formGrid}>
-                {/* Full Name */}
-                <div className={styles.inputGroupFull}>
-                    <label className={styles.inputLabel} htmlFor="full_name">
-                        Full Name (as in Aadhaar) <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <input
-                        type="text"
-                        id="full_name"
-                        className={`${styles.inputField} ${errors.full_name ? styles.inputError : ''}`}
-                        placeholder="Enter full name"
-                        value={formData.full_name}
-                        onChange={(e) => updateForm('full_name', e.target.value)}
-                        onBlur={() => handleRequiredBlur('full_name', 'Full name')}
-                    />
-                    {errors.full_name && <span className={styles.errorMessage}>{errors.full_name}</span>}
-                </div>
+                {/* 1. Candidate Details Section Fields */}
+                {FORM_FIELDS_CONFIG.filter(f => f.section === 'candidate').map(renderField)}
 
-                {/* Father's Name */}
-                <div className={styles.inputGroup}>
-                    <label className={styles.inputLabel} htmlFor="father_name">
-                        Father's Name <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <input
-                        type="text"
-                        id="father_name"
-                        className={`${styles.inputField} ${errors.father_name ? styles.inputError : ''}`}
-                        placeholder="Enter father's name"
-                        value={formData.father_name}
-                        onChange={(e) => updateForm('father_name', e.target.value)}
-                        onBlur={() => handleRequiredBlur('father_name', "Father's name")}
-                    />
-                    {errors.father_name && <span className={styles.errorMessage}>{errors.father_name}</span>}
-                </div>
-
-                {/* Father's Phone */}
-                <div className={styles.inputGroup}>
-                    <label className={styles.inputLabel} htmlFor="father_number">Father's Phone (Optional)</label>
-                    <input
-                        type="tel"
-                        id="father_number"
-                        maxLength={10}
-                        className={`${styles.inputField} ${errors.father_number ? styles.inputError : ''}`}
-                        placeholder="10-digit mobile number"
-                        value={formData.father_number}
-                        onChange={(e) => updateForm('father_number', e.target.value.replace(/\D/g, ''))}
-                        onBlur={handleFatherPhoneBlur}
-                    />
-                    {errors.father_number && <span className={styles.errorMessage}>{errors.father_number}</span>}
-                </div>
-
-                {/* Aadhaar Number */}
-                <div className={styles.inputGroupFull}>
-                    <label className={styles.inputLabel} htmlFor="aadhaar_number">
-                        Aadhaar Number <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <input
-                        type="text"
-                        id="aadhaar_number"
-                        maxLength={12}
-                        className={`${styles.inputField} ${errors.aadhaar_number ? styles.inputError : ''}`}
-                        placeholder="e.g. 543210987654"
-                        value={formData.aadhaar_number}
-                        onChange={(e) => updateForm('aadhaar_number', e.target.value.replace(/\D/g, ''))}
-                        onBlur={handleAadhaarBlur}
-                    />
-                    {errors.aadhaar_number ? (
-                        <span className={styles.errorMessage}>{errors.aadhaar_number}</span>
-                    ) : (
-                        <span className={styles.inputHint}>12-digit unique identification number. Will be mathematically verified.</span>
-                    )}
-                </div>
-
-                {/* Date of Birth */}
-                <div className={styles.inputGroup}>
-                    <label className={styles.inputLabel} htmlFor="dob">
-                        Date of Birth <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <input
-                        type="date"
-                        id="dob"
-                        className={`${styles.inputField} ${errors.dob ? styles.inputError : ''}`}
-                        value={formData.dob}
-                        onChange={(e) => updateForm('dob', e.target.value)}
-                        onBlur={() => handleRequiredBlur('dob', 'Date of birth')}
-                    />
-                    {errors.dob && <span className={styles.errorMessage}>{errors.dob}</span>}
-                </div>
-
-                {/* Gender */}
-                <div className={styles.inputGroup}>
-                    <label className={styles.inputLabel}>Gender</label>
-                    <div className={styles.buttonGroup}>
-                        <button
-                            type="button"
-                            className={`${styles.selectorButton} ${formData.gender === 'male' ? styles.selectorButtonActive : ''}`}
-                            onClick={() => updateForm('gender', 'male')}
-                        >
-                            Male
-                        </button>
-                        <button
-                            type="button"
-                            className={`${styles.selectorButton} ${formData.gender === 'female' ? styles.selectorButtonActive : ''}`}
-                            onClick={() => updateForm('gender', 'female')}
-                        >
-                            Female
-                        </button>
-                    </div>
-                </div>
-
-                {/* Category Selection */}
+                {/* Custom Category Selection in original place */}
                 <div className={styles.inputGroupFull}>
                     <label className={styles.inputLabel}>
                         Competition Category <span style={{ color: '#ef4444' }}>*</span>
                     </label>
                     <div className={styles.buttonGroup}>
-                        {(['5_juz', '15_juz', '30_juz'] as const).map((cat) => {
-                            const isEligible = !formData.dob || eligibility[cat].eligible;
+                        {CATEGORIES_CONFIG.map((cat) => {
+                            const isEligible = !formData.dob || eligibility[cat.key as '5_juz' | '15_juz' | '30_juz'].eligible;
                             return (
                                 <button
-                                    key={cat}
+                                    key={cat.key}
                                     type="button"
                                     disabled={!isEligible}
-                                    className={`${styles.selectorButton} ${formData.category === cat ? styles.selectorButtonActive : ''}`}
+                                    className={`${styles.selectorButton} ${formData.category === cat.key ? styles.selectorButtonActive : ''}`}
                                     style={!isEligible ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
-                                    onClick={() => updateForm('category', cat)}
+                                    onClick={() => {
+                                        updateForm('category', cat.key as '5_juz' | '15_juz' | '30_juz');
+                                        if (cat.defaultJuz) {
+                                            updateForm('selected_juz', cat.defaultJuz);
+                                        } else {
+                                            updateForm('selected_juz', '');
+                                        }
+                                        validateField('category', cat.key);
+                                    }}
                                 >
-                                    <div>{cat === '5_juz' ? '5 Juz Hifz' : cat === '15_juz' ? '15 Juz Hifz' : '30 Juz Hifz'}</div>
+                                    <div>{cat.label}</div>
                                     {!isEligible && (
                                         <div style={{ fontSize: '10px', color: '#ff3b30', marginTop: '2px', fontWeight: 'bold' }}>
-                                            {eligibility[cat].message}
+                                            {eligibility[cat.key as '5_juz' | '15_juz' | '30_juz'].message}
                                         </div>
                                     )}
                                 </button>
@@ -319,80 +206,40 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
                     {errors.category && <span className={styles.errorMessage}>{errors.category}</span>}
                 </div>
 
-                {/* Mobile Number */}
-                <div className={styles.inputGroup}>
-                    <label className={styles.inputLabel} htmlFor="whatsapp_number">
-                        WhatsApp / Mobile Number <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <input
-                        type="tel"
-                        id="whatsapp_number"
-                        maxLength={10}
-                        className={`${styles.inputField} ${errors.whatsapp_number ? styles.inputError : ''}`}
-                        placeholder="10-digit mobile number"
-                        value={formData.whatsapp_number}
-                        onChange={(e) => updateForm('whatsapp_number', e.target.value.replace(/\D/g, ''))}
-                        onBlur={handleMobileBlur}
-                    />
-                    {errors.whatsapp_number && <span className={styles.errorMessage}>{errors.whatsapp_number}</span>}
-                </div>
+                {/* Custom Juz Option Selection in original place */}
+                {getJuzOptionsForCategory(formData.category).length > 0 && (
+                    <div className={styles.inputGroupFull}>
+                        <label className={styles.inputLabel}>
+                            Select Juz Range / Option <span style={{ color: '#ef4444' }}>*</span>
+                        </label>
+                        <select
+                             className={styles.inputField}
+                             value={formData.selected_juz}
+                             onChange={(e) => {
+                                 updateForm('selected_juz', e.target.value);
+                                 validateField('selected_juz', e.target.value);
+                             }}
+                        >
+                            <option value="">-- Choose Juz Range --</option>
+                            {getJuzOptionsForCategory(formData.category).map((opt) => (
+                                <option key={opt} value={opt}>
+                                    {opt}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
 
-                {/* Email Address */}
-                <div className={styles.inputGroup}>
-                    <label className={styles.inputLabel} htmlFor="email">Email Address</label>
-                    <input
-                        type="email"
-                        id="email"
-                        className={`${styles.inputField} ${errors.email ? styles.inputError : ''}`}
-                        placeholder="e.g. candidate@example.com"
-                        value={formData.email}
-                        onChange={(e) => updateForm('email', e.target.value)}
-                        onBlur={handleEmailBlur}
-                    />
-                    {errors.email && <span className={styles.errorMessage}>{errors.email}</span>}
-                </div>
-
+                {/* 2. Divider & Guardian Header */}
                 <div className={styles.inputGroupFull}>
                     <hr className={styles.sectionDivider} />
                     <h4 className={styles.sectionTitle}>Guardian Details</h4>
                 </div>
 
-                {/* Guardian Name */}
-                <div className={styles.inputGroup}>
-                    <label className={styles.inputLabel} htmlFor="guardian_name">
-                        Guardian's Name <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <input
-                        type="text"
-                        id="guardian_name"
-                        className={`${styles.inputField} ${errors.guardian_name ? styles.inputError : ''}`}
-                        placeholder="Enter parent or guardian name"
-                        value={formData.guardian_name}
-                        onChange={(e) => updateForm('guardian_name', e.target.value)}
-                        onBlur={() => handleRequiredBlur('guardian_name', "Guardian's name")}
-                    />
-                    {errors.guardian_name && <span className={styles.errorMessage}>{errors.guardian_name}</span>}
-                </div>
+                {/* 3. Guardian Details Section Fields */}
+                {FORM_FIELDS_CONFIG.filter(f => f.section === 'guardian').map(renderField)}
 
-                {/* Guardian Phone */}
-                <div className={styles.inputGroup}>
-                    <label className={styles.inputLabel} htmlFor="guardian_phone">
-                        Guardian's Phone <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <input
-                        type="tel"
-                        id="guardian_phone"
-                        maxLength={10}
-                        className={`${styles.inputField} ${errors.guardian_phone ? styles.inputError : ''}`}
-                        placeholder="10-digit mobile number"
-                        value={formData.guardian_phone}
-                        onChange={(e) => updateForm('guardian_phone', e.target.value.replace(/\D/g, ''))}
-                        onBlur={handleGuardianPhoneBlur}
-                    />
-                    {errors.guardian_phone && <span className={styles.errorMessage}>{errors.guardian_phone}</span>}
-                </div>
-
-                {/* Accommodation Requirement */}
+                {/* Custom Accommodation Requirement checkbox */}
                 <div className={styles.inputGroupFull} style={{ marginTop: '12px' }}>
                     <label className={styles.checkboxLabel}>
                         <input

@@ -168,15 +168,19 @@
 }
 
 .bannerTimeValue {
-    font-size: 30px;
-    font-weight: 700;
+    font-size: 28px;
+    font-weight: 800;
     color: #0d9488;
     background-color: #ffffff;
-    padding: 6px 12px;
-    border-radius: 8px;
-    min-width: 52px;
-    display: inline-block;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+    letter-spacing: -0.02em;
+    line-height: 1;
 }
 
 .bannerTimeLabel {
@@ -506,3 +510,48 @@
 }
 
 .spinning { animation: spin 1s linear infinite; }
+
+@media (max-width: 768px) {
+    .dashboardWrapper {
+        gap: 16px;
+        padding: 12px;
+    }
+    .welcomeSection {
+        padding: 20px;
+        border-radius: 12px;
+        gap: 20px;
+    }
+    .welcomeTitle {
+        font-size: 24px;
+    }
+    .welcomeDesc {
+        font-size: 13px;
+    }
+    .welcomeRight {
+        min-width: 100%;
+        padding: 16px;
+    }
+    .topStatsGrid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    .statCard {
+        padding: 16px;
+    }
+    .statValue {
+        font-size: 30px;
+    }
+    .bannerTimeValue {
+        font-size: 20px;
+        width: 44px;
+        height: 44px;
+    }
+    .recalcCard {
+        padding: 16px;
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .recalcRight {
+        margin-top: 12px;
+    }
+}
