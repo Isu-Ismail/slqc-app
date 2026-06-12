@@ -5,11 +5,12 @@ import { pb } from '../../../../api/db';
 import { trackApplicationApi } from '../../../../api/routes/TracApplication.api';
 import type { ParticipantsApplicationResponse, InstitutionsResponse } from '../../../../api/types';
 import AlertModal from '../../../../shared/components/Modal/AlertModal';
+import { useIndividualRealtime, useInstitutionRealtime } from '../../../../realtime/track';
 
 import styles from './TrackPage.module.css';
 import IndividualDetails from './components/IndividualDetails';
 import InstitutionDetails from './components/InstitutionDetails';
-import { FORM_FIELDS_CONFIG, getJuzOptionsForCategory } from '../../../../config/fieldsConfig';
+import { FORM_FIELDS_CONFIG, getJuzOptionsForCategory, JUZ_OPTIONS } from '../../../../config/fieldsConfig';
 
 
 
@@ -56,6 +57,7 @@ export default function TrackPage() {
     const [isEditMode, setIsEditMode] = useState(false);
     const [editData, setEditData] = useState<Record<string, any>>({});
     const [editAadhaarFile, setEditAadhaarFile] = useState<File | null>(null);
+    const [editBirthCertificateFile, setEditBirthCertificateFile] = useState<File | null>(null);
     const [editCandidatePhotoFile, setEditCandidatePhotoFile] = useState<File | null>(null);
 
     const updateEditField = (key: string, value: any) => {
@@ -69,10 +71,17 @@ export default function TrackPage() {
             if (field.type === 'date' && val) {
                 val = val.split(' ')[0];
             }
+            if (field.key === 'juz_options' && !val) {
+                const matched = JUZ_OPTIONS.find(o => o.label === record.selected_juz);
+                if (matched) {
+                    val = matched.code;
+                }
+            }
             data[field.key] = val || '';
         });
         setEditData(data);
         setEditAadhaarFile(null);
+        setEditBirthCertificateFile(null);
         setEditCandidatePhotoFile(null);
     };
 
@@ -111,9 +120,7 @@ export default function TrackPage() {
         type: 'warning'
     });
 
-    const CACHE_TTL = 300000; // 5 minutes
-
-    // Load from Cache on mount
+    // Load from Cache / URL and auto-fetch on mount
     useEffect(() => {
         const urlType = searchParams.get('type');
         const urlQuery = searchParams.get('query');
@@ -124,9 +131,6 @@ export default function TrackPage() {
             setActiveTab('institution');
             setInstitutionQuery(urlQuery);
             setInstitutionPasscode(urlPasscode);
-            
-            // Clear current cache first to ensure fresh fetch
-            localStorage.removeItem('quran_competition_track_institution_data');
             
             localStorage.setItem('quran_competition_track_institution_query', urlQuery);
             sessionStorage.setItem('quran_competition_track_institution_passcode', urlPasscode);
@@ -141,8 +145,6 @@ export default function TrackPage() {
             setIndividualQuery(urlQuery);
             setSearchDob(urlDob);
             
-            localStorage.removeItem('quran_competition_track_individual_record');
-
             localStorage.setItem('quran_competition_track_individual_query', urlQuery);
             localStorage.setItem('quran_competition_track_individual_dob', urlDob);
             localStorage.setItem('quran_competition_track_tab', 'individual');
@@ -166,69 +168,67 @@ export default function TrackPage() {
 
         const cachedIndQuery = localStorage.getItem('quran_competition_track_individual_query');
         const cachedIndDob = localStorage.getItem('quran_competition_track_individual_dob');
-        const cachedIndRecord = localStorage.getItem('quran_competition_track_individual_record');
-        const cachedIndTime = localStorage.getItem('quran_competition_track_individual_timestamp');
 
         if (cachedIndQuery) setIndividualQuery(cachedIndQuery);
         if (cachedIndDob) setSearchDob(cachedIndDob);
 
-        if (cachedIndRecord) {
-            try {
-                const parsed = JSON.parse(cachedIndRecord);
-                setIndividualRecord(parsed);
-                initializeEditData(parsed);
-            } catch (e) {
-                console.error('Failed to parse cached individual record:', e);
-            }
+        if (cachedIndQuery && cachedIndDob) {
+            handleSearchIndividual(cachedIndQuery, cachedIndDob, true);
         }
 
         const cachedInstQuery = localStorage.getItem('quran_competition_track_institution_query');
         const cachedInstPasscode = sessionStorage.getItem('quran_competition_track_institution_passcode');
-        const cachedInstData = localStorage.getItem('quran_competition_track_institution_data');
-        const cachedInstTime = localStorage.getItem('quran_competition_track_institution_timestamp');
 
         if (cachedInstQuery) setInstitutionQuery(cachedInstQuery);
         if (cachedInstPasscode) setInstitutionPasscode(cachedInstPasscode);
-        if (cachedInstData) {
-            try {
-                const parsed = JSON.parse(cachedInstData);
-                setInstitutionData(parsed);
-                if (parsed.institution) {
-                    setInstEditName(parsed.institution.name || '');
-                    setInstEditAddress(parsed.institution.address || '');
-                    setInstEditContactPerson(parsed.institution.contact_person || '');
-                    setInstEditEmail(parsed.institution.email || '');
-                    setInstEditWhatsapp(parsed.institution.whatsapp_number || '');
-                    setInstEditPhone(parsed.institution.phone_number || '');
-                    setInstEditDocFile(null);
-                    setInstEditLocation(parsed.institution.instituition_location || '');
-                    setInstEditBuildingFile(null);
-                }
-            } catch (e) {
-                console.error('Failed to parse cached institution data:', e);
-            }
-        }
 
-        // Trigger background fetch if cache exists but is stale
-        const now = Date.now();
-        if (cachedIndQuery && cachedIndDob && cachedIndRecord) {
-            const timeDiff = now - Number(cachedIndTime || 0);
-            if (timeDiff > CACHE_TTL) {
-                handleSearchIndividual(cachedIndQuery, cachedIndDob, true);
-            }
-        }
-        if (cachedInstQuery && cachedInstData) {
-            const timeDiff = now - Number(cachedInstTime || 0);
-            if (timeDiff > CACHE_TTL && cachedInstPasscode) {
-                handleSearchInstitution(cachedInstQuery, cachedInstPasscode, true);
-            }
+        if (cachedInstQuery && cachedInstPasscode) {
+            handleSearchInstitution(cachedInstQuery, cachedInstPasscode, true);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchParams]);
 
     // Realtime subscriptions
+    useIndividualRealtime(
+        individualRecord?.id,
+        (updatedRecord) => {
+            setIndividualRecord(updatedRecord);
+            if (updatedRecord.is_locked) {
+                setIsEditMode(false);
+            }
+            initializeEditData(updatedRecord);
+        },
+        () => {
+            setIndividualRecord(null);
+            triggerAlert('Your application record has been deleted by an administrator.', 'Deleted');
+        }
+    );
 
-
+    useInstitutionRealtime(
+        institutionData?.institution?.id,
+        (updatedInst) => {
+            setInstitutionData(prev => {
+                if (!prev) return null;
+                return { ...prev, institution: updatedInst };
+            });
+        },
+        (action, record) => {
+            setInstitutionData(prev => {
+                if (!prev) return null;
+                let updatedApps = [...prev.applications];
+                if (action === 'create') {
+                    if (!updatedApps.some(a => a.id === record.id)) {
+                        updatedApps = [record, ...updatedApps];
+                    }
+                } else if (action === 'update') {
+                    updatedApps = updatedApps.map(a => a.id === record.id ? record : a);
+                } else if (action === 'delete') {
+                    updatedApps = updatedApps.filter(a => a.id !== record.id);
+                }
+                return { ...prev, applications: updatedApps };
+            });
+        }
+    );
     const triggerAlert = (message: string, title = 'Notification', type: 'success' | 'warning' = 'warning') => {
         setAlertModal({ isOpen: true, title, message, type });
     };
@@ -254,8 +254,6 @@ export default function TrackPage() {
                 setIndividualRecord(record);
                 localStorage.setItem('quran_competition_track_individual_query', queryVal);
                 localStorage.setItem('quran_competition_track_individual_dob', dobVal);
-                localStorage.setItem('quran_competition_track_individual_record', JSON.stringify(record));
-                localStorage.setItem('quran_competition_track_individual_timestamp', Date.now().toString());
                 localStorage.setItem('quran_competition_track_tab', 'individual');
 
                 initializeEditData(record);
@@ -294,8 +292,6 @@ export default function TrackPage() {
                 setInstitutionData(result);
                 localStorage.setItem('quran_competition_track_institution_query', queryVal);
                 sessionStorage.setItem('quran_competition_track_institution_passcode', passcodeVal.trim());
-                localStorage.setItem('quran_competition_track_institution_data', JSON.stringify(result));
-                localStorage.setItem('quran_competition_track_institution_timestamp', Date.now().toString());
                 localStorage.setItem('quran_competition_track_tab', 'institution');
 
                 const inst = result.institution;
@@ -366,26 +362,71 @@ export default function TrackPage() {
             }
         }
 
+        // Calculate actual diff of changes
+        const changes: Record<string, any> = {};
+        FORM_FIELDS_CONFIG.forEach(field => {
+            if (field.key === 'requires_accommodation') {
+                const oldVal = !!individualRecord.requires_accommodation;
+                const newVal = !!editData.requires_accommodation;
+                if (oldVal !== newVal) {
+                    changes.requires_accommodation = newVal;
+                }
+            } else {
+                let oldVal = (individualRecord as any)[field.key] || '';
+                if (field.type === 'date' && oldVal) {
+                    oldVal = oldVal.split(' ')[0];
+                }
+                const newVal = editData[field.key] || '';
+                if (String(oldVal).trim() !== String(newVal).trim()) {
+                    changes[field.key] = String(newVal).trim();
+                }
+            }
+        });
+
+        const hasFileChanges = editAadhaarFile !== null || editBirthCertificateFile !== null || editCandidatePhotoFile !== null;
+
+        if (individualRecord.status === 'rejected') {
+            changes.status = 'reapplied';
+            changes.approved_by = '';
+            changes.rejection_reason = '';
+        }
+
+        if (Object.keys(changes).length === 0 && !hasFileChanges) {
+            setIsEditMode(false);
+            return;
+        }
+
         setLoading(true);
         try {
-            const formData = new FormData();
-            FORM_FIELDS_CONFIG.forEach(field => {
-                if (field.key !== 'requires_accommodation') {
-                    formData.append(field.key, String(editData[field.key] ?? '').trim());
+            let payload: FormData | Record<string, any>;
+
+            if (hasFileChanges) {
+                const formData = new FormData();
+                Object.entries(changes).forEach(([k, v]) => {
+                    formData.append(k, String(v));
+                });
+                if (editAadhaarFile) {
+                    formData.append('aadhaar_front', editAadhaarFile);
                 }
-            });
-            formData.append('requires_accommodation', String(!!editData.requires_accommodation));
-
-            if (editAadhaarFile) {
-                formData.append('aadhaar_front', editAadhaarFile);
+                if (editBirthCertificateFile) {
+                    formData.append('birthcertificate_photo', editBirthCertificateFile);
+                }
+                if (editCandidatePhotoFile) {
+                    formData.append('candidate_photo', editCandidatePhotoFile);
+                }
+                payload = formData;
+            } else {
+                payload = changes;
             }
-            if (editCandidatePhotoFile) {
-                formData.append('candidate_photo', editCandidatePhotoFile);
-            }
 
-            const updated = await trackApplicationApi.updateApplication(individualRecord.id, formData);
+            const updated = await trackApplicationApi.updateApplication(individualRecord.id, payload);
             setIndividualRecord(updated);
             setIsEditMode(false);
+            
+            // Auto-switch query to Application ID so status rechecks work if Aadhaar is changed
+            setIndividualQuery(updated.id);
+            localStorage.setItem('quran_competition_track_individual_query', updated.id);
+
             triggerAlert('Application details updated successfully!', 'Success', 'success');
         } catch (e: any) {
             triggerAlert(e.message || 'Failed to update application details.', 'Update Error');
@@ -430,9 +471,7 @@ export default function TrackPage() {
             const updated = await trackApplicationApi.updateInstitution(institutionData.institution.id, formData);
             setInstitutionData(prev => {
                 if (!prev) return null;
-                const nextData = { ...prev, institution: updated };
-                localStorage.setItem('quran_competition_track_institution_data', JSON.stringify(nextData));
-                return nextData;
+                return { ...prev, institution: updated };
             });
             setIsInstEditMode(false);
             triggerAlert('Institution details updated successfully!', 'Success', 'success');
@@ -452,8 +491,6 @@ export default function TrackPage() {
 
             localStorage.removeItem('quran_competition_track_individual_query');
             localStorage.removeItem('quran_competition_track_individual_dob');
-            localStorage.removeItem('quran_competition_track_individual_record');
-            localStorage.removeItem('quran_competition_track_individual_timestamp');
 
             triggerAlert('Individual applicant search cache cleared.', 'Cache Cleared', 'success');
         } else {
@@ -464,8 +501,6 @@ export default function TrackPage() {
 
             localStorage.removeItem('quran_competition_track_institution_query');
             sessionStorage.removeItem('quran_competition_track_institution_passcode');
-            localStorage.removeItem('quran_competition_track_institution_data');
-            localStorage.removeItem('quran_competition_track_institution_timestamp');
 
             triggerAlert('Institution search cache cleared.', 'Cache Cleared', 'success');
         }
@@ -475,6 +510,7 @@ export default function TrackPage() {
         switch (status) {
             case 'approved': return styles.statusApproved;
             case 'rejected': return styles.statusRejected;
+            case 'reapplied': return styles.statusReapplied;
             default: return styles.statusPending;
         }
     };
@@ -482,6 +518,11 @@ export default function TrackPage() {
     const getAadhaarUrl = (record: ParticipantsApplicationResponse) => {
         if (!record.aadhaar_front) return '#';
         return pb.files.getURL(record, record.aadhaar_front);
+    };
+
+    const getBirthCertificateUrl = (record: ParticipantsApplicationResponse) => {
+        if (!record.birthcertificate_photo) return '#';
+        return pb.files.getURL(record, record.birthcertificate_photo);
     };
 
     const getCandidatePhotoUrl = (record: ParticipantsApplicationResponse) => {
@@ -618,12 +659,15 @@ export default function TrackPage() {
                         updateEditField={updateEditField}
                         editAadhaarFile={editAadhaarFile}
                         setEditAadhaarFile={setEditAadhaarFile}
+                        editBirthCertificateFile={editBirthCertificateFile}
+                        setEditBirthCertificateFile={setEditBirthCertificateFile}
                         editCandidatePhotoFile={editCandidatePhotoFile}
                         setEditCandidatePhotoFile={setEditCandidatePhotoFile}
                         handleSaveIndividualChanges={handleSaveIndividualChanges}
                         loading={loading}
                         getStatusClass={getStatusClass}
                         getAadhaarUrl={getAadhaarUrl}
+                        getBirthCertificateUrl={getBirthCertificateUrl}
                         getCandidatePhotoUrl={getCandidatePhotoUrl}
                         onRefresh={() => handleSearchIndividual(individualQuery, searchDob, true)}
                     />

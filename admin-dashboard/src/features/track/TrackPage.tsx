@@ -7,8 +7,9 @@ import { Search } from 'lucide-react';
 import styles from './TrackPage.module.css';
 import IndividualDetails from './components/IndividualDetails';
 import InstitutionDetails from './components/InstitutionDetails';
-import { FORM_FIELDS_CONFIG, getJuzOptionsForCategory } from '../../config/fieldsConfig';
+import { FORM_FIELDS_CONFIG, getJuzCodesForCategory, JUZ_OPTIONS } from '../../config/fieldsConfig';
 import { pb } from '../../api/db';
+import { useIndividualRealtime, useInstitutionRealtime } from '../../realtime/track';
 
 const isValidGoogleMapsLink = (url: string): boolean => {
     try {
@@ -50,6 +51,7 @@ export default function TrackPage() {
     const [isEditMode, setIsEditMode] = useState(false);
     const [editData, setEditData] = useState<Record<string, any>>({});
     const [editAadhaarFile, setEditAadhaarFile] = useState<File | null>(null);
+    const [editBirthCertificateFile, setEditBirthCertificateFile] = useState<File | null>(null);
     const [editCandidatePhotoFile, setEditCandidatePhotoFile] = useState<File | null>(null);
 
     const updateEditField = (key: string, value: any) => {
@@ -63,10 +65,17 @@ export default function TrackPage() {
             if (field.type === 'date' && val) {
                 val = val.split(' ')[0];
             }
+            if (field.key === 'juz_options' && !val) {
+                const matched = JUZ_OPTIONS.find(o => o.label === record.selected_juz);
+                if (matched) {
+                    val = matched.code;
+                }
+            }
             data[field.key] = val || '';
         });
         setEditData(data);
         setEditAadhaarFile(null);
+        setEditBirthCertificateFile(null);
         setEditCandidatePhotoFile(null);
     };
 
@@ -105,11 +114,51 @@ export default function TrackPage() {
 
     const CACHE_TTL = 300000; // 5 minutes
 
-
-
     const triggerAlert = (message: string, title = 'Notification', type: 'alert' | 'success' = 'alert') => {
         setAlertModal({ isOpen: true, title, message, type });
     };
+
+    // Realtime subscriptions
+    useIndividualRealtime(
+        individualRecord?.id,
+        (updatedRecord) => {
+            setIndividualRecord(updatedRecord);
+            if (updatedRecord.is_locked) {
+                setIsEditMode(false);
+            }
+            initializeEditData(updatedRecord);
+        },
+        () => {
+            setIndividualRecord(null);
+            triggerAlert('This application record has been deleted.', 'Deleted');
+        }
+    );
+
+    useInstitutionRealtime(
+        institutionData?.institution?.id,
+        (updatedInst) => {
+            setInstitutionData(prev => {
+                if (!prev) return null;
+                return { ...prev, institution: updatedInst };
+            });
+        },
+        (action, record) => {
+            setInstitutionData(prev => {
+                if (!prev) return null;
+                let updatedApps = [...prev.applications];
+                if (action === 'create') {
+                    if (!updatedApps.some(a => a.id === record.id)) {
+                        updatedApps = [record, ...updatedApps];
+                    }
+                } else if (action === 'update') {
+                    updatedApps = updatedApps.map(a => a.id === record.id ? record : a);
+                } else if (action === 'delete') {
+                    updatedApps = updatedApps.filter(a => a.id !== record.id);
+                }
+                return { ...prev, applications: updatedApps };
+            });
+        }
+    );
 
     const handleSearchIndividual = async (queryVal = individualQuery, silent = false) => {
         if (!queryVal.trim()) {
@@ -312,38 +361,78 @@ export default function TrackPage() {
             const val = editData[field.key];
             const valStr = val !== undefined && val !== null ? String(val).trim() : '';
             if (field.required && !valStr) {
-                if (field.key === 'selected_juz') {
-                    if (getJuzOptionsForCategory(editData.category).length > 0) {
+                if (field.key === 'juz_options') {
+                    if (getJuzCodesForCategory(editData.category).length > 0) {
                         triggerAlert('Please select a Juz range option.', 'Validation Error');
                         return;
                     }
-                } else {
+                } else if (field.key !== 'selected_juz') {
                     triggerAlert(`Please fill in "${field.label}".`, 'Validation Error');
                     return;
                 }
             }
         }
 
+        // Calculate actual diff of changes
+        const changes: Record<string, any> = {};
+        FORM_FIELDS_CONFIG.forEach(field => {
+            if (field.key === 'requires_accommodation') {
+                const oldVal = !!individualRecord.requires_accommodation;
+                const newVal = !!editData.requires_accommodation;
+                if (oldVal !== newVal) {
+                    changes.requires_accommodation = newVal;
+                }
+            } else {
+                let oldVal = (individualRecord as any)[field.key] || '';
+                if (field.type === 'date' && oldVal) {
+                    oldVal = oldVal.split(' ')[0];
+                }
+                const newVal = editData[field.key] || '';
+                if (String(oldVal).trim() !== String(newVal).trim()) {
+                    changes[field.key] = String(newVal).trim();
+                }
+            }
+        });
+
+        const hasFileChanges = editAadhaarFile !== null || editBirthCertificateFile !== null || editCandidatePhotoFile !== null;
+
+        if (Object.keys(changes).length === 0 && !hasFileChanges) {
+            setIsEditMode(false);
+            return;
+        }
+
         setLoading(true);
         try {
-            const formData = new FormData();
-            FORM_FIELDS_CONFIG.forEach(field => {
-                if (field.key !== 'requires_accommodation') {
-                    formData.append(field.key, String(editData[field.key] ?? '').trim());
+            let payload: FormData | Record<string, any>;
+
+            if (hasFileChanges) {
+                const formData = new FormData();
+                Object.entries(changes).forEach(([k, v]) => {
+                    formData.append(k, String(v));
+                });
+                if (editAadhaarFile) {
+                    formData.append('aadhaar_front', editAadhaarFile);
                 }
-            });
-            formData.append('requires_accommodation', String(!!editData.requires_accommodation));
-
-            if (editAadhaarFile) {
-                formData.append('aadhaar_front', editAadhaarFile);
+                if (editBirthCertificateFile) {
+                    formData.append('birthcertificate_photo', editBirthCertificateFile);
+                }
+                if (editCandidatePhotoFile) {
+                    formData.append('candidate_photo', editCandidatePhotoFile);
+                }
+                payload = formData;
+            } else {
+                payload = changes;
             }
-            if (editCandidatePhotoFile) {
-                formData.append('candidate_photo', editCandidatePhotoFile);
-            }
 
-            const updated = await adminTrackApi.updateApplication(individualRecord.id, formData);
+            const updated = await adminTrackApi.updateApplication(individualRecord.id, payload);
             setIndividualRecord(updated);
             setIsEditMode(false);
+
+            // Auto-switch query to Application ID so status rechecks work if Aadhaar is changed
+            setIndividualQuery(updated.id);
+            localStorage.setItem('admin_track_individual_query', updated.id);
+            localStorage.setItem('admin_track_individual_record', JSON.stringify(updated));
+
             triggerAlert('Application details updated successfully!', 'Success', 'success');
         } catch (e: any) {
             triggerAlert(e.message || 'Failed to update application details.', 'Update Error');
@@ -429,6 +518,7 @@ export default function TrackPage() {
         switch (status) {
             case 'approved': return styles.statusApproved;
             case 'rejected': return styles.statusRejected;
+            case 'reapplied': return styles.statusReapplied;
             default: return styles.statusPending;
         }
     };
@@ -436,6 +526,11 @@ export default function TrackPage() {
     const getAadhaarUrl = (record: ParticipantsApplicationResponse) => {
         if (!record.aadhaar_front) return '#';
         return pb.files.getURL(record, record.aadhaar_front);
+    };
+
+    const getBirthCertificateUrl = (record: ParticipantsApplicationResponse) => {
+        if (!record.birthcertificate_photo) return '#';
+        return pb.files.getURL(record, record.birthcertificate_photo);
     };
 
     const getCandidatePhotoUrl = (record: ParticipantsApplicationResponse) => {
@@ -553,12 +648,15 @@ export default function TrackPage() {
                         updateEditField={updateEditField}
                         editAadhaarFile={editAadhaarFile}
                         setEditAadhaarFile={setEditAadhaarFile}
+                        editBirthCertificateFile={editBirthCertificateFile}
+                        setEditBirthCertificateFile={setEditBirthCertificateFile}
                         editCandidatePhotoFile={editCandidatePhotoFile}
                         setEditCandidatePhotoFile={setEditCandidatePhotoFile}
                         handleSaveIndividualChanges={handleSaveIndividualChanges}
                         loading={loading}
                         getStatusClass={getStatusClass}
                         getAadhaarUrl={getAadhaarUrl}
+                        getBirthCertificateUrl={getBirthCertificateUrl}
                         getCandidatePhotoUrl={getCandidatePhotoUrl}
                         onRefresh={() => handleSearchIndividual(individualQuery, true)}
                     />

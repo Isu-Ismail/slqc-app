@@ -24,11 +24,19 @@ export default function TimeSettingsForm({ metadata, onUpdate }: Props) {
         const timeRecord = metadata[timeKey] || metadata['time'];
         if (timeRecord && timeRecord.value) {
             Promise.resolve().then(() => {
+                let val = timeRecord.value;
+                if (typeof val === 'string') {
+                    try {
+                        val = JSON.parse(val);
+                    } catch (e) {
+                        console.error('Failed to parse timeRecord value', e);
+                    }
+                }
                 setFormData({
-                    startDate: timeRecord.value.startDate || '',
-                    endDate: timeRecord.value.endDate || '',
-                    startDescription: timeRecord.value.startDescription || 'Registration Opens In',
-                    endDescription: timeRecord.value.endDescription || 'Registration Closes In'
+                    startDate: val?.startDate || val?.date || '',
+                    endDate: val?.endDate || val?.date || '',
+                    startDescription: val?.startDescription || 'Registration Opens In',
+                    endDescription: val?.endDescription || 'Registration Closes In'
                 });
             });
         } else {
@@ -47,10 +55,11 @@ export default function TimeSettingsForm({ metadata, onUpdate }: Props) {
         const timeKey = `time_${category}`;
         try {
             const dbRecord = await metadataApi.getMetadataByKey(timeKey);
+            const payload = JSON.stringify(formData);
             if (dbRecord) {
-                await metadataApi.updateMetadata(dbRecord.id, formData);
+                await metadataApi.updateMetadata(dbRecord.id, payload);
             } else {
-                await metadataApi.createMetadata(timeKey, formData);
+                await metadataApi.createMetadata(timeKey, payload);
             }
             alert(`${category.replace('_', ' ').toUpperCase()} time settings updated successfully!`);
             onUpdate();

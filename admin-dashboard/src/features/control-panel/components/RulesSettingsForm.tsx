@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { metadataApi } from '../../../api/metadata';
 import type { MetadataRecord } from '../../../api/metadata';
+import { pb } from '../../../api/db';
 import styles from '../ControlPanelPage.module.css';
 
 interface Props {
@@ -11,15 +12,64 @@ interface Props {
 export default function RulesSettingsForm({ metadata, onUpdate }: Props) {
     const [indLoading, setIndLoading] = useState(false);
     const [instLoading, setInstLoading] = useState(false);
-    const [tplLoading, setTplLoading] = useState(false);
+    const [dosLoading, setDosLoading] = useState(false);
+    const [overallLoading, setOverallLoading] = useState(false);
+    const [mapLoading, setMapLoading] = useState(false);
 
     const indRecord = metadata['individual_rules'];
     const instRecord = metadata['institution_rules'];
-    const tplRecord = metadata['print_template'];
+    const dosRecord = metadata['dos_and_donts'];
+    const overallRecord = metadata['overall_rules'];
+    const mapRecord = metadata['venue_map'];
 
-    const handleFileUpload = (type: 'individual' | 'institution' | 'template', file: File) => {
+    const handleFileUpload = (type: 'individual' | 'institution' | 'dos' | 'overall', file: File) => {
+        const keyMap = {
+            individual: 'individual_rules',
+            institution: 'institution_rules',
+            dos: 'dos_and_donts',
+            overall: 'overall_rules'
+        };
+        const key = keyMap[type];
+
+        const loadingSetters = {
+            individual: setIndLoading,
+            institution: setInstLoading,
+            dos: setDosLoading,
+            overall: setOverallLoading
+        };
+        const setLoading = loadingSetters[type];
+
+        if (file.name.toLowerCase().endsWith('.pdf')) {
+            setLoading(true);
+            (async () => {
+                try {
+                    const record = await metadataApi.getMetadataByKey(key);
+                    if (record) {
+                        const formData = new FormData();
+                        formData.append('document', file);
+                        formData.append('value', ''); // Clear text value
+                        await pb.collection('metadata').update(record.id, formData);
+                    } else {
+                        const formData = new FormData();
+                        formData.append('key', key);
+                        formData.append('document', file);
+                        formData.append('value', '');
+                        await pb.collection('metadata').create(formData);
+                    }
+                    onUpdate();
+                    alert('Rules PDF uploaded successfully!');
+                } catch (err) {
+                    console.error(err);
+                    alert('Failed to upload rules PDF.');
+                } finally {
+                    setLoading(false);
+                }
+            })();
+            return;
+        }
+
         if (!file.name.endsWith('.txt') && !file.name.endsWith('.html')) {
-            alert('Please upload a plain text (.txt) or HTML (.html) file.');
+            alert('Please upload a plain text (.txt), HTML (.html), or PDF (.pdf) file.');
             return;
         }
 
@@ -28,63 +78,49 @@ export default function RulesSettingsForm({ metadata, onUpdate }: Props) {
             const text = e.target?.result as string;
             if (!text) return;
 
-            if (type === 'individual') {
-                setIndLoading(true);
-                try {
-                    const record = await metadataApi.getMetadataByKey('individual_rules');
-                    if (record) {
-                        await metadataApi.updateMetadata(record.id, text);
-                    } else {
-                        await metadataApi.createMetadata('individual_rules', text);
-                    }
-                    onUpdate();
-                    alert('Individual rules updated successfully!');
-                } catch (err) {
-                    console.error(err);
-                    alert('Failed to update individual rules.');
-                } finally {
-                    setIndLoading(false);
+            setLoading(true);
+            try {
+                const record = await metadataApi.getMetadataByKey(key);
+                if (record) {
+                    await pb.collection('metadata').update(record.id, {
+                        value: text,
+                        document: null // Clear document file when text is uploaded
+                    });
+                } else {
+                    await metadataApi.createMetadata(key, text);
                 }
-            } else if (type === 'institution') {
-                setInstLoading(true);
-                try {
-                    const record = await metadataApi.getMetadataByKey('institution_rules');
-                    if (record) {
-                        await metadataApi.updateMetadata(record.id, text);
-                    } else {
-                        await metadataApi.createMetadata('institution_rules', text);
-                    }
-                    onUpdate();
-                    alert('Institution rules updated successfully!');
-                } catch (err) {
-                    console.error(err);
-                    alert('Failed to update institution rules.');
-                } finally {
-                    setInstLoading(false);
-                }
-            } else {
-                setTplLoading(true);
-                try {
-                    const record = await metadataApi.getMetadataByKey('print_template');
-                    if (record) {
-                        await metadataApi.updateMetadata(record.id, text);
-                    } else {
-                        await metadataApi.createMetadata('print_template', text);
-                    }
-                    onUpdate();
-                    alert('Print template updated successfully!');
-                } catch (err) {
-                    console.error(err);
-                    alert('Failed to update print template.');
-                } finally {
-                    setTplLoading(false);
-                }
+                onUpdate();
+                alert('Rules updated successfully!');
+            } catch (err) {
+                console.error(err);
+                alert('Failed to update rules.');
+            } finally {
+                setLoading(false);
             }
         };
         reader.readAsText(file);
     };
 
-    const downloadSample = (type: 'individual' | 'institution' | 'template') => {
+    const handleMapUpload = async (file: File) => {
+        setMapLoading(true);
+        try {
+            const record = await metadataApi.getMetadataByKey('venue_map');
+            if (record) {
+                await metadataApi.updateMetadataDocument(record.id, file);
+            } else {
+                await metadataApi.createMetadataDocument('venue_map', file);
+            }
+            onUpdate();
+            alert('Venue map uploaded successfully!');
+        } catch (err) {
+            console.error(err);
+            alert('Failed to upload venue map.');
+        } finally {
+            setMapLoading(false);
+        }
+    };
+
+    const downloadSample = (type: 'individual' | 'institution' | 'dos' | 'overall') => {
         const individualText = `State Level Quran Competition - Individual Participant Rules & Regulations
 
 1. Eligibility & Registration:
@@ -119,94 +155,40 @@ export default function RulesSettingsForm({ metadata, onUpdate }: Props) {
    - The coordinator must represent the candidates during venue verification and reporting.
    - Accommodation requests must be submitted in advance.`;
 
-        const templateText = `<!-- Custom HTML Print Template Sample -->
-<div class="form-page">
-    <div class="header">
-        <h1>{{COMPETITION_TITLE}}</h1>
-        <h2>Candidate Application Form</h2>
-    </div>
+        const dosText = `State Level Quran Competition - Do's and Don'ts
 
-    <div class="top-row">
-        <div class="top-info">
-            <p><strong>Application ID:</strong> {{id}}</p>
-            <p><strong>Status:</strong> {{status}}</p>
-            <p><strong>Submitted On:</strong> {{submitted}}</p>
-            <p><strong>Registration Type:</strong> {{registration_type}}</p>
-        </div>
-        
-        <div class="approval-stamp">
-            <div class="stamp-title">APPROVED</div>
-            <div class="stamp-details">
-                <span style="font-size: 11px;">{{approvedByName}}</span><br/>
-                Ph: {{approverContact}}<br/>
-                {{approverEmail}}
-            </div>
-        </div>
+Do's:
+1. Do report at least 30 minutes before the scheduled time.
+2. Do bring a printout of your registration confirmation card.
+3. Do dress in formal, clean traditional attire.
+4. Do ensure your mobile phone is completely switched off before entering the recitation area.
 
-        <div class="photo-box">
-            <img src="{{photoUrl}}" alt="Passport Photo" />
-        </div>
-    </div>
+Don'ts:
+1. Don't carry any copies of the Quran or sheets inside the verification hall.
+2. Don't engage in loud conversations or disturbance in the waiting lounge.
+3. Don't communicate with the judges outside the active recitation session.`;
 
-    <div class="section">
-        <div class="section-title">Personal Details</div>
-        <div class="fields">
-            <div class="field"><span class="fl">Full Name</span><span class="fv">{{full_name}}</span></div>
-            <div class="field"><span class="fl">Father's Name</span><span class="fv">{{father_name}}</span></div>
-            <div class="field"><span class="fl">Father's Phone</span><span class="fv">{{father_number}}</span></div>
-            <div class="field"><span class="fl">Gender</span><span class="fv">{{gender}}</span></div>
-            <div class="field"><span class="fl">Date of Birth</span><span class="fv">{{dob}}</span></div>
-            <div class="field"><span class="fl">Aadhaar Number</span><span class="fv">{{aadhaar_number}}</span></div>
-            <div class="field"><span class="fl">Category</span><span class="fv">{{category}}</span></div>
-            <div class="field"><span class="fl">Selected Juz Range</span><span class="fv">{{selected_juz}}</span></div>
-            <div class="field"><span class="fl">Email</span><span class="fv">{{email}}</span></div>
-            <div class="field"><span class="fl">WhatsApp Number</span><span class="fv">{{whatsapp_number}}</span></div>
-        </div>
-    </div>
+        const overallText = `State Level Quran Competition - Overall Rules
 
-    <div class="section">
-        <div class="section-title">Guardian Details</div>
-        <div class="fields">
-            <div class="field"><span class="fl">Guardian Name</span><span class="fv">{{guardian_name}}</span></div>
-            <div class="field"><span class="fl">Guardian Phone</span><span class="fv">{{guardian_phone}}</span></div>
-        </div>
-    </div>
+1. Evaluation Criteria:
+   - Hifz (Memorization): 50 Marks
+   - Tajweed (Pronunciation & Rules): 35 Marks
+   - Tarteel/Jammal-e-Saut (Melody & Tone): 15 Marks
 
-    {{institution_details}}
+2. Time limits and indicators will be set by the judges.
+3. In case of ties, the judges' sub-scores in Memorization will act as tie-breakers.`;
 
-    <div class="section">
-        <div class="section-title">Additional Information</div>
-        <div class="fields">
-            <div class="field"><span class="fl">Requires Accommodation</span><span class="fv">{{requires_accommodation}}</span></div>
-        </div>
-    </div>
+        let text = '';
+        if (type === 'individual') text = individualText;
+        else if (type === 'institution') text = institutionText;
+        else if (type === 'dos') text = dosText;
+        else text = overallText;
 
-    <div class="declaration-block" style="margin-top: 10px; padding: 6px; border: 1px dashed #555; border-radius: 4px; font-size: 10px; line-height: 1.3; text-align: justify; margin-bottom: 6px;">
-        <strong>Declaration & Consent:</strong> By signing this application, I hereby declare that all the information provided is true and accurate. I state that I have read, understood, and solemnly agree to obey and follow the rules, regulations, and guidelines laid down by the Organising Committee of the competition.
-    </div>
-
-    <div class="sig-area">
-        <div class="sig-block"><div class="sig-line">Participant's Signature</div></div>
-        <div class="sig-block"><div class="sig-line">Guardian's Signature</div></div>
-        <div class="sig-block"><div class="sig-line">Approver's Signature</div></div>
-    </div>
-
-    <div class="instructions-block">
-        <strong>Important Instructions:</strong>
-        <ol>
-            <li>A colour printout of this application is preferred, but black and white is acceptable.</li>
-            <li>Please ensure all details are correct and signed before submission.</li>
-            <li>Attach a photocopy of your Aadhaar card along with this application form.</li>
-        </ol>
-    </div>
-</div>`;
-
-        const text = type === 'individual' ? individualText : type === 'institution' ? institutionText : templateText;
         const blob = new Blob([text], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = type === 'template' ? `print_template_sample.txt` : `${type}_rules_sample.txt`;
+        a.download = `${type}_rules_sample.txt`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -234,20 +216,32 @@ export default function RulesSettingsForm({ metadata, onUpdate }: Props) {
                         </button>
                     </div>
                     <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 12px 0' }}>
-                        Upload a plain text (.txt) file with the rules for individual candidates.
+                        Upload a plain text (.txt), HTML (.html), or PDF (.pdf) file with the rules for individual candidates.
                     </p>
                     <input 
                         type="file" 
-                        accept=".txt" 
+                        accept=".txt,.html,.pdf" 
                         className={styles.formInput} 
                         disabled={indLoading}
                         onChange={(e) => e.target.files?.[0] && handleFileUpload('individual', e.target.files[0])}
                     />
-                    {indRecord?.value && (
+                    {indRecord?.document ? (
+                        <div style={{ marginTop: '10px', fontSize: '12px', color: '#0d9488', fontWeight: '500' }}>
+                            ✓ PDF Uploaded: {' '}
+                            <a 
+                                href={pb.files.getURL(indRecord, indRecord.document)} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                style={{ color: '#0ea5e9', textDecoration: 'underline' }}
+                            >
+                                View PDF
+                            </a>
+                        </div>
+                    ) : indRecord?.value ? (
                         <div style={{ marginTop: '10px', fontSize: '12px', color: '#0d9488', fontWeight: '500' }}>
                             ✓ Current File Size: {String(indRecord.value).length} characters
                         </div>
-                    )}
+                    ) : null}
                 </div>
 
                 {/* Institution Rules Widget */}
@@ -264,48 +258,144 @@ export default function RulesSettingsForm({ metadata, onUpdate }: Props) {
                         </button>
                     </div>
                     <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 12px 0' }}>
-                        Upload a plain text (.txt) file with the rules for institutions/madrasas.
+                        Upload a plain text (.txt), HTML (.html), or PDF (.pdf) file with the rules for institutions/madrasas.
                     </p>
                     <input 
                         type="file" 
-                        accept=".txt" 
+                        accept=".txt,.html,.pdf" 
                         className={styles.formInput} 
                         disabled={instLoading}
                         onChange={(e) => e.target.files?.[0] && handleFileUpload('institution', e.target.files[0])}
                     />
-                    {instRecord?.value && (
+                    {instRecord?.document ? (
+                        <div style={{ marginTop: '10px', fontSize: '12px', color: '#0d9488', fontWeight: '500' }}>
+                            ✓ PDF Uploaded: {' '}
+                            <a 
+                                href={pb.files.getURL(instRecord, instRecord.document)} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                style={{ color: '#0ea5e9', textDecoration: 'underline' }}
+                            >
+                                View PDF
+                            </a>
+                        </div>
+                    ) : instRecord?.value ? (
                         <div style={{ marginTop: '10px', fontSize: '12px', color: '#0d9488', fontWeight: '500' }}>
                             ✓ Current File Size: {String(instRecord.value).length} characters
                         </div>
-                    )}
+                    ) : null}
                 </div>
 
-                {/* Print Template Widget */}
-                <div style={{ paddingBottom: '8px' }}>
+                {/* Do's and Don'ts Widget */}
+                <div style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <span style={{ fontWeight: '600', fontSize: '14px', color: '#334155' }}>A4 Print Template HTML</span>
+                        <span style={{ fontWeight: '600', fontSize: '14px', color: '#334155' }}>Do's and Don'ts</span>
                         <button 
                             type="button" 
                             className={styles.btnOutline} 
-                            onClick={() => downloadSample('template')}
+                            onClick={() => downloadSample('dos')}
                             style={{ padding: '4px 10px', fontSize: '12px' }}
                         >
                             Download Sample
                         </button>
                     </div>
                     <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 12px 0' }}>
-                        Upload a custom HTML (.txt or .html) file containing template layouts with curly-brace placeholders.
+                        Upload a plain text (.txt), HTML (.html), or PDF (.pdf) file with the Do's and Don'ts guidelines.
                     </p>
                     <input 
                         type="file" 
-                        accept=".txt,.html" 
+                        accept=".txt,.html,.pdf" 
                         className={styles.formInput} 
-                        disabled={tplLoading}
-                        onChange={(e) => e.target.files?.[0] && handleFileUpload('template', e.target.files[0])}
+                        disabled={dosLoading}
+                        onChange={(e) => e.target.files?.[0] && handleFileUpload('dos', e.target.files[0])}
                     />
-                    {tplRecord?.value && (
+                    {dosRecord?.document ? (
                         <div style={{ marginTop: '10px', fontSize: '12px', color: '#0d9488', fontWeight: '500' }}>
-                            ✓ Current File Size: {String(tplRecord.value).length} characters
+                            ✓ PDF Uploaded: {' '}
+                            <a 
+                                href={pb.files.getURL(dosRecord, dosRecord.document)} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                style={{ color: '#0ea5e9', textDecoration: 'underline' }}
+                            >
+                                View PDF
+                            </a>
+                        </div>
+                    ) : dosRecord?.value ? (
+                        <div style={{ marginTop: '10px', fontSize: '12px', color: '#0d9488', fontWeight: '500' }}>
+                            ✓ Current File Size: {String(dosRecord.value).length} characters
+                        </div>
+                    ) : null}
+                </div>
+
+                {/* Overall Rules Widget */}
+                <div style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontWeight: '600', fontSize: '14px', color: '#334155' }}>Overall Rules</span>
+                        <button 
+                            type="button" 
+                            className={styles.btnOutline} 
+                            onClick={() => downloadSample('overall')}
+                            style={{ padding: '4px 10px', fontSize: '12px' }}
+                        >
+                            Download Sample
+                        </button>
+                    </div>
+                    <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 12px 0' }}>
+                        Upload a plain text (.txt), HTML (.html), or PDF (.pdf) file with the overall competition rules.
+                    </p>
+                    <input 
+                        type="file" 
+                        accept=".txt,.html,.pdf" 
+                        className={styles.formInput} 
+                        disabled={overallLoading}
+                        onChange={(e) => e.target.files?.[0] && handleFileUpload('overall', e.target.files[0])}
+                    />
+                    {overallRecord?.document ? (
+                        <div style={{ marginTop: '10px', fontSize: '12px', color: '#0d9488', fontWeight: '500' }}>
+                            ✓ PDF Uploaded: {' '}
+                            <a 
+                                href={pb.files.getURL(overallRecord, overallRecord.document)} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                style={{ color: '#0ea5e9', textDecoration: 'underline' }}
+                            >
+                                View PDF
+                            </a>
+                        </div>
+                    ) : overallRecord?.value ? (
+                        <div style={{ marginTop: '10px', fontSize: '12px', color: '#0d9488', fontWeight: '500' }}>
+                            ✓ Current File Size: {String(overallRecord.value).length} characters
+                        </div>
+                    ) : null}
+                </div>
+
+                {/* Venue Map Upload Widget */}
+                <div style={{ paddingBottom: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontWeight: '600', fontSize: '14px', color: '#334155' }}>Competition Venue Map</span>
+                    </div>
+                    <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 12px 0' }}>
+                        Upload the location/venue map as an image or PDF.
+                    </p>
+                    <input 
+                        type="file" 
+                        accept="image/*,application/pdf" 
+                        className={styles.formInput} 
+                        disabled={mapLoading}
+                        onChange={(e) => e.target.files?.[0] && handleMapUpload(e.target.files[0])}
+                    />
+                    {mapRecord?.document && (
+                        <div style={{ marginTop: '10px', fontSize: '12px', color: '#0d9488', fontWeight: '500' }}>
+                            ✓ Map uploaded: {' '}
+                            <a 
+                                href={pb.files.getURL(mapRecord, mapRecord.document)} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                style={{ color: '#0ea5e9', textDecoration: 'underline' }}
+                            >
+                                View File
+                            </a>
                         </div>
                     )}
                 </div>

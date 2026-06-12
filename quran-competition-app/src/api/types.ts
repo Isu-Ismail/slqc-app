@@ -143,10 +143,12 @@ export const ParticipantsApplicationStatusOptions = {
 	"pending": "pending",
 	"approved": "approved",
 	"rejected": "rejected",
+	"reapplied": "reapplied",
 } as const
 export type ParticipantsApplicationStatusOptions = typeof ParticipantsApplicationStatusOptions[keyof typeof ParticipantsApplicationStatusOptions]
 export type ParticipantsApplicationRecord = {
-	aadhaar_front: FileNameString
+	aadhaar_front?: FileNameString
+	birthcertificate_photo?: FileNameString
 	aadhaar_number: string
 	allocated_venue?: string
 	candidate_photo?: FileNameString
@@ -171,6 +173,7 @@ export type ParticipantsApplicationRecord = {
 	updated: IsoAutoDateString
 	whatsapp_number: string
 	selected_juz?: string
+	juz_options?: string
 }
 
 export type UsersRecord = {

@@ -257,8 +257,8 @@ export default function InstitutionDetails({
 
                         <div className={styles.formGroup}>
                             <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>Authenticity Document</label>
-                            <div className={styles.filePreviewWrapper}>
-                                {!isInstEditMode && institutionData.institution?.document ? (
+                            {!isInstEditMode && institutionData.institution?.document ? (
+                                <div className={styles.filePreviewWrapper}>
                                     <a 
                                         href={pb.files.getURL(institutionData.institution, institutionData.institution.document)} 
                                         target="_blank" 
@@ -268,42 +268,42 @@ export default function InstitutionDetails({
                                     >
                                         View Bonafide / ID ↗
                                     </a>
-                                ) : (
-                                    !isInstEditMode && <span className={styles.fileName} style={{ fontSize: '12px' }}>Not provided</span>
-                                )}
-                                
-                                {isInstEditMode && !institutionData.institution?.is_locked && (
-                                    <div className={styles.fileUploadControl}>
-                                        <input
-                                            type="file"
-                                            accept=".pdf,image/*"
-                                            ref={instFileInputRef}
-                                            style={{ display: 'none' }}
-                                            onChange={(e) => {
-                                                if (e.target.files && e.target.files[0]) {
-                                                    setInstEditDocFile(e.target.files[0]);
-                                                }
-                                            }}
-                                        />
-                                        <button 
-                                            type="button" 
-                                            className={styles.btnUpload}
-                                            onClick={() => instFileInputRef.current?.click()}
-                                        >
-                                            Upload
-                                        </button>
-                                        <span className={styles.fileName} style={{ fontSize: '11px', marginLeft: '6px' }}>
-                                            {instEditDocFile ? instEditDocFile.name : (institutionData.institution?.document ? 'Keep existing document' : 'No file chosen')}
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
+                                </div>
+                            ) : isInstEditMode && !institutionData.institution?.is_locked ? (
+                                <div className={styles.fileUploadControl}>
+                                    <input
+                                        type="file"
+                                        accept=".pdf,image/*"
+                                        ref={instFileInputRef}
+                                        style={{ display: 'none' }}
+                                        onChange={(e) => {
+                                            if (e.target.files && e.target.files[0]) {
+                                                setInstEditDocFile(e.target.files[0]);
+                                            }
+                                        }}
+                                    />
+                                    <button 
+                                        type="button" 
+                                        className={styles.btnUpload}
+                                        onClick={() => instFileInputRef.current?.click()}
+                                    >
+                                        Upload
+                                    </button>
+                                    <span className={styles.fileName} style={{ fontSize: '11px', marginLeft: '6px' }}>
+                                        {instEditDocFile ? instEditDocFile.name : (institutionData.institution?.document ? 'Keep existing document' : 'No file chosen')}
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className={styles.filePreviewWrapper}>
+                                    <span className={styles.fileName} style={{ fontSize: '12px' }}>Not provided</span>
+                                </div>
+                            )}
                         </div>
 
                         <div className={styles.formGroup}>
                             <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>Building Proof Photo</label>
-                            <div className={styles.filePreviewWrapper}>
-                                {!isInstEditMode && institutionData.institution?.instituition_building_proof ? (
+                            {!isInstEditMode && institutionData.institution?.instituition_building_proof ? (
+                                <div className={styles.filePreviewWrapper}>
                                     <a 
                                         href={pb.files.getURL(institutionData.institution, institutionData.institution.instituition_building_proof)} 
                                         target="_blank" 
@@ -313,36 +313,36 @@ export default function InstitutionDetails({
                                     >
                                         View Building Photo ↗
                                     </a>
-                                ) : (
-                                    !isInstEditMode && <span className={styles.fileName} style={{ fontSize: '12px' }}>Not provided</span>
-                                )}
-                                
-                                {isInstEditMode && !institutionData.institution?.is_locked && (
-                                    <div className={styles.fileUploadControl}>
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            ref={instBuildingFileInputRef}
-                                            style={{ display: 'none' }}
-                                            onChange={(e) => {
-                                                if (e.target.files && e.target.files[0]) {
-                                                    setInstEditBuildingFile(e.target.files[0]);
-                                                }
-                                            }}
-                                        />
-                                        <button 
-                                            type="button" 
-                                            className={styles.btnUpload}
-                                            onClick={() => instBuildingFileInputRef.current?.click()}
-                                        >
-                                            Upload
-                                        </button>
-                                        <span className={styles.fileName} style={{ fontSize: '11px', marginLeft: '6px' }}>
-                                            {instEditBuildingFile ? instEditBuildingFile.name : (institutionData.institution?.instituition_building_proof ? 'Keep existing photo' : 'No photo chosen')}
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
+                                </div>
+                            ) : isInstEditMode && !institutionData.institution?.is_locked ? (
+                                <div className={styles.fileUploadControl}>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        ref={instBuildingFileInputRef}
+                                        style={{ display: 'none' }}
+                                        onChange={(e) => {
+                                            if (e.target.files && e.target.files[0]) {
+                                                setInstEditBuildingFile(e.target.files[0]);
+                                            }
+                                        }}
+                                    />
+                                    <button 
+                                        type="button" 
+                                        className={styles.btnUpload}
+                                        onClick={() => instBuildingFileInputRef.current?.click()}
+                                    >
+                                        Upload
+                                    </button>
+                                    <span className={styles.fileName} style={{ fontSize: '11px', marginLeft: '6px' }}>
+                                        {instEditBuildingFile ? instEditBuildingFile.name : (institutionData.institution?.instituition_building_proof ? 'Keep existing photo' : 'No photo chosen')}
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className={styles.filePreviewWrapper}>
+                                    <span className={styles.fileName} style={{ fontSize: '12px' }}>Not provided</span>
+                                </div>
+                            )}
                         </div>
 
                         <div className={`${styles.formGroup} ${styles.fullWidth}`}>

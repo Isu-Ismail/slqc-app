@@ -18,9 +18,11 @@ export interface CreateApplicationParams {
     guardian_name: string;
     guardian_phone: string;
     requires_accommodation?: boolean;
-    aadhaar_front: File;
+    aadhaar_front?: File;
+    birthcertificate_photo?: File;
     candidate_photo: File;
     selected_juz?: string;
+    juz_options?: string;
 }
 
 export const participantsApi = {
@@ -54,27 +56,57 @@ export const participantsApi = {
         if (params.selected_juz) {
             formData.append('selected_juz', params.selected_juz);
         }
+        if (params.juz_options) {
+            formData.append('juz_options', params.juz_options);
+        }
         
         const safeName = params.full_name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
-        const aadhaarExt = params.aadhaar_front.name.split('.').pop() || 'jpg';
         const photoExt = params.candidate_photo.name.split('.').pop() || 'jpg';
-
-        const renamedAadhaar = new File([params.aadhaar_front], `${safeName}_aadhaar.${aadhaarExt}`, { type: params.aadhaar_front.type });
         const renamedPhoto = new File([params.candidate_photo], `${safeName}_passport.${photoExt}`, { type: params.candidate_photo.type });
-
-        formData.append('aadhaar_front', renamedAadhaar);
         formData.append('candidate_photo', renamedPhoto);
+
+        if (params.aadhaar_front) {
+            const aadhaarExt = params.aadhaar_front.name.split('.').pop() || 'jpg';
+            const renamedAadhaar = new File([params.aadhaar_front], `${safeName}_aadhaar.${aadhaarExt}`, { type: params.aadhaar_front.type });
+            formData.append('aadhaar_front', renamedAadhaar);
+        }
+
+        if (params.birthcertificate_photo) {
+            const birthCertExt = params.birthcertificate_photo.name.split('.').pop() || 'jpg';
+            const renamedBirthCert = new File([params.birthcertificate_photo], `${safeName}_birthcertificate.${birthCertExt}`, { type: params.birthcertificate_photo.type });
+            formData.append('birthcertificate_photo', renamedBirthCert);
+        }
+
         formData.append('status', 'pending');
 
         return await pb.collection('participants_application').create<ParticipantsApplicationResponse>(formData);
     },
 
-    updateApplication: async (id: string, formData: FormData): Promise<ParticipantsApplicationResponse> => {
-        const record = await pb.collection('participants_application').getOne<ParticipantsApplicationResponse>(id);
+    updateApplication: async (id: string, payload: FormData | Record<string, any>): Promise<ParticipantsApplicationResponse> => {
+        const headers: Record<string, string> = {};
+        const cachedDob = localStorage.getItem('quran_competition_track_individual_dob');
+        if (cachedDob) {
+            headers['x-app-dob'] = cachedDob;
+        }
+
+        const record = await pb.collection('participants_application').getOne<ParticipantsApplicationResponse>(id, {
+            headers: headers
+        });
+
         if (record && record.is_locked) {
             throw new Error("This application is locked and cannot be modified.");
         }
-        return await pb.collection('participants_application').update<ParticipantsApplicationResponse>(id, formData);
+
+        // Fallback: if cachedDob is not set, extract the date portion from the fetched record's dob
+        if (!cachedDob && record && record.dob) {
+            const extractedDob = record.dob.split(' ')[0]; // Extract YYYY-MM-DD
+            headers['x-app-dob'] = extractedDob;
+        }
+
+        return await pb.collection('participants_application').update<ParticipantsApplicationResponse>(id, payload, {
+            expand: 'approved_by,institution_ref',
+            headers: headers
+        });
     },
 
     getApplicationByAadhaar: async (aadhaar: string): Promise<ParticipantsApplicationResponse | null> => {

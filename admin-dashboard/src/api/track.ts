@@ -28,8 +28,20 @@ function cacheSet<T>(map: Map<string, CacheEntry<T>>, key: string, data: T) {
 /** Call this when a record is updated so stale cache is dropped immediately */
 export function invalidateTrackCache(recordId?: string) {
     if (recordId) {
-        indivCache.forEach((_, k) => { if (k.includes(recordId)) indivCache.delete(k); });
-        instCache.forEach((_, k)  => { if (k.includes(recordId)) instCache.delete(k);  });
+        indivCache.forEach((v, k) => { 
+            if (v.data && v.data.id === recordId) {
+                indivCache.delete(k); 
+            }
+        });
+        instCache.forEach((v, k) => { 
+            if (v.data) {
+                if (v.data.institution && v.data.institution.id === recordId) {
+                    instCache.delete(k);
+                } else if (v.data.applications && v.data.applications.some((app: any) => app.id === recordId)) {
+                    instCache.delete(k);
+                }
+            }
+        });
     } else {
         indivCache.clear();
         instCache.clear();
@@ -52,15 +64,17 @@ export interface ParticipantsApplicationResponse extends RecordModel {
     guardian_name: string;
     guardian_phone: string;
     requires_accommodation?: boolean;
-    aadhaar_front: string;
+    aadhaar_front?: string;
+    birthcertificate_photo?: string;
     candidate_photo: string;
-    status: 'pending' | 'approved' | 'rejected';
+    status: 'pending' | 'approved' | 'rejected' | 'reapplied';
     rejection_reason?: string;
     is_locked?: boolean;
     approved_by?: string;
     participant_id?: string;
     allocated_venue?: string;
     selected_juz?: string;
+    juz_options?: string;
 }
 
 export interface InstitutionsResponse extends RecordModel {
@@ -73,7 +87,7 @@ export interface InstitutionsResponse extends RecordModel {
     document: string;
     instituition_location?: string;
     instituition_building_proof?: string;
-    status: 'pending' | 'approved' | 'rejected';
+    status: 'pending' | 'approved' | 'rejected' | 'reapplied';
     is_locked?: boolean;
     approved_by?: string;
     institution_id?: string;
@@ -208,8 +222,10 @@ export const adminTrackApi = {
     },
 
 
-    updateApplication: async (id: string, formData: FormData): Promise<ParticipantsApplicationResponse> => {
-        const result = await pb.collection('participants_application').update<ParticipantsApplicationResponse>(id, formData);
+    updateApplication: async (id: string, payload: FormData | Record<string, any>): Promise<ParticipantsApplicationResponse> => {
+        const result = await pb.collection('participants_application').update<ParticipantsApplicationResponse>(id, payload, {
+            expand: 'approved_by,institution_ref'
+        });
         invalidateTrackCache(id);
         return result;
     },
@@ -245,8 +261,10 @@ export const adminTrackApi = {
             data.rejection_reason = rejectionReason;
         }
 
-        return await pb
+        const result = await pb
             .collection(collection)
             .update(id, data);
+        invalidateTrackCache(id);
+        return result;
     }
 };

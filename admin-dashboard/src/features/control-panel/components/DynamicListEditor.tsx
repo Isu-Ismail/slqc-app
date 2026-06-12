@@ -15,16 +15,27 @@ interface Props {
 export default function DynamicListEditor({ title, metadataKey, metadata, onUpdate, template }: Props) {
     const [loading, setLoading] = useState(false);
     const record = metadata[metadataKey];
-    const [items, setItems] = useState<Record<string, unknown>[]>(record && Array.isArray(record.value) ? record.value : []);
+    
+    // Helper to get array from record.value
+    const getArrayValue = (rec: MetadataRecord | undefined): Record<string, unknown>[] => {
+        if (!rec || !rec.value) return [];
+        let val = rec.value;
+        if (typeof val === 'string') {
+            try {
+                val = JSON.parse(val);
+            } catch (e) {
+                console.error('Failed to parse list value', e);
+            }
+        }
+        return Array.isArray(val) ? val : [];
+    };
+
+    const [items, setItems] = useState<Record<string, unknown>[]>(getArrayValue(record));
 
     useEffect(() => {
         const record = metadata[metadataKey];
         Promise.resolve().then(() => {
-            if (record && Array.isArray(record.value)) {
-                setItems(record.value);
-            } else {
-                setItems([]);
-            }
+            setItems(getArrayValue(record));
         });
     }, [metadata, metadataKey]);
 
@@ -58,10 +69,11 @@ export default function DynamicListEditor({ title, metadataKey, metadata, onUpda
         setLoading(true);
         try {
             const dbRecord = await metadataApi.getMetadataByKey(metadataKey);
+            const payload = JSON.stringify(items);
             if (dbRecord) {
-                await metadataApi.updateMetadata(dbRecord.id, items);
+                await metadataApi.updateMetadata(dbRecord.id, payload);
             } else {
-                await metadataApi.createMetadata(metadataKey, items);
+                await metadataApi.createMetadata(metadataKey, payload);
             }
             alert(`${title} updated successfully!`);
             onUpdate();

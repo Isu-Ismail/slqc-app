@@ -243,6 +243,11 @@
     color: #ef4444;
 }
 
+.statusReapplied {
+    background-color: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+}
+
 .rejectionBanner {
     background-color: rgba(239, 68, 68, 0.05);
     border: 1px solid rgba(239, 68, 68, 0.2);
@@ -327,6 +332,7 @@
 }
 
 .formInput, .formSelect {
+    width: 100%;
     background-color: var(--card-bg);
     border: 1px solid var(--border);
     padding: 8px 12px;
@@ -573,4 +579,187 @@
     .hideMobile {
         display: none !important;
     }
+}
+
+/* Cropper Modal Overlay */
+.cropperOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(8px);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.cropperModal {
+    background-color: #ffffff;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    color: #1e293b;
+    display: flex;
+    flex-direction: column;
+}
+
+.cropperHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.cropperHeader h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.closeBtn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #64748b;
+    cursor: pointer;
+}
+
+.closeBtn:hover {
+    color: #0f172a;
+}
+
+.cropperBody {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+}
+
+.cropperDesc {
+    font-size: 13px;
+    color: #64748b;
+    margin: 0;
+    text-align: center;
+}
+
+.canvasContainer {
+    width: 300px;
+    height: 300px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    cursor: move;
+}
+
+.cropperCanvas {
+    display: block;
+}
+
+.controlsRow {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.controlLabel {
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    min-width: 48px;
+}
+
+.rangeInput {
+    flex: 1;
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+}
+
+.zoomVal {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    min-width: 40px;
+    text-align: right;
+}
+
+.controlsButtons {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    justify-content: center;
+}
+
+.btnTool {
+    background-color: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btnTool:hover {
+    background-color: #e2e8f0;
+    color: #0f172a;
+}
+
+.cropperFooter {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 20px;
+    background-color: #f8fafc;
+    border-top: 1px solid #f1f5f9;
+}
+
+.cancelBtn {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+}
+
+.cancelBtn:hover {
+    background-color: #f1f5f9;
+}
+
+.saveBtn {
+    background-color: #10b981;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
+    cursor: pointer;
+}
+
+.saveBtn:hover {
+    background-color: #059669;
+}
+
+.selectedFileName {
+    font-size: 13px;
+    color: var(--text-h);
+    margin-left: 8px;
 }

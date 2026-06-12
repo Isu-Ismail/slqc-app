@@ -29,13 +29,14 @@ export default function ControlPanelPage() {
         }
         try {
             const records = await metadataApi.getAllMetadata(forceRefresh);
+            console.log("ControlPanelPage - loadMetadata success. Records count:", records.length, records.map(r => r.key));
             const map: Record<string, MetadataRecord> = {};
             records.forEach(r => {
                 map[r.key] = r;
             });
             setMetadata(map);
         } catch (err) {
-            console.error("Failed to load metadata", err);
+            console.error("ControlPanelPage - loadMetadata failed with error:", err);
         } finally {
             setLoading(false);
         }

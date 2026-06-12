@@ -8,7 +8,7 @@ import { validators } from '../../../../utils/validators';
 import { participantsApi } from '../../../../api/routes/participants.api';
 import { Clock, Ban } from 'lucide-react';
 import styles from './RegisterPage.module.css';
-import { getJuzOptionsForCategory, FORM_FIELDS_CONFIG } from '../../../../config/fieldsConfig';
+import { getJuzCodesForCategory, FORM_FIELDS_CONFIG } from '../../../../config/fieldsConfig';
 
 import { useRegistrationStatus } from '../../../../shared/context/StatusContext';
 
@@ -20,6 +20,7 @@ export interface RegistrationFormData {
     institution_verified?: boolean;
     full_name: string;
     aadhaar_number: string;
+    no_aadhaar: boolean;
     dob: string;
     category: '5_juz' | '15_juz' | '30_juz' | '';
     gender: 'male' | 'female';
@@ -31,8 +32,10 @@ export interface RegistrationFormData {
     guardian_phone: string;
     requires_accommodation: boolean;
     aadhaar_front: File | null;
+    birthcertificate_photo: File | null;
     candidate_photo: File | null;
     selected_juz: string;
+    juz_options: string;
 }
 
 const CACHE_KEY = 'quran_competition_registration_form';
@@ -45,6 +48,7 @@ const getInitialFormData = (): RegistrationFormData => {
             return {
                 ...parsed,
                 aadhaar_front: null,
+                birthcertificate_photo: null,
                 candidate_photo: null
             };
         } catch (e) {
@@ -58,6 +62,7 @@ const getInitialFormData = (): RegistrationFormData => {
         institution_verified: false,
         full_name: '',
         aadhaar_number: '',
+        no_aadhaar: false,
         dob: '',
         category: '',
         gender: 'male',
@@ -69,8 +74,10 @@ const getInitialFormData = (): RegistrationFormData => {
         guardian_phone: '',
         requires_accommodation: false,
         aadhaar_front: null,
+        birthcertificate_photo: null,
         candidate_photo: null,
         selected_juz: '',
+        juz_options: '',
     };
 };
 
@@ -107,7 +114,7 @@ export default function RegisterPage() {
     const updateForm = <K extends keyof RegistrationFormData>(field: K, value: RegistrationFormData[K]) => {
         setFormData((prev) => {
             const updated = { ...prev, [field]: value };
-            if (field !== 'aadhaar_front') {
+            if (field !== 'aadhaar_front' && field !== 'candidate_photo' && field !== 'birthcertificate_photo') {
                 sessionStorage.setItem(CACHE_KEY, JSON.stringify(updated));
             }
             return updated;
@@ -133,17 +140,21 @@ export default function RegisterPage() {
             }
         } else if (currentStep === 2) {
             for (const field of FORM_FIELDS_CONFIG) {
+                if (field.key === 'aadhaar_number' && formData.no_aadhaar) {
+                    continue; // Skip Aadhaar number verification/presence if they don't have one
+                }
+
                 const val = (formData as any)[field.key];
                 const valStr = val !== undefined && val !== null ? String(val).trim() : '';
 
                 // Required check
                 if (field.required && !valStr) {
-                    if (field.key === 'selected_juz') {
-                        if (getJuzOptionsForCategory(formData.category).length > 0) {
+                    if (field.key === 'juz_options') {
+                        if (getJuzCodesForCategory(formData.category).length > 0) {
                             triggerAlert('Please select a Juz option before proceeding.', 'Juz Option Required');
                             return;
                         }
-                    } else {
+                    } else if (field.key !== 'selected_juz') {
                         triggerAlert(`Please enter a value for "${field.label}".`, 'Incomplete Fields');
                         return;
                     }
@@ -170,22 +181,28 @@ export default function RegisterPage() {
                 }
             }
         }
-        setCurrentStep((prev) => Math.min(prev + 1, 3));
+        setCurrentStep((prev) => prev + 1);
     };
 
-    const handleBack = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
+    const handleBack = () => {
+        setCurrentStep((prev) => prev - 1);
+    };
 
-    const handleSubmit = async () => {
-        if (!formData.aadhaar_front) {
-            triggerAlert('Please upload a copy of your Aadhaar card before submitting.', 'Document Required');
+    const handleFinalSubmit = async () => {
+        if (!formData.no_aadhaar && !formData.aadhaar_front) {
+            triggerAlert('Please upload the Aadhaar Card Front Image.', 'Missing File');
+            return;
+        }
+        if (formData.no_aadhaar && !formData.birthcertificate_photo) {
+            triggerAlert('Please upload the Birth Certificate.', 'Missing File');
             return;
         }
         if (!formData.candidate_photo) {
-            triggerAlert('Please upload a passport-size photo before submitting.', 'Photo Required');
+            triggerAlert('Please upload the Passport Size Photo.', 'Missing File');
             return;
         }
         if (!rulesAccepted) {
-            triggerAlert('You must accept the Rules & Regulations and Privacy Policy before submitting.', 'Agreement Required');
+            triggerAlert('Please accept the declaration rules to submit your application.', 'Consent Required');
             return;
         }
 
@@ -195,7 +212,7 @@ export default function RegisterPage() {
                 institution_id: formData.institution_id || undefined,
                 institution_ref: formData.institution_ref || undefined,
                 full_name: formData.full_name,
-                aadhaar_number: formData.aadhaar_number,
+                aadhaar_number: formData.no_aadhaar ? '' : formData.aadhaar_number,
                 dob: formData.dob,
                 category: formData.category,
                 gender: formData.gender,
@@ -206,9 +223,11 @@ export default function RegisterPage() {
                 guardian_name: formData.guardian_name,
                 guardian_phone: formData.guardian_phone,
                 requires_accommodation: formData.requires_accommodation,
-                aadhaar_front: formData.aadhaar_front,
+                aadhaar_front: formData.no_aadhaar ? undefined : formData.aadhaar_front || undefined,
+                birthcertificate_photo: formData.no_aadhaar ? formData.birthcertificate_photo || undefined : formData.birthcertificate_photo || undefined,
                 candidate_photo: formData.candidate_photo,
-                selected_juz: formData.selected_juz || undefined
+                selected_juz: formData.selected_juz || undefined,
+                juz_options: formData.juz_options || undefined
             });
 
             triggerAlert(
@@ -225,6 +244,7 @@ export default function RegisterPage() {
                 institution_ref: '',
                 full_name: '',
                 aadhaar_number: '',
+                no_aadhaar: false,
                 dob: '',
                 category: '',
                 gender: 'male',
@@ -236,8 +256,10 @@ export default function RegisterPage() {
                 guardian_phone: '',
                 requires_accommodation: false,
                 aadhaar_front: null,
+                birthcertificate_photo: null,
                 candidate_photo: null,
-                selected_juz: ''
+                selected_juz: '',
+                juz_options: ''
             });
             sessionStorage.removeItem(CACHE_KEY);
             setCurrentStep(1);
@@ -301,11 +323,47 @@ export default function RegisterPage() {
     if (status === 'waiting') {
         return (
             <div className={styles.pageWrapper}>
-                <div className={styles.card} style={{ textAlign: 'center', padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-                    <Clock size={48} style={{ color: '#eab308' }} />
-                    <h2>Registration Not Yet Started</h2>
-                    <p style={{ color: 'var(--text)', lineHeight: '1.6', margin: '8px 0 0 0', maxWidth: '480px' }}>
-                        Thank you for your interest! The candidate registration period for the State Level Quran Competition has not commenced yet. Please refer to the timeline on our dashboard for the official opening schedule.
+                <div className={styles.card} style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '60px 20px',
+                    textAlign: 'center',
+                    backgroundColor: 'var(--card-bg)',
+                    borderRadius: '12px',
+                    margin: '10px auto',
+                    maxWidth: '560px'
+                }}>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '80px',
+                        height: '80px',
+                        borderRadius: '50%',
+                        backgroundColor: 'rgba(234, 179, 8, 0.08)',
+                        color: '#eab308',
+                        marginBottom: '20px'
+                    }}>
+                        <Clock size={40} />
+                    </div>
+                    <h2 style={{
+                        fontSize: '22px',
+                        fontWeight: '700',
+                        color: 'var(--text-h)',
+                        margin: '0 0 10px 0'
+                    }}>
+                        Registration Period Pending
+                    </h2>
+                    <p style={{
+                        fontSize: '14px',
+                        color: 'var(--text)',
+                        lineHeight: '1.6',
+                        margin: '0 auto',
+                        maxWidth: '460px'
+                    }}>
+                        Thank you for your interest! The candidate registration phase for the State Level Quran Competition has not started yet. Please check the schedules on the main timeline page or return once the registration period begins.
                     </p>
                 </div>
             </div>
@@ -315,11 +373,47 @@ export default function RegisterPage() {
     if (status === 'closed') {
         return (
             <div className={styles.pageWrapper}>
-                <div className={styles.card} style={{ textAlign: 'center', padding: '40px', borderTop: '4px solid #ef4444', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-                    <Ban size={48} style={{ color: '#ef4444' }} />
-                    <h2 style={{ color: '#ef4444' }}>Registration Period Closed</h2>
-                    <p style={{ color: 'var(--text)', lineHeight: '1.6', margin: '8px 0 0 0', maxWidth: '480px' }}>
-                        The registration period for candidate applications has ended. We are no longer accepting new submissions. We sincerely thank everyone for their interest.
+                <div className={styles.card} style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '60px 20px',
+                    textAlign: 'center',
+                    backgroundColor: 'var(--card-bg)',
+                    borderRadius: '12px',
+                    margin: '10px auto',
+                    maxWidth: '560px'
+                }}>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '80px',
+                        height: '80px',
+                        borderRadius: '50%',
+                        backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                        color: '#ef4444',
+                        marginBottom: '20px'
+                    }}>
+                        <Ban size={40} />
+                    </div>
+                    <h2 style={{
+                        fontSize: '22px',
+                        fontWeight: '700',
+                        color: '#ef4444',
+                        margin: '0 0 10px 0'
+                    }}>
+                        Registration Period Closed
+                    </h2>
+                    <p style={{
+                        fontSize: '14px',
+                        color: 'var(--text)',
+                        lineHeight: '1.6',
+                        margin: '0 auto',
+                        maxWidth: '460px'
+                    }}>
+                        The registration window for candidate applications has officially concluded. We are no longer accepting new submissions. We sincerely thank everyone for their interest. If you have already registered, you can track your status on the status page.
                     </p>
                 </div>
             </div>
@@ -372,7 +466,7 @@ export default function RegisterPage() {
                         <button onClick={handleNext} className={styles.btnPrimary}>Continue</button>
                     ) : (
                         <button 
-                            onClick={handleSubmit} 
+                            onClick={handleFinalSubmit} 
                             className={styles.btnPrimary}
                             disabled={!rulesAccepted}
                         >

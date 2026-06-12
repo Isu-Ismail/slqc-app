@@ -1,9 +1,9 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Lock, Edit, Printer } from 'lucide-react';
 import type { ParticipantsApplicationResponse } from '../../../../../api/types';
 import { useRegistrationStatus } from '../../../../../shared/context/StatusContext';
 import styles from '../TrackPage.module.css';
-import { CATEGORIES_CONFIG, getJuzOptionsForCategory, getCategoryLabel, FORM_FIELDS_CONFIG } from '../../../../../config/fieldsConfig';
+import { CATEGORIES_CONFIG, getJuzCodesForCategory, getJuzLabel, getCategoryLabel, FORM_FIELDS_CONFIG } from '../../../../../config/fieldsConfig';
 import PrintPreviewModal, { generateIndividualFormHTML } from './PrintPreviewModal';
 
 interface IndividualDetailsProps {
@@ -14,12 +14,15 @@ interface IndividualDetailsProps {
     updateEditField: (key: string, value: any) => void;
     editAadhaarFile: File | null;
     setEditAadhaarFile: (val: File | null) => void;
+    editBirthCertificateFile: File | null;
+    setEditBirthCertificateFile: (val: File | null) => void;
     editCandidatePhotoFile: File | null;
     setEditCandidatePhotoFile: (val: File | null) => void;
     handleSaveIndividualChanges: () => void;
     loading: boolean;
     getStatusClass: (status: string) => string;
     getAadhaarUrl: (record: ParticipantsApplicationResponse) => string;
+    getBirthCertificateUrl: (record: ParticipantsApplicationResponse) => string;
     getCandidatePhotoUrl: (record: ParticipantsApplicationResponse) => string;
     onRefresh?: () => Promise<boolean>;
 }
@@ -32,16 +35,20 @@ export default function IndividualDetails({
     updateEditField,
     editAadhaarFile,
     setEditAadhaarFile,
+    editBirthCertificateFile,
+    setEditBirthCertificateFile,
     editCandidatePhotoFile,
     setEditCandidatePhotoFile,
     handleSaveIndividualChanges,
     loading,
     getStatusClass,
     getAadhaarUrl,
+    getBirthCertificateUrl,
     getCandidatePhotoUrl,
     onRefresh
 }: IndividualDetailsProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const birthCertFileInputRef = useRef<HTMLInputElement>(null);
     const photoInputRef = useRef<HTMLInputElement>(null);
     const [printPreview, setPrintPreview] = useState<string | null>(null);
 
@@ -49,6 +56,114 @@ export default function IndividualDetails({
 
     const [isRefetching, setIsRefetching] = useState(false);
     const [refetchSuccess, setRefetchSuccess] = useState(false);
+
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const [showCropper, setShowCropper] = useState(false);
+    const [cropImageObj, setCropImageObj] = useState<HTMLImageElement | null>(null);
+    const [zoom, setZoom] = useState(1);
+    const [rotation, setRotation] = useState(0);
+    const [panX, setPanX] = useState(0);
+    const [panY, setPanY] = useState(0);
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+    // Canvas redrawing for cropper
+    useEffect(() => {
+        if (!showCropper || !cropImageObj || !canvasRef.current) return;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((rotation * Math.PI) / 180);
+        ctx.scale(zoom, zoom);
+        ctx.translate(panX, panY);
+
+        const imgRatio = cropImageObj.width / cropImageObj.height;
+        let dWidth = canvas.width;
+        let dHeight = canvas.height;
+
+        if (imgRatio > 1) {
+            dWidth = canvas.height * imgRatio;
+        } else {
+            dHeight = canvas.width / imgRatio;
+        }
+
+        ctx.drawImage(cropImageObj, -dWidth / 2, -dHeight / 2, dWidth, dHeight);
+        ctx.restore();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(canvas.width / 3, 10); ctx.lineTo(canvas.width / 3, canvas.height - 10);
+        ctx.moveTo((canvas.width / 3) * 2, 10); ctx.lineTo((canvas.width / 3) * 2, canvas.height - 10);
+        ctx.moveTo(10, canvas.height / 3); ctx.lineTo(canvas.width - 10, canvas.height / 3);
+        ctx.moveTo(10, (canvas.height / 3) * 2); ctx.lineTo(canvas.width - 10, (canvas.height / 3) * 2);
+        ctx.stroke();
+    }, [showCropper, cropImageObj, zoom, rotation, panX, panY]);
+
+    const handlePhotoSelect = (file: File | null) => {
+        if (!file) return;
+        if (file.size > 1 * 1024 * 1024) {
+            alert('Photo size exceeds 1MB limit.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            if (e.target?.result) {
+                const img = new Image();
+                img.onload = () => {
+                    setCropImageObj(img);
+                    setZoom(1.0);
+                    setRotation(0);
+                    setPanX(0);
+                    setPanY(0);
+                    setShowCropper(true);
+                };
+                img.src = e.target.result as string;
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleCropApply = () => {
+        if (!canvasRef.current) return;
+        canvasRef.current.toBlob(
+            (blob) => {
+                if (blob) {
+                    const file = new File([blob], 'candidate_photo.jpg', { type: 'image/jpeg' });
+                    setEditCandidatePhotoFile(file);
+                    setShowCropper(false);
+                }
+            },
+            'image/jpeg',
+            0.9
+        );
+    };
+
+    const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+        setIsDragging(true);
+        setDragStart({ x: clientX - panX, y: clientY - panY });
+    };
+
+    const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
+        if (!isDragging) return;
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+        setPanX(clientX - dragStart.x);
+        setPanY(clientY - dragStart.y);
+    };
+
+    const handlePointerUp = () => {
+        setIsDragging(false);
+    };
 
     const handleRefetch = async () => {
         if (!onRefresh) return;
@@ -161,7 +276,7 @@ export default function IndividualDetails({
                     // Custom renders
                     if (field.key === 'category') {
                         return (
-                            <div key={field.key} className={styles.formGroup}>
+                            <div key={field.key} className={`${styles.formGroup} ${field.gridSpan === 2 ? styles.fullWidth : ''}`}>
                                 <label className={styles.formLabel}>{field.label} {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
                                 {isEditable ? (
                                     <select
@@ -170,10 +285,12 @@ export default function IndividualDetails({
                                         onChange={(e) => {
                                             const nextCat = e.target.value;
                                             updateEditField('category', nextCat);
-                                            const foundCat = CATEGORIES_CONFIG.find(c => c.key === nextCat);
-                                            if (foundCat && foundCat.defaultJuz) {
-                                                updateEditField('selected_juz', foundCat.defaultJuz);
+                                            const juzCodes = getJuzCodesForCategory(nextCat);
+                                            if (juzCodes.length === 1) {
+                                                updateEditField('juz_options', juzCodes[0].code);
+                                                updateEditField('selected_juz', juzCodes[0].label);
                                             } else {
+                                                updateEditField('juz_options', '');
                                                 updateEditField('selected_juz', '');
                                             }
                                         }}
@@ -197,48 +314,51 @@ export default function IndividualDetails({
                         );
                     }
 
-                    if (field.key === 'selected_juz') {
-                        const currentCategory = isEditMode ? editData.category : individualRecord.category;
+                    if (field.key === 'juz_options') {
+                        if (!isEditMode) return null;
+                        const currentCategory = editData.category;
+                        const juzOptions = getJuzCodesForCategory(currentCategory);
                         return (
-                            <div key={field.key} className={styles.formGroup}>
-                                <label className={styles.formLabel}>Selected Juz Range {isEditMode && getJuzOptionsForCategory(currentCategory).length > 0 && <span style={{ color: '#ef4444' }}>*</span>}</label>
-                                {isEditable ? (
-                                    getJuzOptionsForCategory(currentCategory).length > 0 ? (
-                                        <select
-                                            className={styles.formSelect}
-                                            value={value}
-                                            onChange={(e) => updateEditField('selected_juz', e.target.value)}
-                                        >
-                                            <option value="">Select Option</option>
-                                            {getJuzOptionsForCategory(currentCategory).map((opt) => (
-                                                <option key={opt} value={opt}>
-                                                    {opt}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    ) : (
-                                        <input
-                                            type="text"
-                                            className={styles.formInput}
-                                            value={value || 'Juz 1-30: Full Quran (آلم to ٱلنَّاس)'}
-                                            disabled={true}
-                                        />
-                                    )
-                                ) : (
-                                    <input
-                                        type="text"
-                                        className={styles.formInput}
-                                        value={value || 'N/A'}
-                                        disabled={true}
-                                    />
-                                )}
+                            <div key={field.key} className={`${styles.formGroup} ${field.gridSpan === 2 ? styles.fullWidth : ''}`}>
+                                <label className={styles.formLabel}>Selected Juz Range <span style={{ color: '#ef4444' }}>*</span></label>
+                                <select
+                                    className={styles.formSelect}
+                                    value={value}
+                                    onChange={(e) => {
+                                        const code = e.target.value;
+                                        updateEditField('juz_options', code);
+                                        updateEditField('selected_juz', getJuzLabel(code));
+                                    }}
+                                >
+                                    <option value="">Select Option</option>
+                                    {juzOptions.map((opt) => (
+                                        <option key={opt.code} value={opt.code}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        );
+                    }
+
+                    if (field.key === 'selected_juz') {
+                        if (isEditMode) return null;
+                        return (
+                            <div key={field.key} className={`${styles.formGroup} ${field.gridSpan === 2 ? styles.fullWidth : ''}`}>
+                                <label className={styles.formLabel}>Selected Juz Range</label>
+                                <input
+                                    type="text"
+                                    className={styles.formInput}
+                                    value={getJuzLabel(individualRecord.juz_options || '') || individualRecord.selected_juz || 'N/A'}
+                                    disabled={true}
+                                />
                             </div>
                         );
                     }
 
                     if (field.key === 'gender') {
                         return (
-                            <div key={field.key} className={styles.formGroup}>
+                            <div key={field.key} className={`${styles.formGroup} ${field.gridSpan === 2 ? styles.fullWidth : ''}`}>
                                 <label className={styles.formLabel}>Gender {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
                                 {isEditable ? (
                                     <select
@@ -282,11 +402,11 @@ export default function IndividualDetails({
                         );
                     }
 
-                    // For Aadhaar Number (always disabled, non-editable)
-                    const isDisabled = !isEditable || field.key === 'aadhaar_number';
+                    // Allow editing Aadhaar Number during edit mode
+                    const isDisabled = !isEditable;
 
                     return (
-                        <div key={field.key} className={styles.formGroup}>
+                        <div key={field.key} className={`${styles.formGroup} ${field.gridSpan === 2 ? styles.fullWidth : ''}`}>
                             <label className={styles.formLabel}>
                                 {field.label} {isEditMode && field.required && <span style={{ color: '#ef4444' }}>*</span>}
                             </label>
@@ -361,8 +481,8 @@ export default function IndividualDetails({
 
                 <div className={`${styles.formGroup} ${styles.fullWidth}`}>
                     <label className={styles.formLabel}>Aadhaar Card Front Image</label>
-                    <div className={styles.filePreviewWrapper}>
-                        {!isEditMode && individualRecord.aadhaar_front && (
+                    {!isEditMode && individualRecord.aadhaar_front ? (
+                        <div className={styles.filePreviewWrapper}>
                             <a 
                                 href={getAadhaarUrl(individualRecord)} 
                                 target="_blank" 
@@ -371,38 +491,82 @@ export default function IndividualDetails({
                             >
                                 View Uploaded Aadhaar Image ↗
                             </a>
-                        )}
-                        
-                        {isEditMode && !individualRecord.is_locked && (
-                            <div className={styles.fileUploadControl}>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    ref={fileInputRef}
-                                    style={{ display: 'none' }}
-                                    onChange={(e) => {
-                                        if (e.target.files && e.target.files[0]) {
-                                            setEditAadhaarFile(e.target.files[0]);
-                                        }
-                                    }}
-                                />
-                                <button 
-                                    type="button" 
-                                    className={styles.btnSecondary}
-                                    onClick={() => fileInputRef.current?.click()}
-                                >
-                                    {editAadhaarFile ? 'Change Selected Aadhaar' : 'Upload New Aadhaar'}
-                                </button>
-                                {editAadhaarFile && <span className={styles.selectedFileName}>{editAadhaarFile.name}</span>}
-                            </div>
-                        )}
-                    </div>
+                        </div>
+                    ) : isEditMode && !individualRecord.is_locked ? (
+                        <div className={styles.fileUploadControl}>
+                            <input
+                                type="file"
+                                accept="image/*,application/pdf"
+                                ref={fileInputRef}
+                                style={{ display: 'none' }}
+                                onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                        setEditAadhaarFile(e.target.files[0]);
+                                    }
+                                }}
+                            />
+                            <button 
+                                type="button" 
+                                className={styles.btnSecondary}
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                {editAadhaarFile ? 'Change Selected Aadhaar' : 'Upload New Aadhaar'}
+                            </button>
+                            {editAadhaarFile && <span className={styles.selectedFileName}>{editAadhaarFile.name}</span>}
+                        </div>
+                    ) : (
+                        <div className={styles.filePreviewWrapper}>
+                            <span style={{ color: '#94a3b8', fontSize: '13px' }}>No Aadhaar Image Uploaded</span>
+                        </div>
+                    )}
+                </div>
+
+                <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                    <label className={styles.formLabel}>Birth Certificate</label>
+                    {!isEditMode && individualRecord.birthcertificate_photo ? (
+                        <div className={styles.filePreviewWrapper}>
+                            <a 
+                                href={getBirthCertificateUrl(individualRecord)} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className={styles.previewLink}
+                            >
+                                View Uploaded Birth Certificate ↗
+                            </a>
+                        </div>
+                    ) : isEditMode && !individualRecord.is_locked ? (
+                        <div className={styles.fileUploadControl}>
+                            <input
+                                type="file"
+                                accept="image/*,application/pdf"
+                                ref={birthCertFileInputRef}
+                                style={{ display: 'none' }}
+                                onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                        setEditBirthCertificateFile(e.target.files[0]);
+                                    }
+                                }}
+                            />
+                            <button 
+                                type="button" 
+                                className={styles.btnSecondary}
+                                onClick={() => birthCertFileInputRef.current?.click()}
+                            >
+                                {editBirthCertificateFile ? 'Change Selected Certificate' : 'Upload New Certificate'}
+                            </button>
+                            {editBirthCertificateFile && <span className={styles.selectedFileName}>{editBirthCertificateFile.name}</span>}
+                        </div>
+                    ) : (
+                        <div className={styles.filePreviewWrapper}>
+                            <span style={{ color: '#94a3b8', fontSize: '13px' }}>No Birth Certificate Uploaded</span>
+                        </div>
+                    )}
                 </div>
 
                 <div className={`${styles.formGroup} ${styles.fullWidth}`}>
                     <label className={styles.formLabel}>Passport-size Candidate Photo</label>
-                    <div className={styles.filePreviewWrapper}>
-                        {!isEditMode && individualRecord.candidate_photo && (
+                    {!isEditMode && individualRecord.candidate_photo ? (
+                        <div className={styles.filePreviewWrapper}>
                             <a 
                                 href={getCandidatePhotoUrl(individualRecord)} 
                                 target="_blank" 
@@ -411,32 +575,30 @@ export default function IndividualDetails({
                             >
                                 View Uploaded Candidate Photo ↗
                             </a>
-                        )}
-                        
-                        {isEditMode && !individualRecord.is_locked && (
-                            <div className={styles.fileUploadControl}>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    ref={photoInputRef}
-                                    style={{ display: 'none' }}
-                                    onChange={(e) => {
-                                        if (e.target.files && e.target.files[0]) {
-                                            setEditCandidatePhotoFile(e.target.files[0]);
-                                        }
-                                    }}
-                                />
-                                <button 
-                                    type="button" 
-                                    className={styles.btnSecondary}
-                                    onClick={() => photoInputRef.current?.click()}
-                                >
-                                    {editCandidatePhotoFile ? 'Change Selected Photo' : 'Upload New Photo'}
-                                </button>
-                                {editCandidatePhotoFile && <span className={styles.selectedFileName}>{editCandidatePhotoFile.name}</span>}
-                            </div>
-                        )}
-                    </div>
+                        </div>
+                    ) : isEditMode && !individualRecord.is_locked ? (
+                        <div className={styles.fileUploadControl}>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                ref={photoInputRef}
+                                style={{ display: 'none' }}
+                                onChange={(e) => e.target.files && handlePhotoSelect(e.target.files[0])}
+                            />
+                            <button 
+                                type="button" 
+                                className={styles.btnSecondary}
+                                onClick={() => photoInputRef.current?.click()}
+                            >
+                                {editCandidatePhotoFile ? 'Change Selected Photo' : 'Upload New Photo'}
+                            </button>
+                            {editCandidatePhotoFile && <span className={styles.selectedFileName}>{editCandidatePhotoFile.name}</span>}
+                        </div>
+                    ) : (
+                        <div className={styles.filePreviewWrapper}>
+                            <span style={{ color: '#94a3b8', fontSize: '13px' }}>No Photo Uploaded</span>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -461,6 +623,19 @@ export default function IndividualDetails({
                 </div>
             )}
 
+            {!isEditMode && !individualRecord.is_locked && (
+                <div className={styles.detailsActions} style={{ borderTop: '1px solid var(--border)', paddingTop: '20px', marginTop: '20px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                    <button
+                        type="button"
+                        className={styles.btnPrimary}
+                        onClick={() => setIsEditMode(true)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                    >
+                        <Edit size={16} /> {individualRecord.status === 'rejected' ? 'Edit & Reapply' : 'Edit Application Details'}
+                    </button>
+                </div>
+            )}
+
             {!isEditMode && individualRecord.status === 'approved' && (
                 <div className={styles.detailsActions} style={{ borderTop: '1px solid var(--border)', paddingTop: '20px', marginTop: '20px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                     <button
@@ -481,6 +656,82 @@ export default function IndividualDetails({
                     title="Print Registration Card"
                     htmlContent={generateIndividualFormHTML(individualRecord, metadata?.print_template)}
                 />
+            )}
+
+            {/* Photo Cropper Modal Overlay */}
+            {showCropper && (
+                <div className={styles.cropperOverlay}>
+                    <div className={styles.cropperModal}>
+                        <div className={styles.cropperHeader}>
+                            <h3>Edit & Crop Photo</h3>
+                            <button className={styles.closeBtn} onClick={() => setShowCropper(false)}>×</button>
+                        </div>
+                        <div className={styles.cropperBody}>
+                            <p className={styles.cropperDesc}>Drag the image inside the box to adjust position. Use controls below to zoom and rotate.</p>
+                            
+                            <div className={styles.canvasContainer}>
+                                <canvas
+                                    ref={canvasRef}
+                                    width={300}
+                                    height={300}
+                                    className={styles.cropperCanvas}
+                                    onMouseDown={handlePointerDown}
+                                    onMouseMove={handlePointerMove}
+                                    onMouseUp={handlePointerUp}
+                                    onMouseLeave={handlePointerUp}
+                                    onTouchStart={handlePointerDown}
+                                    onTouchMove={handlePointerMove}
+                                    onTouchEnd={handlePointerUp}
+                                />
+                            </div>
+
+                            {/* Editor Controls */}
+                            <div className={styles.controlsRow}>
+                                <label className={styles.controlLabel}>Zoom:</label>
+                                <input
+                                    type="range"
+                                    min="1.0"
+                                    max="3.0"
+                                    step="0.05"
+                                    value={zoom}
+                                    className={styles.rangeInput}
+                                    onChange={(e) => setZoom(parseFloat(e.target.value))}
+                                />
+                                <span className={styles.zoomVal}>{Math.round(zoom * 100)}%</span>
+                            </div>
+
+                            <div className={styles.controlsButtons}>
+                                <button
+                                    type="button"
+                                    className={styles.btnTool}
+                                    onClick={() => setRotation((prev) => (prev + 90) % 360)}
+                                >
+                                    🔄 Rotate 90°
+                                </button>
+                                <button
+                                    type="button"
+                                    className={styles.btnTool}
+                                    onClick={() => {
+                                        setZoom(1.0);
+                                        setRotation(0);
+                                        setPanX(0);
+                                        setPanY(0);
+                                    }}
+                                >
+                                    Reset
+                                </button>
+                            </div>
+                        </div>
+                        <div className={styles.cropperFooter}>
+                            <button type="button" className={styles.cancelBtn} onClick={() => setShowCropper(false)}>
+                                Cancel
+                            </button>
+                            <button type="button" className={styles.saveBtn} onClick={handleCropApply}>
+                                Crop & Apply
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

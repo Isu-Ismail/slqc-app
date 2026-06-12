@@ -13,7 +13,10 @@ export const trackApplicationApi = {
             if (query.startsWith('APL-')) {
                 return await pb.collection('participants_application').getFirstListItem<ParticipantsApplicationResponse>(
                     `participant_id = "${query}" && dob ~ "${dob}%"`,
-                    { expand: 'approved_by,institution_ref' }
+                    { 
+                        expand: 'approved_by,institution_ref',
+                        headers: { 'x-app-dob': dob }
+                    }
                 );
             }
 
@@ -22,7 +25,10 @@ export const trackApplicationApi = {
                 try {
                     const record = await pb.collection('participants_application').getOne<ParticipantsApplicationResponse>(
                         query,
-                        { expand: 'approved_by,institution_ref' }
+                        { 
+                            expand: 'approved_by,institution_ref',
+                            headers: { 'x-app-dob': dob }
+                        }
                     );
                     if (record && record.dob && record.dob.startsWith(dob)) {
                         return record;
@@ -35,7 +41,10 @@ export const trackApplicationApi = {
             // 3. Search by Aadhaar number and DOB prefix match
             return await pb.collection('participants_application').getFirstListItem<ParticipantsApplicationResponse>(
                 `aadhaar_number = "${query}" && dob ~ "${dob}%"`,
-                { expand: 'approved_by,institution_ref' }
+                { 
+                    expand: 'approved_by,institution_ref',
+                    headers: { 'x-app-dob': dob }
+                }
             );
         } catch (e) {
             console.error('Error tracking individual application:', e);
@@ -55,7 +64,10 @@ export const trackApplicationApi = {
 
             const institution = await pb.collection('institutions').getFirstListItem<InstitutionsResponse>(
                 filter,
-                { expand: 'approved_by' } // <-- Added expand for the institution itself
+                { 
+                    expand: 'approved_by',
+                    headers: { 'x-inst-passcode': passcode }
+                }
             );
 
             if (!institution) {
@@ -76,9 +88,8 @@ export const trackApplicationApi = {
         }
     },
 
-    // Update an application (if not locked)
-    updateApplication: async (id: string, formData: FormData): Promise<ParticipantsApplicationResponse> => {
-        return await participantsApi.updateApplication(id, formData);
+    updateApplication: async (id: string, payload: FormData | Record<string, any>): Promise<ParticipantsApplicationResponse> => {
+        return await participantsApi.updateApplication(id, payload);
     },
 
     // Update an institution (if not locked)

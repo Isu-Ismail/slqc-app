@@ -98,7 +98,7 @@ export default function ApprovalsListPage() {
                     const record = e.record as AllocatedItem;
 
                     if (e.action === 'create') {
-                        if (record.status === 'pending' && activeTab === 'pending' && appType === type) {
+                        if ((record.status === 'pending' || record.status === 'reapplied') && activeTab === 'pending' && appType === type) {
                             setApplications(prev => {
                                 if (prev.some(x => x.id === record.id)) return prev;
                                 return [record, ...prev];
@@ -107,7 +107,7 @@ export default function ApprovalsListPage() {
                         const countsData = await approvalsApi.getPendingCounts(user!.id, true);
                         setCounts(countsData);
                     } else if (e.action === 'update') {
-                        const isPendingNow = record.status === 'pending';
+                        const isPendingNow = record.status === 'pending' || record.status === 'reapplied';
 
                         if (activeTab === 'pending') {
                             if (appType === type) {
@@ -136,7 +136,7 @@ export default function ApprovalsListPage() {
                             }
                         } else if (activeTab === 'history') {
                             if (appType === type) {
-                                const isMyHistory = record.approved_by === user?.id && record.status !== 'pending';
+                                const isMyHistory = record.approved_by === user?.id && record.status !== 'pending' && record.status !== 'reapplied';
                                 if (isMyHistory) {
                                     setApplications(prev => {
                                         if (prev.some(x => x.id === record.id)) {

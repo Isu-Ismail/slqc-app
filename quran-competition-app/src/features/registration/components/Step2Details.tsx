@@ -5,7 +5,7 @@ import { validators } from '../../../utils/validators';
 import { useRegistrationStatus } from '../../../shared/context/StatusContext';
 import { checkAgeEligibility } from '../../../utils/ageChecker';
 import styles from './Step2Details.module.css';
-import { CATEGORIES_CONFIG, getJuzOptionsForCategory, FORM_FIELDS_CONFIG } from '../../../config/fieldsConfig';
+import { CATEGORIES_CONFIG, getJuzCodesForCategory, getJuzLabel, FORM_FIELDS_CONFIG } from '../../../config/fieldsConfig';
 
 interface Step2Props {
     formData: RegistrationFormData;
@@ -54,10 +54,26 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
         const fieldConfig = FORM_FIELDS_CONFIG.find(f => f.key === key);
         if (!fieldConfig) return;
 
+        if (key === 'aadhaar_number' && formData.no_aadhaar) {
+            setErrors(prev => {
+                const copy = { ...prev };
+                delete copy[key];
+                return copy;
+            });
+            return;
+        }
+
         // 1. Required Check
         if (fieldConfig.required && (value === undefined || value === null || String(value).trim() === '')) {
-            setErrors(prev => ({ ...prev, [key]: `${fieldConfig.label} is required.` }));
-            return;
+            if (fieldConfig.key === 'juz_options') {
+                if (getJuzCodesForCategory(formData.category).length > 0) {
+                    setErrors(prev => ({ ...prev, [key]: 'Juz Option is required.' }));
+                    return;
+                }
+            } else {
+                setErrors(prev => ({ ...prev, [key]: `${fieldConfig.label} is required.` }));
+                return;
+            }
         }
 
         // 2. Validation Type Check
@@ -127,17 +143,21 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
             );
         }
 
+        const isAadhaarField = field.key === 'aadhaar_number';
+        const isRequired = field.required && (!isAadhaarField || !formData.no_aadhaar);
+
         return (
             <div key={field.key} className={field.gridSpan === 2 ? styles.inputGroupFull : styles.inputGroup}>
                 <label className={styles.inputLabel} htmlFor={field.key}>
-                    {field.label} {field.required && <span style={{ color: '#ef4444' }}>*</span>}
+                    {field.label} {isRequired && <span style={{ color: '#ef4444' }}>*</span>}
                 </label>
                 <input
                     type={field.type}
                     id={field.key}
                     maxLength={field.validationType === 'aadhaar' ? 12 : field.validationType === 'phone' ? 10 : undefined}
+                    disabled={isAadhaarField && formData.no_aadhaar}
                     className={`${styles.inputField} ${isError ? styles.inputError : ''}`}
-                    placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                    placeholder={isAadhaarField && formData.no_aadhaar ? "Aadhaar Card is marked as not available" : (field.placeholder || `Enter ${field.label.toLowerCase()}`)}
                     value={(formData as any)[field.key] || ''}
                     onChange={(e) => {
                         let val = e.target.value;
@@ -153,6 +173,29 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
                 ) : field.validationType === 'aadhaar' ? (
                     <span className={styles.inputHint}>12-digit unique identification number. Will be mathematically verified.</span>
                 ) : null}
+
+                {isAadhaarField && (
+                    <div style={{ marginTop: '8px' }}>
+                        <label className={styles.checkboxLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={!!formData.no_aadhaar}
+                                onChange={(e) => {
+                                    updateForm('no_aadhaar', e.target.checked);
+                                    if (e.target.checked) {
+                                        updateForm('aadhaar_number', '');
+                                        setErrors(prev => {
+                                            const copy = { ...prev };
+                                            delete copy.aadhaar_number;
+                                            return copy;
+                                        });
+                                    }
+                                }}
+                            />
+                            <span style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text)' }}>No Aadhaar Card (Birth Certificate upload will be compulsory)</span>
+                        </label>
+                    </div>
+                )}
             </div>
         );
     };
@@ -185,9 +228,12 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
                                     style={!isEligible ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                                     onClick={() => {
                                         updateForm('category', cat.key as '5_juz' | '15_juz' | '30_juz');
-                                        if (cat.defaultJuz) {
-                                            updateForm('selected_juz', cat.defaultJuz);
+                                        const codes = getJuzCodesForCategory(cat.key);
+                                        if (codes.length === 1) {
+                                            updateForm('juz_options', codes[0].code);
+                                            updateForm('selected_juz', codes[0].label);
                                         } else {
+                                            updateForm('juz_options', '');
                                             updateForm('selected_juz', '');
                                         }
                                         validateField('category', cat.key);
@@ -207,23 +253,25 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
                 </div>
 
                 {/* Custom Juz Option Selection in original place */}
-                {getJuzOptionsForCategory(formData.category).length > 0 && (
+                {getJuzCodesForCategory(formData.category).length > 0 && (
                     <div className={styles.inputGroupFull}>
                         <label className={styles.inputLabel}>
                             Select Juz Range / Option <span style={{ color: '#ef4444' }}>*</span>
                         </label>
                         <select
                              className={styles.inputField}
-                             value={formData.selected_juz}
+                             value={formData.juz_options || ''}
                              onChange={(e) => {
-                                 updateForm('selected_juz', e.target.value);
-                                 validateField('selected_juz', e.target.value);
+                                 const code = e.target.value;
+                                 updateForm('juz_options', code);
+                                 updateForm('selected_juz', getJuzLabel(code));
+                                 validateField('juz_options', code);
                              }}
                         >
                             <option value="">-- Choose Juz Range --</option>
-                            {getJuzOptionsForCategory(formData.category).map((opt) => (
-                                <option key={opt} value={opt}>
-                                    {opt}
+                            {getJuzCodesForCategory(formData.category).map((opt) => (
+                                <option key={opt.code} value={opt.code}>
+                                    {opt.label}
                                 </option>
                             ))}
                         </select>

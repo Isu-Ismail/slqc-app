@@ -264,6 +264,7 @@
 .pending  { background: #fef08a; color: #854d0e; }
 .approved { background: #d1fae5; color: #065f46; }
 .rejected { background: #fee2e2; color: #991b1b; }
+.reapplied { background: #e0e7ff; color: #3730a3; }
 
 .trackBtn {
     display: inline-flex;

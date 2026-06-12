@@ -14,11 +14,13 @@ export default function StatusToggles({ metadata, onUpdate }: Props) {
     const setStatus = async (key: string, newStatus: 'waiting' | 'open' | 'closed') => {
         setLoading(true);
         try {
-            const dbRecord = await metadataApi.getMetadataByKey(key);
+            const dbRecord = metadata[key];
+            console.log('StatusToggles - setStatus:', { key, dbRecord, metadataKeys: Object.keys(metadata) });
+            const payload = JSON.stringify({ status: newStatus });
             if (dbRecord) {
-                await metadataApi.updateMetadata(dbRecord.id, { status: newStatus });
+                await metadataApi.updateMetadata(dbRecord.id, payload);
             } else {
-                await metadataApi.createMetadata(key, { status: newStatus });
+                await metadataApi.createMetadata(key, payload);
             }
             onUpdate();
         } catch (err) {
@@ -31,7 +33,20 @@ export default function StatusToggles({ metadata, onUpdate }: Props) {
 
     const renderToggle = (title: string, key: string) => {
         const record = metadata[key];
-        const currentStatus = record?.value?.status || 'closed';
+        let currentStatus = 'closed';
+        if (record && record.value) {
+            let val = record.value;
+            if (typeof val === 'string') {
+                try {
+                    val = JSON.parse(val);
+                } catch (e) {
+                    console.error('Failed to parse status value', e);
+                }
+            }
+            if (val && typeof val === 'object' && 'status' in val) {
+                currentStatus = val.status || 'closed';
+            }
+        }
 
         return (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid #f1f5f9' }}>

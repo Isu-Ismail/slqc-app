@@ -5,6 +5,7 @@ import { pb } from '../../api/db';
 import { RefreshCw, Search, ExternalLink, ChevronDown } from 'lucide-react';
 import type { ParticipantsApplicationResponse, InstitutionsResponse } from '../../api/track';
 import styles from './ApplicationsListPage.module.css';
+import { getJuzLabel } from '../../config/fieldsConfig';
 
 // ─── Module-level cache (survives remounts / navigation) ─────────────────────
 const CACHE_TTL = 2 * 60 * 1000; // 2 min
@@ -81,6 +82,7 @@ function IndividualRow({ app, navigate }: { app: ParticipantsApplicationResponse
         app.category === '5_juz'  ? styles.cat5  :
         app.category === '15_juz' ? styles.cat15 :
         app.category === '30_juz' ? styles.cat30 : '';
+    const juzLabel = app.juz_options ? getJuzLabel(app.juz_options) : (app.selected_juz || '');
     return (
         <tr className={styles.tableRow}>
             <td className={styles.boldCell}>{app.full_name}</td>
@@ -88,7 +90,10 @@ function IndividualRow({ app, navigate }: { app: ParticipantsApplicationResponse
             <td>{instData?.name || <span style={{ color: '#94a3b8' }}>—</span>}</td>
             <td>
                 {app.category
-                    ? <span className={`${styles.categoryBadge} ${catClass}`}>{JUZ_LABELS[app.category] || app.category}</span>
+                    ? <span className={`${styles.categoryBadge} ${catClass}`}>
+                        {JUZ_LABELS[app.category] || app.category}
+                        {juzLabel ? ` (${juzLabel})` : ''}
+                      </span>
                     : <span style={{ color: '#94a3b8' }}>—</span>}
             </td>
             <td>{app.allocated_venue || <span style={{ color: '#94a3b8' }}>—</span>}</td>
@@ -510,6 +515,7 @@ export default function ApplicationsListPage() {
                         onChange={e => setIndivStatus(e.target.value)}>
                         <option value="">All Statuses</option>
                         <option value="pending">Pending</option>
+                        <option value="reapplied">Reapplied</option>
                         <option value="approved">Approved</option>
                         <option value="rejected">Rejected</option>
                     </select>
@@ -539,6 +545,7 @@ export default function ApplicationsListPage() {
                         onChange={e => setInstStatus(e.target.value)}>
                         <option value="">All Statuses</option>
                         <option value="pending">Pending</option>
+                        <option value="reapplied">Reapplied</option>
                         <option value="approved">Approved</option>
                         <option value="rejected">Rejected</option>
                     </select>

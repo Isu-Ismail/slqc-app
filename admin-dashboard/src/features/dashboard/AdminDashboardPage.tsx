@@ -17,6 +17,7 @@ interface PrizeItem { rank: string; title: string; value: string; highlight?: bo
 
 export default function AdminDashboardPage() {
     const [metadata, setMetadata] = useState<Record<string, unknown>>({});
+    const [activeCategory, setActiveCategory] = useState<'5_juz' | '15_juz' | '30_juz'>('5_juz');
     const user = pb.authStore.model;
     const isAdmin = user?.designation === 'admin';
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -90,13 +91,14 @@ export default function AdminDashboardPage() {
         }
         return obj;
     };
+    const timeInfo = getTimeMetadata();
+    const timeString = `${timeInfo.startDate}_${timeInfo.endDate}`;
 
     // ── Countdown timer ───────────────────────────────────────────────────────
     const [timeLeft, setTimeLeft] = useState<TimeLeft>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
     useEffect(() => {
         const tick = () => {
-            const timeInfo = getTimeMetadata();
             const now = new Date().getTime();
             const start = new Date(timeInfo.startDate).getTime();
             const end = new Date(timeInfo.endDate).getTime();
@@ -119,8 +121,7 @@ export default function AdminDashboardPage() {
         tick();
         const timer = setInterval(tick, 1000);
         return () => clearInterval(timer);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [stats.time]);
+    }, [timeString]);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     const getStatNumber = (key: string): number => {
@@ -160,7 +161,7 @@ export default function AdminDashboardPage() {
         } catch { return 'Friday, June 19, 2026'; }
     };
 
-    const timeInfo = getTimeMetadata();
+
     const now = new Date().getTime();
     const start = new Date(timeInfo.startDate).getTime();
     const end = new Date(timeInfo.endDate).getTime();
@@ -172,7 +173,11 @@ export default function AdminDashboardPage() {
     const madrasaStatus = getStatus('madrasa_application_status');
 
     const eventsList: EventItem[] = Array.isArray(stats.events) ? stats.events : [];
-    const prizesList: PrizeItem[] = Array.isArray(stats.prizes) ? stats.prizes : [];
+    const prizesList: PrizeItem[] = Array.isArray(stats[`prizes_${activeCategory}`])
+        ? stats[`prizes_${activeCategory}`] as PrizeItem[]
+        : Array.isArray(stats.prizes)
+            ? stats.prizes as PrizeItem[]
+            : [];
 
     const statusLabel = (s: 'waiting' | 'open' | 'closed') =>
         s === 'waiting' ? 'Coming Soon' : s === 'open' ? 'Open' : 'Closed';
@@ -363,9 +368,38 @@ export default function AdminDashboardPage() {
 
                 {/* Prizes */}
                 <div className={styles.sectionCard}>
-                    <h3 className={styles.sectionTitle}>
-                        <Trophy size={16} color="#10b981" /> State Level Grand Prizes
-                    </h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+                        <h3 className={styles.sectionTitle} style={{ borderBottom: 'none', paddingBottom: 0, margin: 0 }}>
+                            <Trophy size={16} color="#10b981" /> State Level Grand Prizes
+                        </h3>
+                        <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '3px', borderRadius: '20px' }}>
+                            {(['5_juz', '15_juz', '30_juz'] as const).map(cat => (
+                                <button
+                                    key={cat}
+                                    type="button"
+                                    onClick={() => setActiveCategory(cat)}
+                                    style={{
+                                        background: activeCategory === cat ? '#ffffff' : 'transparent',
+                                        color: activeCategory === cat ? '#059669' : '#64748b',
+                                        border: 'none',
+                                        padding: '6px 12px',
+                                        borderRadius: '16px',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        fontSize: '12px',
+                                        transition: 'all 0.2s ease',
+                                        whiteSpace: 'nowrap',
+                                        boxShadow: activeCategory === cat ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+                                        outline: 'none'
+                                    }}
+                                >
+                                    {cat === '5_juz' && '5 Juz'}
+                                    {cat === '15_juz' && '15 Juz'}
+                                    {cat === '30_juz' && '30 Juz'}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                     <div className={prizesList.length > 3 ? styles.prizesContainer : ''}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             {prizesList.map((prz, idx) => (

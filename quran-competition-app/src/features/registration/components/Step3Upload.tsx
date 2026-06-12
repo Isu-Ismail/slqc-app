@@ -19,12 +19,15 @@ export default function Step3Upload({ formData, updateForm, rulesAccepted, setRu
     const [showRulesModal, setShowRulesModal] = useState(false);
 
     const aadhaarInputRef = useRef<HTMLInputElement | null>(null);
+    const birthcertificateInputRef = useRef<HTMLInputElement | null>(null);
     const photoInputRef = useRef<HTMLInputElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
     const [aadhaarPreview, setAadhaarPreview] = useState<string | null>(null);
+    const [birthcertificatePreview, setBirthcertificatePreview] = useState<string | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [aadhaarError, setAadhaarError] = useState<string | null>(null);
+    const [birthcertificateError, setBirthcertificateError] = useState<string | null>(null);
     const [photoError, setPhotoError] = useState<string | null>(null);
 
     // Cropper States
@@ -51,6 +54,21 @@ export default function Step3Upload({ formData, updateForm, rulesAccepted, setRu
             setAadhaarPreview(null);
         }
     }, [formData.aadhaar_front]);
+
+    // Handle Birth Certificate Previews
+    useEffect(() => {
+        if (!formData.birthcertificate_photo) {
+            setBirthcertificatePreview(null);
+            return;
+        }
+        if (formData.birthcertificate_photo.type.startsWith('image/')) {
+            const url = URL.createObjectURL(formData.birthcertificate_photo);
+            setBirthcertificatePreview(url);
+            return () => URL.revokeObjectURL(url);
+        } else {
+            setBirthcertificatePreview(null);
+        }
+    }, [formData.birthcertificate_photo]);
 
     // Handle Photo Previews
     useEffect(() => {
@@ -128,6 +146,16 @@ export default function Step3Upload({ formData, updateForm, rulesAccepted, setRu
         updateForm('aadhaar_front', file);
     };
 
+    const handleBirthCertificateChange = (file: File | null) => {
+        setBirthcertificateError(null);
+        if (!file) return;
+        if (file.size > MAX_FILE_SIZE) {
+            setBirthcertificateError('Birth Certificate size exceeds 1MB limit.');
+            return;
+        }
+        updateForm('birthcertificate_photo', file);
+    };
+
     const handlePhotoSelect = (file: File | null) => {
         setPhotoError(null);
         if (!file) return;
@@ -200,11 +228,11 @@ export default function Step3Upload({ formData, updateForm, rulesAccepted, setRu
 
     return (
         <div className={styles.stepContainer}>
-            {/* 1. AGE VERIFICATION DOCUMENT UPLOAD */}
+            {/* 1. AADHAAR CARD FRONT UPLOAD */}
             <div className={styles.uploadBlock}>
                 <div>
-                    <h3 className={styles.stepTitle}>Age Verification Document *</h3>
-                    <p className={styles.stepDesc}>Upload a clear scanned copy of your Birth Certificate, Aadhaar Card, or Passport.</p>
+                    <h3 className={styles.stepTitle}>Aadhaar Card Front {formData.no_aadhaar ? '(Optional)' : '*'}</h3>
+                    <p className={styles.stepDesc}>Upload a clear scanned copy of your Aadhaar Card Front image.</p>
                 </div>
 
                 {aadhaarError && <div className={styles.errorBox}>{aadhaarError}</div>}
@@ -224,7 +252,7 @@ export default function Step3Upload({ formData, updateForm, rulesAccepted, setRu
                             <polyline points="17 8 12 3 7 8" />
                             <line x1="12" y1="3" x2="12" y2="15" />
                         </svg>
-                        <span className={styles.uploadText}>Upload Document</span>
+                        <span className={styles.uploadText}>Upload Aadhaar Front</span>
                         <span className={styles.uploadHint}>Supports PNG, JPG, JPEG, or PDF (Max 1MB)</span>
                     </div>
                 ) : (
@@ -247,6 +275,63 @@ export default function Step3Upload({ formData, updateForm, rulesAccepted, setRu
                         {aadhaarPreview ? (
                             <div className={styles.imagePreviewWrapper}>
                                 <img src={aadhaarPreview} alt="Aadhaar Preview" className={styles.imagePreview} />
+                            </div>
+                        ) : (
+                            <div className={styles.imagePreviewWrapper} style={{ padding: '16px', fontSize: '13px' }}>
+                                PDF uploaded successfully (preview unavailable)
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* 1b. BIRTH CERTIFICATE UPLOAD */}
+            <div className={styles.uploadBlock} style={{ marginTop: '24px' }}>
+                <div>
+                    <h3 className={styles.stepTitle}>Birth Certificate {formData.no_aadhaar ? '*' : '(Optional)'}</h3>
+                    <p className={styles.stepDesc}>Upload a clear scanned copy of your Birth Certificate.</p>
+                </div>
+
+                {birthcertificateError && <div className={styles.errorBox}>{birthcertificateError}</div>}
+
+                <input
+                    type="file"
+                    ref={birthcertificateInputRef}
+                    className={styles.fileInput}
+                    accept="image/*,application/pdf"
+                    onChange={(e) => e.target.files && handleBirthCertificateChange(e.target.files[0])}
+                />
+
+                {!formData.birthcertificate_photo ? (
+                    <div className={styles.dropzone} onClick={() => birthcertificateInputRef.current?.click()}>
+                        <svg className={styles.uploadIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                        <span className={styles.uploadText}>Upload Birth Certificate</span>
+                        <span className={styles.uploadHint}>Supports PNG, JPG, JPEG, or PDF (Max 1MB)</span>
+                    </div>
+                ) : (
+                    <div className={styles.previewContainer}>
+                        <div className={styles.previewHeader}>
+                            <div className={styles.fileInfo}>
+                                <svg className={styles.fileIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                    <polyline points="14 2 14 8 20 8" />
+                                </svg>
+                                <div className={styles.fileNameDetails}>
+                                    <span className={styles.fileName}>{formData.birthcertificate_photo.name}</span>
+                                    <span className={styles.fileSize}>{formatSize(formData.birthcertificate_photo.size)}</span>
+                                </div>
+                            </div>
+                            <button type="button" className={styles.removeBtn} onClick={() => updateForm('birthcertificate_photo', null)}>
+                                Remove
+                            </button>
+                        </div>
+                        {birthcertificatePreview ? (
+                            <div className={styles.imagePreviewWrapper}>
+                                <img src={birthcertificatePreview} alt="Birth Certificate Preview" className={styles.imagePreview} />
                             </div>
                         ) : (
                             <div className={styles.imagePreviewWrapper} style={{ padding: '16px', fontSize: '13px' }}>

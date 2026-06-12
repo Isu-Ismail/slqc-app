@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, Ban, Search, UserPlus, School, CalendarDays } from 'lucide-react';
 import { useRegistrationStatus } from '../../../../shared/context/StatusContext';
+import { parseMarkdownToHtml } from '../../../../shared/utils/markdown';
+import { pb } from '../../../../api/db';
 import styles from './DashboardPage.module.css';
 
 interface TimeLeft {
@@ -28,6 +30,7 @@ interface PrizeItem {
 export default function DashboardPage() {
     const { metadata } = useRegistrationStatus();
     const [activeCategory, setActiveCategory] = useState<'5_juz' | '15_juz' | '30_juz'>('5_juz');
+    const [modalContent, setModalContent] = useState<{ title: string; body: string } | null>(null);
     const pad = (n: number) => String(n).padStart(2, '0');
 
     // Default configuration merged with real-time metadata from Context
@@ -84,7 +87,7 @@ export default function DashboardPage() {
             if (typeof timeVal === 'string') {
                 try {
                     parsed = JSON.parse(timeVal);
-                } catch {}
+                } catch { }
             }
             if (parsed) {
                 // Support legacy format where key was just 'date'
@@ -102,9 +105,11 @@ export default function DashboardPage() {
 
     const [timeLeft, setTimeLeft] = useState<TimeLeft>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
+    const timeInfo = getTimeMetadata(activeCategory);
+    const timeString = `${timeInfo.startDate}_${timeInfo.endDate}`;
+
     useEffect(() => {
         const tick = () => {
-            const timeInfo = getTimeMetadata(activeCategory);
             const now = new Date().getTime();
             const start = new Date(timeInfo.startDate).getTime();
             const end = new Date(timeInfo.endDate).getTime();
@@ -133,7 +138,7 @@ export default function DashboardPage() {
         tick();
         const timer = setInterval(tick, 1000);
         return () => clearInterval(timer);
-    }, [stats.time, activeCategory]);
+    }, [timeString]);
 
     // Simple getter — metadata values for stats are now plain integers
     const getStatNumber = (key: string): number => {
@@ -148,7 +153,7 @@ export default function DashboardPage() {
         const now = new Date().getTime();
         const start = new Date(timeInfo.startDate).getTime();
         const activeDeadline = now < start ? timeInfo.startDate : timeInfo.endDate;
-        
+
         try {
             const dateObj = new Date(activeDeadline);
             return dateObj.toLocaleDateString('en-US', {
@@ -246,11 +251,11 @@ export default function DashboardPage() {
         }
     };
 
-    const timeInfo = getTimeMetadata();
+
     const now = new Date().getTime();
     const start = new Date(timeInfo.startDate).getTime();
     const end = new Date(timeInfo.endDate).getTime();
-    
+
     const isWaiting = now < start;
     const isClosed = now > end;
     const activeTitle = isWaiting ? timeInfo.startDescription : timeInfo.endDescription;
@@ -393,9 +398,9 @@ export default function DashboardPage() {
                     <div className={prizesList.length > 3 ? styles.prizesContainer : ''}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                             {prizesList.map((prz, idx) => (
-                                <div 
-                                    key={idx} 
-                                    className={styles.prizeItem} 
+                                <div
+                                    key={idx}
+                                    className={styles.prizeItem}
                                     style={prz.highlight ? { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' } : undefined}
                                 >
                                     <span className={styles.prizeRank}>{prz.rank}</span>
@@ -413,6 +418,260 @@ export default function DashboardPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Guidelines Section */}
+            <div className={styles.sectionCard}>
+                <h3 className={styles.sectionTitle}>Guidelines</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginTop: '4px' }}>
+
+                    {/* Overall Rules Card */}
+                    <div style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <span style={{ fontWeight: '700', fontSize: '15px', color: '#0f172a' }}>Overall Competition Rules</span>
+                        <p style={{ fontSize: '13px', color: '#64748b', margin: 0, flex: 1, lineHeight: '1.45' }}>Read the overall evaluation criteria, scoring marks, and rules of the competition.</p>
+                        {(() => {
+                            const rec = metadata._overall_rules_record;
+                            if (rec && rec.document) {
+                                return (
+                                    <a
+                                        href={pb.files.getURL(rec, rec.document)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={styles.btnPrimarySmall}
+                                        style={{ alignSelf: 'flex-start', textDecoration: 'none', textAlign: 'center', background: '#0d9488', color: '#ffffff', boxShadow: 'none' }}
+                                    >
+                                        View Overall Rules ↗
+                                    </a>
+                                );
+                            }
+                            const hasText = !!metadata.overall_rules;
+                            return (
+                                <button
+                                    type="button"
+                                    className={styles.btnSecondarySmall}
+                                    style={{ alignSelf: 'flex-start', background: '#ffffff', color: '#0f766e', border: '1px solid #0d9488', width: 'auto' }}
+                                    onClick={() => setModalContent({ title: 'Overall Competition Rules', body: metadata.overall_rules || 'Overall rules not uploaded yet.' })}
+                                    disabled={!hasText}
+                                >
+                                    {hasText ? 'View Overall Rules' : 'Not Uploaded Yet'}
+                                </button>
+                            );
+                        })()}
+                    </div>
+
+                    {/* Individual Rules Card */}
+                    <div style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <span style={{ fontWeight: '700', fontSize: '15px', color: '#0f172a' }}>Individual Rules</span>
+                        <p style={{ fontSize: '13px', color: '#64748b', margin: 0, flex: 1, lineHeight: '1.45' }}>Guidelines, age criteria, dress code, and terms for individual candidates.</p>
+                        {(() => {
+                            const rec = metadata._individual_rules_record;
+                            if (rec && rec.document) {
+                                return (
+                                    <a
+                                        href={pb.files.getURL(rec, rec.document)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={styles.btnPrimarySmall}
+                                        style={{ alignSelf: 'flex-start', textDecoration: 'none', textAlign: 'center', background: '#0d9488', color: '#ffffff', boxShadow: 'none' }}
+                                    >
+                                        View Individual Rules ↗
+                                    </a>
+                                );
+                            }
+                            const hasText = !!metadata.individual_rules;
+                            return (
+                                <button
+                                    type="button"
+                                    className={styles.btnSecondarySmall}
+                                    style={{ alignSelf: 'flex-start', background: '#ffffff', color: '#0f766e', border: '1px solid #0d9488', width: 'auto' }}
+                                    onClick={() => setModalContent({ title: 'Individual Rules & Regulations', body: metadata.individual_rules || 'Individual rules not uploaded yet.' })}
+                                    disabled={!hasText}
+                                >
+                                    {hasText ? 'View Individual Rules' : 'Not Uploaded Yet'}
+                                </button>
+                            );
+                        })()}
+                    </div>
+
+                    {/* Institution Rules Card */}
+                    <div style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <span style={{ fontWeight: '700', fontSize: '15px', color: '#0f172a' }}>Institution Guidelines</span>
+                        <p style={{ fontSize: '13px', color: '#64748b', margin: 0, flex: 1, lineHeight: '1.45' }}>Rules and submission instructions for Madrasas, Schools, and coordinators.</p>
+                        {(() => {
+                            const rec = metadata._institution_rules_record;
+                            if (rec && rec.document) {
+                                return (
+                                    <a
+                                        href={pb.files.getURL(rec, rec.document)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={styles.btnPrimarySmall}
+                                        style={{ alignSelf: 'flex-start', textDecoration: 'none', textAlign: 'center', background: '#0d9488', color: '#ffffff', boxShadow: 'none' }}
+                                    >
+                                        View Institution Rules ↗
+                                    </a>
+                                );
+                            }
+                            const hasText = !!metadata.institution_rules;
+                            return (
+                                <button
+                                    type="button"
+                                    className={styles.btnSecondarySmall}
+                                    style={{ alignSelf: 'flex-start', background: '#ffffff', color: '#0f766e', border: '1px solid #0d9488', width: 'auto' }}
+                                    onClick={() => setModalContent({ title: 'Institution Rules & Regulations', body: metadata.institution_rules || 'Institution rules not uploaded yet.' })}
+                                    disabled={!hasText}
+                                >
+                                    {hasText ? 'View Institution Rules' : 'Not Uploaded Yet'}
+                                </button>
+                            );
+                        })()}
+                    </div>
+
+                    {/* Do's and Don'ts Card */}
+                    <div style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <span style={{ fontWeight: '700', fontSize: '15px', color: '#0f172a' }}>Do's & Don'ts</span>
+                        <p style={{ fontSize: '13px', color: '#64748b', margin: 0, flex: 1, lineHeight: '1.45' }}>Must-know instructions, checklist, and code of conduct for reporting at the venue.</p>
+                        {(() => {
+                            const rec = metadata._dos_and_donts_record;
+                            if (rec && rec.document) {
+                                return (
+                                    <a
+                                        href={pb.files.getURL(rec, rec.document)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={styles.btnPrimarySmall}
+                                        style={{ alignSelf: 'flex-start', textDecoration: 'none', textAlign: 'center', background: '#0d9488', color: '#ffffff', boxShadow: 'none' }}
+                                    >
+                                        View Do's & Don'ts ↗
+                                    </a>
+                                );
+                            }
+                            const hasText = !!metadata.dos_and_donts;
+                            return (
+                                <button
+                                    type="button"
+                                    className={styles.btnSecondarySmall}
+                                    style={{ alignSelf: 'flex-start', background: '#ffffff', color: '#0f766e', border: '1px solid #0d9488', width: 'auto' }}
+                                    onClick={() => setModalContent({ title: "Do's & Don'ts", body: metadata.dos_and_donts || "Do's and Don'ts not uploaded yet." })}
+                                    disabled={!hasText}
+                                >
+                                    {hasText ? "View Do's & Don'ts" : 'Not Uploaded Yet'}
+                                </button>
+                            );
+                        })()}
+                    </div>
+
+                    {/* Venue Map Card */}
+                    <div style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <span style={{ fontWeight: '700', fontSize: '15px', color: '#0f172a' }}>Competition Venue Map</span>
+                        <p style={{ fontSize: '13px', color: '#64748b', margin: 0, flex: 1, lineHeight: '1.45' }}>Download or view the location layout map of the competition venue.</p>
+                        {(() => {
+                            const mapRecord = metadata._venue_map_record;
+                            const mapUrl = mapRecord && mapRecord.document ? pb.files.getURL(mapRecord, mapRecord.document) : '';
+                            if (mapUrl) {
+                                return (
+                                    <a
+                                        href={mapUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={styles.btnPrimarySmall}
+                                        style={{ alignSelf: 'flex-start', textDecoration: 'none', textAlign: 'center', background: '#0d9488', color: '#ffffff', boxShadow: 'none' }}
+                                    >
+                                        View Venue Map ↗
+                                    </a>
+                                );
+                            } else {
+                                return (
+                                    <button
+                                        type="button"
+                                        disabled
+                                        className={styles.btnSecondarySmall}
+                                        style={{ alignSelf: 'flex-start', opacity: 0.6, cursor: 'not-allowed', width: 'auto' }}
+                                    >
+                                        Map Not Uploaded Yet
+                                    </button>
+                                );
+                            }
+                        })()}
+                    </div>
+
+                </div>
+            </div>
+
+            {modalContent && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                    backdropFilter: 'blur(4px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 9999,
+                    padding: '20px',
+                    animation: 'fadeIn 0.2s ease-in-out'
+                }} onClick={() => setModalContent(null)}>
+                    <div style={{
+                        backgroundColor: '#ffffff',
+                        borderRadius: '16px',
+                        width: '100%',
+                        maxWidth: '640px',
+                        maxHeight: '80vh',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                        overflow: 'hidden'
+                    }} onClick={(e) => e.stopPropagation()}>
+                        <div style={{
+                            padding: '20px 24px',
+                            borderBottom: '1px solid #f1f5f9',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}>
+                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>{modalContent.title}</h3>
+                            <button
+                                onClick={() => setModalContent(null)}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    fontSize: '24px',
+                                    color: '#94a3b8',
+                                    cursor: 'pointer',
+                                    lineHeight: 1,
+                                    padding: 0
+                                }}
+                            >×</button>
+                        </div>
+                        <div style={{
+                            padding: '24px',
+                            overflowY: 'auto',
+                            fontSize: '14px',
+                            lineHeight: '1.6',
+                            color: '#334155'
+                        }}>
+                            <div
+                                style={{ fontFamily: 'inherit' }}
+                                dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(modalContent.body) }}
+                            />
+                        </div>
+                        <div style={{
+                            padding: '16px 24px',
+                            borderTop: '1px solid #f1f5f9',
+                            display: 'flex',
+                            justifyContent: 'flex-end'
+                        }}>
+                            <button
+                                type="button"
+                                className={styles.btnSecondarySmall}
+                                style={{ background: '#f1f5f9', border: 'none', color: '#475569', fontWeight: '600', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', width: 'auto' }}
+                                onClick={() => setModalContent(null)}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

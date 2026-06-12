@@ -166,7 +166,7 @@ export default function ApprovalReviewPage() {
                 application.id,
                 appType,
                 'rejected',
-                true,
+                false,
                 rejectReason.trim()
             );
             await approvalsApi.releaseLock(
@@ -295,6 +295,7 @@ export default function ApprovalReviewPage() {
 
 
     const aadhaarUrl = isIndividual && indivApp.aadhaar_front ? pb.files.getURL(application, indivApp.aadhaar_front) : '';
+    const birthCertificateUrl = isIndividual && indivApp.birthcertificate_photo ? pb.files.getURL(application, indivApp.birthcertificate_photo) : '';
     const photoUrl = isIndividual && indivApp.candidate_photo ? pb.files.getURL(application, indivApp.candidate_photo) : '';
     const instData = (indivApp as any).expand?.institution_ref;
 
@@ -533,6 +534,14 @@ export default function ApprovalReviewPage() {
                                     <div className={styles.noDoc}>No Aadhaar Provided</div>
                                 )}
                             </div>
+                            {birthCertificateUrl && (
+                                <div className={styles.docBox} style={{ padding: '8px' }}>
+                                    <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#64748b', textTransform: 'uppercase' }}>Birth Certificate</h4>
+                                    <div style={{ cursor: 'pointer' }} onClick={() => setFullscreenImg(birthCertificateUrl)}>
+                                        <img src={birthCertificateUrl} alt="Birth Certificate" className={styles.previewImg} style={{ maxHeight: '600px', width: '100%', objectFit: 'contain' }} />
+                                    </div>
+                                </div>
+                            )}
                             <div className={styles.docBox} style={{ padding: '8px' }}>
                                 <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#64748b', textTransform: 'uppercase' }}>Passport Photo</h4>
                                 {photoUrl ? (

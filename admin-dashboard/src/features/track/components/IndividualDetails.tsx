@@ -4,7 +4,7 @@ import { adminTrackApi } from '../../../api/track';
 import type { ParticipantsApplicationResponse } from '../../../api/track';
 import { metadataApi } from '../../../api/metadata';
 import styles from '../TrackPage.module.css';
-import { CATEGORIES_CONFIG, getJuzOptionsForCategory, getCategoryLabel, FORM_FIELDS_CONFIG } from '../../../config/fieldsConfig';
+import { CATEGORIES_CONFIG, getJuzCodesForCategory, getJuzLabel, getCategoryLabel, FORM_FIELDS_CONFIG } from '../../../config/fieldsConfig';
 import printStyles from './PrintPreviewModal.module.css';
 import PrintPreviewModal from './PrintPreviewModal';
 import { generateIndividualFormHTML } from './printTemplates';
@@ -17,12 +17,15 @@ interface IndividualDetailsProps {
     updateEditField: (key: string, value: any) => void;
     editAadhaarFile: File | null;
     setEditAadhaarFile: (val: File | null) => void;
+    editBirthCertificateFile: File | null;
+    setEditBirthCertificateFile: (val: File | null) => void;
     editCandidatePhotoFile: File | null;
     setEditCandidatePhotoFile: (val: File | null) => void;
     handleSaveIndividualChanges: () => void;
     loading: boolean;
     getStatusClass: (status: string) => string;
     getAadhaarUrl: (record: ParticipantsApplicationResponse) => string;
+    getBirthCertificateUrl: (record: ParticipantsApplicationResponse) => string;
     getCandidatePhotoUrl: (record: ParticipantsApplicationResponse) => string;
     onRefresh?: () => Promise<boolean>;
 }
@@ -35,16 +38,20 @@ export default function IndividualDetails({
     updateEditField,
     editAadhaarFile,
     setEditAadhaarFile,
+    editBirthCertificateFile,
+    setEditBirthCertificateFile,
     editCandidatePhotoFile,
     setEditCandidatePhotoFile,
     handleSaveIndividualChanges,
     loading,
     getStatusClass,
     getAadhaarUrl,
+    getBirthCertificateUrl,
     getCandidatePhotoUrl,
     onRefresh
 }: IndividualDetailsProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const birthCertInputRef = useRef<HTMLInputElement>(null);
     const photoInputRef = useRef<HTMLInputElement>(null);
     const [printPreview, setPrintPreview] = useState<string | null>(null);
 
@@ -226,7 +233,7 @@ export default function IndividualDetails({
                     // Custom Renders
                     if (field.key === 'category') {
                         return (
-                            <div key={field.key} className={styles.formGroup}>
+                            <div key={field.key} className={`${styles.formGroup} ${field.gridSpan === 2 ? styles.fullWidth : ''}`}>
                                 <label className={styles.formLabel}>{field.label} {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
                                 {isEditable ? (
                                     <select
@@ -235,10 +242,12 @@ export default function IndividualDetails({
                                         onChange={(e) => {
                                             const nextCat = e.target.value;
                                             updateEditField('category', nextCat);
-                                            const foundCat = CATEGORIES_CONFIG.find(c => c.key === nextCat);
-                                            if (foundCat && foundCat.defaultJuz) {
-                                                updateEditField('selected_juz', foundCat.defaultJuz);
+                                            const juzCodes = getJuzCodesForCategory(nextCat);
+                                            if (juzCodes.length === 1) {
+                                                updateEditField('juz_options', juzCodes[0].code);
+                                                updateEditField('selected_juz', juzCodes[0].label);
                                             } else {
+                                                updateEditField('juz_options', '');
                                                 updateEditField('selected_juz', '');
                                             }
                                         }}
@@ -262,48 +271,51 @@ export default function IndividualDetails({
                         );
                     }
 
-                    if (field.key === 'selected_juz') {
-                        const currentCategory = isEditMode ? editData.category : individualRecord.category;
+                    if (field.key === 'juz_options') {
+                        if (!isEditMode) return null;
+                        const currentCategory = editData.category;
+                        const juzOptions = getJuzCodesForCategory(currentCategory);
                         return (
-                            <div key={field.key} className={styles.formGroup}>
-                                <label className={styles.formLabel}>Selected Juz Range {isEditMode && getJuzOptionsForCategory(currentCategory).length > 0 && <span style={{ color: '#ef4444' }}>*</span>}</label>
-                                {isEditable ? (
-                                    getJuzOptionsForCategory(currentCategory).length > 0 ? (
-                                        <select
-                                            className={styles.formSelect}
-                                            value={value}
-                                            onChange={(e) => updateEditField('selected_juz', e.target.value)}
-                                        >
-                                            <option value="">Select Option</option>
-                                            {getJuzOptionsForCategory(currentCategory).map((opt) => (
-                                                <option key={opt} value={opt}>
-                                                    {opt}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    ) : (
-                                        <input
-                                            type="text"
-                                            className={styles.formInput}
-                                            value={value || 'Juz 1-30: Full Quran (آلم to ٱلنَّاس)'}
-                                            disabled={true}
-                                        />
-                                    )
-                                ) : (
-                                    <input
-                                        type="text"
-                                        className={styles.formInput}
-                                        value={value || 'N/A'}
-                                        disabled={true}
-                                    />
-                                )}
+                            <div key={field.key} className={`${styles.formGroup} ${field.gridSpan === 2 ? styles.fullWidth : ''}`}>
+                                <label className={styles.formLabel}>Selected Juz Range <span style={{ color: '#ef4444' }}>*</span></label>
+                                <select
+                                    className={styles.formSelect}
+                                    value={value}
+                                    onChange={(e) => {
+                                        const code = e.target.value;
+                                        updateEditField('juz_options', code);
+                                        updateEditField('selected_juz', getJuzLabel(code));
+                                    }}
+                                >
+                                    <option value="">Select Option</option>
+                                    {juzOptions.map((opt) => (
+                                        <option key={opt.code} value={opt.code}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        );
+                    }
+
+                    if (field.key === 'selected_juz') {
+                        if (isEditMode) return null;
+                        return (
+                            <div key={field.key} className={`${styles.formGroup} ${field.gridSpan === 2 ? styles.fullWidth : ''}`}>
+                                <label className={styles.formLabel}>Selected Juz Range</label>
+                                <input
+                                    type="text"
+                                    className={styles.formInput}
+                                    value={getJuzLabel(individualRecord.juz_options || '') || individualRecord.selected_juz || 'N/A'}
+                                    disabled={true}
+                                />
                             </div>
                         );
                     }
 
                     if (field.key === 'gender') {
                         return (
-                            <div key={field.key} className={styles.formGroup}>
+                            <div key={field.key} className={`${styles.formGroup} ${field.gridSpan === 2 ? styles.fullWidth : ''}`}>
                                 <label className={styles.formLabel}>Gender {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
                                 {isEditable ? (
                                     <select
@@ -347,10 +359,11 @@ export default function IndividualDetails({
                         );
                     }
 
-                    const isDisabled = !isEditable || field.key === 'aadhaar_number';
+                    // Allow editing Aadhaar Number during edit mode
+                    const isDisabled = !isEditable;
 
                     return (
-                        <div key={field.key} className={styles.formGroup}>
+                        <div key={field.key} className={`${styles.formGroup} ${field.gridSpan === 2 ? styles.fullWidth : ''}`}>
                             <label className={styles.formLabel}>
                                 {field.label} {isEditMode && field.required && <span style={{ color: '#ef4444' }}>*</span>}
                             </label>
@@ -421,8 +434,8 @@ export default function IndividualDetails({
 
                 <div className={`${styles.formGroup} ${styles.fullWidth}`}>
                     <label className={styles.formLabel}>Aadhaar Card Front Image</label>
-                    <div className={styles.filePreviewWrapper}>
-                        {!isEditMode && individualRecord.aadhaar_front && (
+                    {!isEditMode && individualRecord.aadhaar_front ? (
+                        <div className={styles.filePreviewWrapper}>
                             <a 
                                 href={getAadhaarUrl(individualRecord)} 
                                 target="_blank" 
@@ -431,40 +444,86 @@ export default function IndividualDetails({
                             >
                                 View Uploaded Aadhaar Image ↗
                             </a>
-                        )}
-                        
-                        {isEditMode && !individualRecord.is_locked && (
-                            <div className={styles.fileUploadControl}>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    ref={fileInputRef}
-                                    style={{ display: 'none' }}
-                                    onChange={(e) => {
-                                        if (e.target.files && e.target.files[0]) {
-                                            setEditAadhaarFile(e.target.files[0]);
-                                        }
-                                    }}
-                                />
-                                <button 
-                                    type="button" 
-                                    className={styles.btnUpload}
-                                    onClick={() => fileInputRef.current?.click()}
-                                >
-                                    Choose New Image
-                                </button>
-                                <span className={styles.fileName}>
-                                    {editAadhaarFile ? editAadhaarFile.name : (individualRecord.aadhaar_front ? 'Keep existing image' : 'No file selected')}
-                                </span>
-                            </div>
-                        )}
-                    </div>
+                        </div>
+                    ) : isEditMode && !individualRecord.is_locked ? (
+                        <div className={styles.fileUploadControl}>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                ref={fileInputRef}
+                                style={{ display: 'none' }}
+                                onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                        setEditAadhaarFile(e.target.files[0]);
+                                    }
+                                }}
+                            />
+                            <button 
+                                type="button" 
+                                className={styles.btnUpload}
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                Choose New Image
+                            </button>
+                            <span className={styles.fileName}>
+                                {editAadhaarFile ? editAadhaarFile.name : (individualRecord.aadhaar_front ? 'Keep existing image' : 'No file selected')}
+                            </span>
+                        </div>
+                    ) : (
+                        <div className={styles.filePreviewWrapper}>
+                            <span style={{ color: '#94a3b8', fontSize: '13px' }}>No Aadhaar Image Uploaded</span>
+                        </div>
+                    )}
+                </div>
+
+                <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                    <label className={styles.formLabel}>Birth Certificate</label>
+                    {!isEditMode && individualRecord.birthcertificate_photo ? (
+                        <div className={styles.filePreviewWrapper}>
+                            <a 
+                                href={getBirthCertificateUrl(individualRecord)} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className={styles.previewLink}
+                            >
+                                View Uploaded Birth Certificate ↗
+                            </a>
+                        </div>
+                    ) : isEditMode && !individualRecord.is_locked ? (
+                        <div className={styles.fileUploadControl}>
+                            <input
+                                type="file"
+                                accept="image/*,application/pdf"
+                                ref={birthCertInputRef}
+                                style={{ display: 'none' }}
+                                onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                        setEditBirthCertificateFile(e.target.files[0]);
+                                    }
+                                }}
+                            />
+                            <button 
+                                type="button" 
+                                className={styles.btnUpload}
+                                onClick={() => birthCertInputRef.current?.click()}
+                            >
+                                Choose New Image
+                            </button>
+                            <span className={styles.fileName}>
+                                {editBirthCertificateFile ? editBirthCertificateFile.name : (individualRecord.birthcertificate_photo ? 'Keep existing document' : 'No file selected')}
+                            </span>
+                        </div>
+                    ) : (
+                        <div className={styles.filePreviewWrapper}>
+                            <span style={{ color: '#94a3b8', fontSize: '13px' }}>No Birth Certificate Uploaded</span>
+                        </div>
+                    )}
                 </div>
 
                 <div className={`${styles.formGroup} ${styles.fullWidth}`}>
                     <label className={styles.formLabel}>Passport Size Photo</label>
-                    <div className={styles.filePreviewWrapper}>
-                        {!isEditMode && individualRecord.candidate_photo && (
+                    {!isEditMode && individualRecord.candidate_photo ? (
+                        <div className={styles.filePreviewWrapper}>
                             <a 
                                 href={getCandidatePhotoUrl(individualRecord)} 
                                 target="_blank" 
@@ -473,34 +532,36 @@ export default function IndividualDetails({
                             >
                                 View Uploaded Passport Photo ↗
                             </a>
-                        )}
-                        
-                        {isEditMode && !individualRecord.is_locked && (
-                            <div className={styles.fileUploadControl}>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    ref={photoInputRef}
-                                    style={{ display: 'none' }}
-                                    onChange={(e) => {
-                                        if (e.target.files && e.target.files[0]) {
-                                            setEditCandidatePhotoFile(e.target.files[0]);
-                                        }
-                                    }}
-                                />
-                                <button 
-                                    type="button" 
-                                    className={styles.btnUpload}
-                                    onClick={() => photoInputRef.current?.click()}
-                                >
-                                    Choose New Photo
-                                </button>
-                                <span className={styles.fileName}>
-                                    {editCandidatePhotoFile ? editCandidatePhotoFile.name : (individualRecord.candidate_photo ? 'Keep existing photo' : 'No file selected')}
-                                </span>
-                            </div>
-                        )}
-                    </div>
+                        </div>
+                    ) : isEditMode && !individualRecord.is_locked ? (
+                        <div className={styles.fileUploadControl}>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                ref={photoInputRef}
+                                style={{ display: 'none' }}
+                                onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                        setEditCandidatePhotoFile(e.target.files[0]);
+                                    }
+                                }}
+                            />
+                            <button 
+                                type="button" 
+                                className={styles.btnUpload}
+                                onClick={() => photoInputRef.current?.click()}
+                            >
+                                Choose New Photo
+                            </button>
+                            <span className={styles.fileName}>
+                                {editCandidatePhotoFile ? editCandidatePhotoFile.name : (individualRecord.candidate_photo ? 'Keep existing photo' : 'No file selected')}
+                            </span>
+                        </div>
+                    ) : (
+                        <div className={styles.filePreviewWrapper}>
+                            <span style={{ color: '#94a3b8', fontSize: '13px' }}>No Photo Uploaded</span>
+                        </div>
+                    )}
                 </div>
             </div>
 

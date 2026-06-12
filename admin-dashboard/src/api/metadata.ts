@@ -4,6 +4,7 @@ export interface MetadataRecord {
     id: string;
     key: string;
     value: any;
+    document?: string;
     created: string;
     updated: string;
 }
@@ -46,6 +47,15 @@ export const metadataApi = {
     },
 
     /**
+     * Update metadata with a document file
+     */
+    async updateMetadataDocument(id: string, file: File): Promise<MetadataRecord> {
+        const formData = new FormData();
+        formData.append('document', file);
+        return await pb.collection('metadata').update<MetadataRecord>(id, formData);
+    },
+
+    /**
      * Create a new metadata record
      */
     async createMetadata(key: string, value: any): Promise<MetadataRecord> {
@@ -53,6 +63,16 @@ export const metadataApi = {
             key,
             value
         });
+    },
+
+    /**
+     * Create metadata with a document file
+     */
+    async createMetadataDocument(key: string, file: File): Promise<MetadataRecord> {
+        const formData = new FormData();
+        formData.append('key', key);
+        formData.append('document', file);
+        return await pb.collection('metadata').create<MetadataRecord>(formData);
     },
 
     /**

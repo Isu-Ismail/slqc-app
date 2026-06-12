@@ -98,8 +98,8 @@ export const approvalsApi = {
 
         try {
             const filter = isPending
-                ? `status = 'pending' && (approved_by = '' || approved_by = null)`
-                : `approved_by = "${userId}" && status != 'pending'`;
+                ? `(status = 'pending' || status = 'reapplied') && (approved_by = '' || approved_by = null)`
+                : `approved_by = "${userId}" && status != 'pending' && status != 'reapplied'`;
 
             const collectionName =
                 type === 'individual'
@@ -166,7 +166,7 @@ export const approvalsApi = {
 
         try {
             const filter =
-                `status = 'pending' && (approved_by = '' || approved_by = null)`;
+                `(status = 'pending' || status = 'reapplied') && (approved_by = '' || approved_by = null)`;
 
             const indReq =
                 pb.collection('participants_application').getList(

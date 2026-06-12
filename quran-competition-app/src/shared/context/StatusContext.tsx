@@ -35,6 +35,7 @@ export const StatusProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const stats: Record<string, any> = {};
             records.forEach((r) => {
                 stats[r.key] = r.value;
+                stats[`_${r.key}_record`] = r;
             });
             setMetadata(stats);
         }).catch((err) => {
@@ -51,7 +52,8 @@ export const StatusProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 const record = e.record;
                 setMetadata((prev) => ({
                     ...prev,
-                    [record.key]: record.value
+                    [record.key]: record.value,
+                    [`_${record.key}_record`]: record
                 }));
             }
         });
