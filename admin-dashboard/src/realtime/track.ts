@@ -104,3 +104,94 @@ export function useInstitutionRealtime(
         };
     }, [institutionId]);
 }
+
+/**
+ * Hook to subscribe to real-time updates for approvals list (applications, institutions, and locks).
+ */
+export function useApprovalsRealtime(
+    appType: 'individual' | 'institution',
+    onApplicationChange: (action: string, record: any) => void,
+    onLockChange: (action: string, record: any) => void
+) {
+    const onApplicationChangeRef = useRef(onApplicationChange);
+    const onLockChangeRef = useRef(onLockChange);
+
+    useEffect(() => {
+        onApplicationChangeRef.current = onApplicationChange;
+        onLockChangeRef.current = onLockChange;
+    });
+
+    useEffect(() => {
+        console.log(`[useApprovalsRealtime] Subscribing to approvals realtime updates for type: ${appType}`);
+
+        const handleAppEvent = (e: any) => {
+            if (e.record) {
+                onApplicationChangeRef.current(e.action, e.record);
+            }
+        };
+
+        const handleLockEvent = (e: any) => {
+            if (e.record) {
+                onLockChangeRef.current(e.action, e.record);
+            }
+        };
+
+        const appCollection = appType === 'individual' ? 'participants_application' : 'institutions';
+
+        pb.collection(appCollection).subscribe('*', handleAppEvent).catch((err) => {
+            console.error(`[useApprovalsRealtime] Failed to subscribe to ${appCollection}:`, err);
+        });
+
+        pb.collection('approval_locks').subscribe('*', handleLockEvent).catch((err) => {
+            console.error(`[useApprovalsRealtime] Failed to subscribe to approval_locks:`, err);
+        });
+
+        return () => {
+            console.log(`[useApprovalsRealtime] Unsubscribing from ${appCollection} and approval_locks`);
+            pb.collection(appCollection).unsubscribe('*').catch(() => {});
+            pb.collection('approval_locks').unsubscribe('*').catch(() => {});
+        };
+    }, [appType]);
+}
+
+/**
+ * Hook to subscribe to real-time updates for all participant applications and institutions.
+ */
+export function useApplicationsListRealtime(
+    onIndividualChange: (action: string, record: ParticipantsApplicationResponse) => void,
+    onInstitutionChange: (action: string, record: InstitutionsResponse) => void
+) {
+    const onIndividualChangeRef = useRef(onIndividualChange);
+    const onInstitutionChangeRef = useRef(onInstitutionChange);
+
+    useEffect(() => {
+        onIndividualChangeRef.current = onIndividualChange;
+        onInstitutionChangeRef.current = onInstitutionChange;
+    });
+
+    useEffect(() => {
+        console.log(`[useApplicationsListRealtime] Subscribing to all applications and institutions`);
+
+        pb.collection('participants_application').subscribe<ParticipantsApplicationResponse>('*', (e) => {
+            if (e.record) {
+                onIndividualChangeRef.current(e.action, e.record);
+            }
+        }).catch((err) => {
+            console.error('[useApplicationsListRealtime] Failed to subscribe to participants_application:', err);
+        });
+
+        pb.collection('institutions').subscribe<InstitutionsResponse>('*', (e) => {
+            if (e.record) {
+                onInstitutionChangeRef.current(e.action, e.record);
+            }
+        }).catch((err) => {
+            console.error('[useApplicationsListRealtime] Failed to subscribe to institutions:', err);
+        });
+
+        return () => {
+            console.log(`[useApplicationsListRealtime] Unsubscribing from applications and institutions`);
+            pb.collection('participants_application').unsubscribe('*').catch(() => {});
+            pb.collection('institutions').unsubscribe('*').catch(() => {});
+        };
+    }, []);
+}

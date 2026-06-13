@@ -40,9 +40,14 @@ export const metadataApi = {
     /**
      * Update a specific metadata record by ID
      */
-    async updateMetadata(id: string, value: any): Promise<MetadataRecord> {
-        return await pb.collection('metadata').update<MetadataRecord>(id, {
-            value: value
+    async updateMetadata(id: string, value: any, clearDocument = false): Promise<MetadataRecord> {
+        const records = await this.getAllMetadata();
+        const record = records.find(r => r.id === id);
+        if (!record) throw new Error("Metadata record not found");
+
+        return await pb.send<MetadataRecord>('/api/admin/update-metadata', {
+            method: 'POST',
+            body: { key: record.key, value: value, clear_document: String(clearDocument) }
         });
     },
 
@@ -50,18 +55,27 @@ export const metadataApi = {
      * Update metadata with a document file
      */
     async updateMetadataDocument(id: string, file: File): Promise<MetadataRecord> {
+        const records = await this.getAllMetadata();
+        const record = records.find(r => r.id === id);
+        if (!record) throw new Error("Metadata record not found");
+
         const formData = new FormData();
+        formData.append('key', record.key);
         formData.append('document', file);
-        return await pb.collection('metadata').update<MetadataRecord>(id, formData);
+
+        return await pb.send<MetadataRecord>('/api/admin/update-metadata', {
+            method: 'POST',
+            body: formData
+        });
     },
 
     /**
      * Create a new metadata record
      */
     async createMetadata(key: string, value: any): Promise<MetadataRecord> {
-        return await pb.collection('metadata').create<MetadataRecord>({
-            key,
-            value
+        return await pb.send<MetadataRecord>('/api/admin/update-metadata', {
+            method: 'POST',
+            body: { key, value }
         });
     },
 
@@ -72,7 +86,10 @@ export const metadataApi = {
         const formData = new FormData();
         formData.append('key', key);
         formData.append('document', file);
-        return await pb.collection('metadata').create<MetadataRecord>(formData);
+        return await pb.send<MetadataRecord>('/api/admin/update-metadata', {
+            method: 'POST',
+            body: formData
+        });
     },
 
     /**

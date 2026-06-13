@@ -77,36 +77,29 @@ export const participantsApi = {
             formData.append('birthcertificate_photo', renamedBirthCert);
         }
 
-        formData.append('status', 'pending');
-
-        return await pb.collection('participants_application').create<ParticipantsApplicationResponse>(formData);
+        return await pb.send<ParticipantsApplicationResponse>('/api/public/submit-application', {
+            method: 'POST',
+            body: formData
+        });
     },
 
-    updateApplication: async (id: string, payload: FormData | Record<string, any>): Promise<ParticipantsApplicationResponse> => {
-        const headers: Record<string, string> = {};
-        const cachedDob = localStorage.getItem('quran_competition_track_individual_dob');
-        if (cachedDob) {
-            headers['x-app-dob'] = cachedDob;
+    updateApplication: async (id: string, payload: FormData | Record<string, any>, dob?: string): Promise<ParticipantsApplicationResponse> => {
+        const actualDob = dob || localStorage.getItem('quran_competition_track_individual_dob') || '';
+
+        if (payload instanceof FormData) {
+            payload.set('id', id);
+            payload.set('dob', actualDob);
+            return await pb.send<ParticipantsApplicationResponse>(`/api/public/update-individual`, {
+                method: 'POST',
+                body: payload
+            });
+        } else {
+            const body = { ...payload, id, dob: actualDob };
+            return await pb.send<ParticipantsApplicationResponse>(`/api/public/update-individual`, {
+                method: 'POST',
+                body
+            });
         }
-
-        const record = await pb.collection('participants_application').getOne<ParticipantsApplicationResponse>(id, {
-            headers: headers
-        });
-
-        if (record && record.is_locked) {
-            throw new Error("This application is locked and cannot be modified.");
-        }
-
-        // Fallback: if cachedDob is not set, extract the date portion from the fetched record's dob
-        if (!cachedDob && record && record.dob) {
-            const extractedDob = record.dob.split(' ')[0]; // Extract YYYY-MM-DD
-            headers['x-app-dob'] = extractedDob;
-        }
-
-        return await pb.collection('participants_application').update<ParticipantsApplicationResponse>(id, payload, {
-            expand: 'approved_by,institution_ref',
-            headers: headers
-        });
     },
 
     getApplicationByAadhaar: async (aadhaar: string): Promise<ParticipantsApplicationResponse | null> => {

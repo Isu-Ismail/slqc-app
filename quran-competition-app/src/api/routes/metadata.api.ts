@@ -17,6 +17,7 @@ export const metadataApi = {
             const stats: Record<string, any> = {};
             records.forEach((r) => {
                 stats[r.key] = r.value;
+                stats[`_${r.key}_record`] = r;
             });
             return stats;
         } catch (e: any) {
@@ -28,10 +29,10 @@ export const metadataApi = {
     },
 
     // Subscribes to real-time database changes on the metadata collection
-    subscribeStats: (callback: (data: { key: string; value: any }) => void) => {
+    subscribeStats: (callback: (record: MetadataRecord) => void) => {
         pb.collection('metadata').subscribe<MetadataRecord>('*', (e) => {
             if (e.action === 'update' || e.action === 'create') {
-                callback({ key: e.record.key, value: e.record.value });
+                callback(e.record);
             }
         });
 

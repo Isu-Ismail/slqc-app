@@ -71,7 +71,7 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
                 <div class="info-row"><span class="info-label">Application ID</span><span class="info-val">${record.participant_id || record.id}</span></div>
                 <div class="info-row"><span class="info-label">Status</span><span class="info-val">${record.status.toUpperCase()}</span></div>
                 <div class="info-row"><span class="info-label">Submitted On</span><span class="info-val">${submitted}</span></div>
-                <div class="info-row"><span class="info-label">Reg. Type</span><span class="info-val">${record.registration_type.charAt(0).toUpperCase() + record.registration_type.slice(1)}</span></div>
+                <div class="info-row"><span class="info-label">Reg. Type</span><span class="info-val">${(record.registration_type || 'individual').charAt(0).toUpperCase() + (record.registration_type || 'individual').slice(1)}</span></div>
             </div>
             <div class="top-center">
                 <div class="approval-stamp">
@@ -97,7 +97,7 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
                 <div class="field"><span class="fl">Full Name</span><span class="fv">${record.full_name}</span></div>
                 <div class="field"><span class="fl">Father's Name</span><span class="fv">${record.father_name || 'N/A'}</span></div>
                 <div class="field"><span class="fl">Father's Phone</span><span class="fv">${record.father_number || 'N/A'}</span></div>
-                <div class="field"><span class="fl">Gender</span><span class="fv">${record.gender.charAt(0).toUpperCase() + record.gender.slice(1)}</span></div>
+                <div class="field"><span class="fl">Gender</span><span class="fv">${(record.gender || '').charAt(0).toUpperCase() + (record.gender || '').slice(1)}</span></div>
                 <div class="field"><span class="fl">Date of Birth</span><span class="fv">${dob}</span></div>
                 <div class="field"><span class="fl">Aadhaar Number</span><span class="fv">${record.aadhaar_number}</span></div>
                 <div class="field"><span class="fl">Email</span><span class="fv single-line">${record.email || 'N/A'}</span></div>

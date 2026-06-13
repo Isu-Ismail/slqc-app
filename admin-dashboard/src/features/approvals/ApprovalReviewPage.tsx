@@ -91,9 +91,13 @@ export default function ApprovalReviewPage() {
         };
 
         const init = async () => {
-            const lockOk = await checkAndAcquireLock();
-            if (lockOk && isMounted) {
+            if (returnTab === 'history') {
                 await fetchApp();
+            } else {
+                const lockOk = await checkAndAcquireLock();
+                if (lockOk && isMounted) {
+                    await fetchApp();
+                }
             }
         };
         init();
@@ -102,11 +106,11 @@ export default function ApprovalReviewPage() {
         return () => {
             isMounted = false;
             // Only unlock if the user hits Back, Cancel, or closes the tab without acting
-            if (!actionTakenRef.current && id) {
+            if (!actionTakenRef.current && id && returnTab !== 'history') {
                 approvalsApi.releaseLock(id).catch(() => { });
             }
         };
-    }, [id, appType, navigate]);
+    }, [id, appType, navigate, returnTab]);
 
     const submitApprove = async () => {
         if (!application) return;

@@ -419,7 +419,7 @@ export default function TrackPage() {
                 payload = changes;
             }
 
-            const updated = await trackApplicationApi.updateApplication(individualRecord.id, payload);
+            const updated = await trackApplicationApi.updateApplication(individualRecord.id, payload, individualRecord.dob);
             setIndividualRecord(updated);
             setIsEditMode(false);
             

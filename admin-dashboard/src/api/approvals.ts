@@ -97,21 +97,26 @@ export const approvalsApi = {
         }
 
         try {
-            const filter = isPending
-                ? `(status = 'pending' || status = 'reapplied') && (approved_by = '' || approved_by = null)`
-                : `approved_by = "${userId}" && status != 'pending' && status != 'reapplied'`;
-
-            const collectionName =
-                type === 'individual'
-                    ? 'participants_application'
-                    : 'institutions';
-
-            const data =
-                await pb.collection(collectionName).getFullList<AllocatedItem>({
-                    filter,
-                    sort: '-created',
-                    requestKey: null
+            let data: AllocatedItem[];
+            if (isPending) {
+                data = await pb.send<AllocatedItem[]>('/api/admin/pending-approvals', {
+                    method: 'GET',
+                    query: { type }
                 });
+            } else {
+                const filter = `approved_by = "${userId}" && status != 'pending' && status != 'reapplied'`;
+                const collectionName =
+                    type === 'individual'
+                        ? 'participants_application'
+                        : 'institutions';
+
+                data =
+                    await pb.collection(collectionName).getFullList<AllocatedItem>({
+                        filter,
+                        sort: '-created',
+                        requestKey: null
+                    });
+            }
 
             allocationsCache[cacheKey] = {
                 data,

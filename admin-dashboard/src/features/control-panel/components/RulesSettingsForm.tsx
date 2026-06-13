@@ -45,16 +45,9 @@ export default function RulesSettingsForm({ metadata, onUpdate }: Props) {
                 try {
                     const record = await metadataApi.getMetadataByKey(key);
                     if (record) {
-                        const formData = new FormData();
-                        formData.append('document', file);
-                        formData.append('value', ''); // Clear text value
-                        await pb.collection('metadata').update(record.id, formData);
+                        await metadataApi.updateMetadataDocument(record.id, file);
                     } else {
-                        const formData = new FormData();
-                        formData.append('key', key);
-                        formData.append('document', file);
-                        formData.append('value', '');
-                        await pb.collection('metadata').create(formData);
+                        await metadataApi.createMetadataDocument(key, file);
                     }
                     onUpdate();
                     alert('Rules PDF uploaded successfully!');
@@ -82,10 +75,7 @@ export default function RulesSettingsForm({ metadata, onUpdate }: Props) {
             try {
                 const record = await metadataApi.getMetadataByKey(key);
                 if (record) {
-                    await pb.collection('metadata').update(record.id, {
-                        value: text,
-                        document: null // Clear document file when text is uploaded
-                    });
+                    await metadataApi.updateMetadata(record.id, text, true);
                 } else {
                     await metadataApi.createMetadata(key, text);
                 }

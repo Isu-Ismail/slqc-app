@@ -127,9 +127,9 @@ export default function InstitutionDetails({
                 }
                 await adminTrackApi.updateStatusAndLock(institutionData.institution.id, 'institution', 'rejected', true, rejectReason.trim());
             } else if (modalState.type === 'lock') {
-                await adminTrackApi.updateStatusAndLock(institutionData.institution.id, 'institution', institutionData.institution.status, true, institutionData.institution.rejection_reason);
+                await adminTrackApi.updateLockStatus(institutionData.institution.id, 'institution', true);
             } else if (modalState.type === 'unlock') {
-                await adminTrackApi.updateStatusAndLock(institutionData.institution.id, 'institution', institutionData.institution.status, false, institutionData.institution.rejection_reason);
+                await adminTrackApi.updateLockStatus(institutionData.institution.id, 'institution', false);
             }
             handleRefetch();
             setModalState({ type: null });

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { pb } from '../../api/db';
 import { RefreshCw, Search, ExternalLink, ChevronDown } from 'lucide-react';
 import type { ParticipantsApplicationResponse, InstitutionsResponse } from '../../api/track';
+import { useApplicationsListRealtime } from '../../realtime/track';
 import styles from './ApplicationsListPage.module.css';
 import { getJuzLabel } from '../../config/fieldsConfig';
 
@@ -295,7 +296,7 @@ export default function ApplicationsListPage() {
         }
     }, [fetchInstitutions]);
 
-    // ─── Mount effect: load + realtime ────────────────────────────────────
+    // ─── Mount effect: load ────────────────────────────────────
     useEffect(() => {
         // Load from cache (or fetch if stale)
         initIndividuals(indivSearch, indivCat, indivStatus, indivBatch);
@@ -303,97 +304,87 @@ export default function ApplicationsListPage() {
 
         // Allow filter effects to fire after first mount
         setTimeout(() => { isMounted.current = true; }, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // only once on mount
 
-        // ── Smart realtime — no full re-fetch, do record-level updates ────
-        const handleIndivEvent = (e: { action: string; record: ParticipantsApplicationResponse }) => {
-            const { action, record } = e;
+    // ── Smart realtime — no full re-fetch, do record-level updates ────
+    const handleIndivEvent = (action: string, record: ParticipantsApplicationResponse) => {
+        setIndivRows(prev => {
+            let next: ParticipantsApplicationResponse[];
 
-            setIndivRows(prev => {
-                let next: ParticipantsApplicationResponse[];
-
-                if (action === 'delete') {
-                    next = prev.filter(r => r.id !== record.id);
-                    setIndivTotal(t => Math.max(0, t - 1));
-                    setIndivLoaded(l => Math.max(0, l - 1));
-                } else if (action === 'update') {
-                    const idx = prev.findIndex(r => r.id === record.id);
-                    if (idx === -1) return prev;
-                    next = [...prev];
-                    next[idx] = record;
-                } else {
-                    // create — only prepend if it matches current filters
-                    // Use the snapshot of current filter values via closure
-                    next = prev;
-                    setIndivSearch(search => {
-                        setIndivCat(cat => {
-                            setIndivStatus(status => {
-                                if (indivMatchesFilter(record, search, cat, status)) {
-                                    setIndivRows(p => [record, ...p]);
-                                    setIndivTotal(t => t + 1);
-                                    setIndivLoaded(l => l + 1);
-                                }
-                                return status;
-                            });
-                            return cat;
-                        });
-                        return search;
-                    });
-                    return prev; // return early, state set inside above
-                }
-
-                // Update cache
-                const key = indivKey('', '', ''); // invalidate broadly
-                if (indivCache[key]) indivCache[key].timestamp = 0;
-
-                return next;
-            });
-        };
-
-        const handleInstEvent = (e: { action: string; record: InstitutionsResponse }) => {
-            const { action, record } = e;
-
-            setInstRows(prev => {
-                let next: InstitutionsResponse[];
-
-                if (action === 'delete') {
-                    next = prev.filter(r => r.id !== record.id);
-                    setInstTotal(t => Math.max(0, t - 1));
-                    setInstLoaded(l => Math.max(0, l - 1));
-                } else if (action === 'update') {
-                    const idx = prev.findIndex(r => r.id === record.id);
-                    if (idx === -1) return prev;
-                    next = [...prev];
-                    next[idx] = record;
-                } else {
-                    // create
-                    setInstSearch(search => {
-                        setInstStatus(status => {
-                            if (instMatchesFilter(record, search, status)) {
-                                setInstRows(p => [record, ...p]);
-                                setInstTotal(t => t + 1);
-                                setInstLoaded(l => l + 1);
+            if (action === 'delete') {
+                next = prev.filter(r => r.id !== record.id);
+                setIndivTotal(t => Math.max(0, t - 1));
+                setIndivLoaded(l => Math.max(0, l - 1));
+            } else if (action === 'update') {
+                const idx = prev.findIndex(r => r.id === record.id);
+                if (idx === -1) return prev;
+                next = [...prev];
+                next[idx] = record;
+            } else {
+                // create — only prepend if it matches current filters
+                // Use the snapshot of current filter values via closure
+                next = prev;
+                setIndivSearch(search => {
+                    setIndivCat(cat => {
+                        setIndivStatus(status => {
+                            if (indivMatchesFilter(record, search, cat, status)) {
+                                setIndivRows(p => [record, ...p]);
+                                setIndivTotal(t => t + 1);
+                                setIndivLoaded(l => l + 1);
                             }
                             return status;
                         });
-                        return search;
+                        return cat;
                     });
-                    return prev;
-                }
+                    return search;
+                });
+                return prev; // return early, state set inside above
+            }
 
-                Object.keys(instCache).forEach(k => { instCache[k].timestamp = 0; });
-                return next;
-            });
-        };
+            // Update cache
+            const key = indivKey('', '', ''); // invalidate broadly
+            if (indivCache[key]) indivCache[key].timestamp = 0;
 
-        pb.collection('participants_application').subscribe('*', handleIndivEvent as any).catch(console.error);
-        pb.collection('institutions').subscribe('*', handleInstEvent as any).catch(console.error);
+            return next;
+        });
+    };
 
-        return () => {
-            pb.collection('participants_application').unsubscribe('*').catch(() => {});
-            pb.collection('institutions').unsubscribe('*').catch(() => {});
-        };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // only once on mount
+    const handleInstEvent = (action: string, record: InstitutionsResponse) => {
+        setInstRows(prev => {
+            let next: InstitutionsResponse[];
+
+            if (action === 'delete') {
+                next = prev.filter(r => r.id !== record.id);
+                setInstTotal(t => Math.max(0, t - 1));
+                setInstLoaded(l => Math.max(0, l - 1));
+            } else if (action === 'update') {
+                const idx = prev.findIndex(r => r.id === record.id);
+                if (idx === -1) return prev;
+                next = [...prev];
+                next[idx] = record;
+            } else {
+                // create
+                setInstSearch(search => {
+                    setInstStatus(status => {
+                        if (instMatchesFilter(record, search, status)) {
+                            setInstRows(p => [record, ...p]);
+                            setInstTotal(t => t + 1);
+                            setInstLoaded(l => l + 1);
+                        }
+                        return status;
+                    });
+                    return search;
+                });
+                return prev;
+            }
+
+            Object.keys(instCache).forEach(k => { instCache[k].timestamp = 0; });
+            return next;
+        });
+    };
+
+    useApplicationsListRealtime(handleIndivEvent, handleInstEvent);
 
     // ─── Debounced re-fetch when individual filters change (skips mount) ──
     useEffect(() => {

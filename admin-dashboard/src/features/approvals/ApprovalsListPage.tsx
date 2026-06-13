@@ -6,6 +6,7 @@ import { RefreshCw, Lock, Mail, CheckCircle } from 'lucide-react';
 import { approvalsApi } from '../../api/approvals';
 import type { AllocatedItem } from '../../api/approvals';
 import type { ParticipantsApplicationResponse, InstitutionsResponse } from '../../api/track';
+import { useApprovalsRealtime } from '../../realtime/track';
 import styles from './Approvals.module.css';
 
 export default function ApprovalsListPage() {
@@ -49,8 +50,7 @@ export default function ApprovalsListPage() {
     const [applications, setApplications] = useState<AllocatedItem[]>(initialAppsCache || []);
     const [counts, setCounts] = useState(initialCountsCache || { individual: 0, institution: 0 });
     const [loading, setLoading] = useState(!initialAppsCache);
-    const [lockedIds, setLockedIds] = useState<Set<string>>(new Set());
-    const [fadingOutIds, setFadingOutIds] = useState<Set<string>>(new Set());
+
     const [sendingMailId, setSendingMailId] = useState<string | null>(null);
     const [sentMailIds, setSentMailIds] = useState<Set<string>>(new Set());
 
@@ -71,6 +71,8 @@ export default function ApprovalsListPage() {
             const data = await approvalsApi.getAllocatedApplications(user.id, activeTab === 'pending', appType, force);
             setApplications(data);
 
+
+
             const countsData = await approvalsApi.getPendingCounts(user.id, force);
             setCounts(countsData);
         } catch (e) {
@@ -81,148 +83,95 @@ export default function ApprovalsListPage() {
     };
 
     useEffect(() => {
-        fetchApplications();
-
-        const loadLocks = async () => {
-            try {
-                const locks = await approvalsApi.getLocks();
-                setLockedIds(new Set(locks.map(lock => lock.application_id)));
-            } catch (err) {
-                console.error(err);
-            }
-        };
-
-        const setupRealtime = async () => {
-            try {
-                const handleRealtimeEvent = async (type: 'individual' | 'institution', e: any) => {
-                    const record = e.record as AllocatedItem;
-
-                    if (e.action === 'create') {
-                        if ((record.status === 'pending' || record.status === 'reapplied') && activeTab === 'pending' && appType === type) {
-                            setApplications(prev => {
-                                if (prev.some(x => x.id === record.id)) return prev;
-                                return [record, ...prev];
-                            });
-                        }
-                        const countsData = await approvalsApi.getPendingCounts(user!.id, true);
-                        setCounts(countsData);
-                    } else if (e.action === 'update') {
-                        const isPendingNow = record.status === 'pending' || record.status === 'reapplied';
-
-                        if (activeTab === 'pending') {
-                            if (appType === type) {
-                                if (isPendingNow) {
-                                    setApplications(prev => {
-                                        if (prev.some(x => x.id === record.id)) {
-                                            return prev.map(x => x.id === record.id ? record : x);
-                                        }
-                                        return [record, ...prev];
-                                    });
-                                } else {
-                                    setFadingOutIds(prev => {
-                                        const next = new Set(prev);
-                                        next.add(record.id);
-                                        return next;
-                                    });
-                                    setTimeout(() => {
-                                        setApplications(prev => prev.filter(x => x.id !== record.id));
-                                        setFadingOutIds(prev => {
-                                            const next = new Set(prev);
-                                            next.delete(record.id);
-                                            return next;
-                                        });
-                                    }, 300);
-                                }
-                            }
-                        } else if (activeTab === 'history') {
-                            if (appType === type) {
-                                const isMyHistory = record.approved_by === user?.id && record.status !== 'pending' && record.status !== 'reapplied';
-                                if (isMyHistory) {
-                                    setApplications(prev => {
-                                        if (prev.some(x => x.id === record.id)) {
-                                            return prev.map(x => x.id === record.id ? record : x);
-                                        }
-                                        return [record, ...prev];
-                                    });
-                                } else {
-                                    setFadingOutIds(prev => {
-                                        const next = new Set(prev);
-                                        next.add(record.id);
-                                        return next;
-                                    });
-                                    setTimeout(() => {
-                                        setApplications(prev => prev.filter(x => x.id !== record.id));
-                                        setFadingOutIds(prev => {
-                                            const next = new Set(prev);
-                                            next.delete(record.id);
-                                            return next;
-                                        });
-                                    }, 300);
-                                }
-                            }
-                        }
-
-                        const countsData = await approvalsApi.getPendingCounts(user!.id, true);
-                        setCounts(countsData);
-                    } else if (e.action === 'delete') {
-                        setFadingOutIds(prev => {
-                            const next = new Set(prev);
-                            next.add(record.id);
-                            return next;
-                        });
-                        setTimeout(() => {
-                            setApplications(prev => prev.filter(x => x.id !== record.id));
-                            setFadingOutIds(prev => {
-                                const next = new Set(prev);
-                                next.delete(record.id);
-                                return next;
-                            });
-                        }, 300);
-
-                        const countsData = await approvalsApi.getPendingCounts(user!.id, true);
-                        setCounts(countsData);
-                    }
-                };
-
-                await pb.collection('participants_application').subscribe('*', (e) => {
-                    handleRealtimeEvent('individual', e);
-                });
-
-                await pb.collection('institutions').subscribe('*', (e) => {
-                    handleRealtimeEvent('institution', e);
-                });
-
-                await pb.collection('approval_locks').subscribe('*', (e) => {
-                    const lock = e.record as any;
-                    if (e.action === 'create') {
-                        setLockedIds(prev => {
-                            const next = new Set(prev);
-                            next.add(lock.application_id);
-                            return next;
-                        });
-                    }
-                    if (e.action === 'delete') {
-                        setLockedIds(prev => {
-                            const next = new Set(prev);
-                            next.delete(lock.application_id);
-                            return next;
-                        });
-                    }
-                });
-            } catch (err) {
-                console.error(err);
-            }
-        };
-
-        loadLocks();
-        setupRealtime();
-
-        return () => {
-            pb.collection('participants_application').unsubscribe('*').catch(() => {});
-            pb.collection('institutions').unsubscribe('*').catch(() => {});
-            pb.collection('approval_locks').unsubscribe('*').catch(() => {});
-        };
+        fetchApplications(true); // Force refresh on mount and tab/type changes to get the latest data
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [appType, activeTab]);
+
+    const updateCountsInBackground = async () => {
+        if (!user) return;
+        try {
+            const countsData = await approvalsApi.getPendingCounts(user.id, true);
+            setCounts(countsData);
+        } catch (err) {
+            console.error("Error updating counts in background:", err);
+        }
+    };
+
+    const handleApplicationEvent = (action: string, record: any) => {
+        setApplications(prev => {
+            const idx = prev.findIndex(item => item.id === record.id);
+
+            if (action === 'delete') {
+                if (idx !== -1) {
+                    return prev.filter(item => item.id !== record.id);
+                }
+                return prev;
+            }
+
+            const isPendingOrReapplied = record.status === 'pending' || record.status === 'reapplied';
+            const isHistoryMatch = (record.status === 'approved' || record.status === 'rejected') && record.approved_by === user?.id;
+
+            if (activeTab === 'pending') {
+                if (isPendingOrReapplied) {
+                    if (idx !== -1) {
+                        const next = [...prev];
+                        next[idx] = { ...next[idx], ...record };
+                        return next;
+                    } else {
+                        return [record, ...prev];
+                    }
+                } else {
+                    if (idx !== -1) {
+                        return prev.filter(item => item.id !== record.id);
+                    }
+                }
+            } else if (activeTab === 'history') {
+                if (isHistoryMatch) {
+                    if (idx !== -1) {
+                        const next = [...prev];
+                        next[idx] = { ...next[idx], ...record };
+                        return next;
+                    } else {
+                        return [record, ...prev];
+                    }
+                } else {
+                    if (idx !== -1) {
+                        return prev.filter(item => item.id !== record.id);
+                    }
+                }
+            }
+            return prev;
+        });
+
+        // Always refresh pending counts in background when data changes
+        updateCountsInBackground();
+    };
+
+    const handleLockEvent = (action: string, record: any) => {
+        setApplications(prev => {
+            const idx = prev.findIndex(item => item.id === record.application_id);
+            if (idx === -1) return prev;
+
+            const next = [...prev];
+            const appItem = { ...next[idx] };
+
+            if (action === 'delete') {
+                delete (appItem as any).lock_info;
+            } else {
+                (appItem as any).lock_info = {
+                    id: record.id,
+                    locked_by: record.locked_by,
+                    locked_by_name: record.locked_by_name,
+                    created: record.created
+                };
+            }
+
+            next[idx] = appItem;
+            return next;
+        });
+    };
+
+    useApprovalsRealtime(appType, handleApplicationEvent, handleLockEvent);
     const handleRowSendMail = async (app: AllocatedItem, e: React.MouseEvent) => {
         e.stopPropagation();
         if (sendingMailId) return;
@@ -279,8 +228,8 @@ export default function ApprovalsListPage() {
             return;
         }
 
-        const isChecking =
-            lockedIds.has(app.id);
+        const lockInfo = (app as any).lock_info;
+        const isChecking = lockInfo && lockInfo.locked_by !== user?.id;
 
         if (isChecking) {
             alert(
@@ -290,14 +239,17 @@ export default function ApprovalsListPage() {
         }
 
         try {
-
-            const existingLock =
-                await approvalsApi.getLock(app.id);
+            const existingLock = await approvalsApi.getLock(app.id);
 
             if (existingLock) {
-                alert(
-                    "Another coordinator is currently reviewing this application."
-                );
+                if (existingLock.locked_by !== user?.id) {
+                    alert(
+                        "Another coordinator is currently reviewing this application."
+                    );
+                    return;
+                }
+                // Locked by me already, proceed to review page
+                navigate(`/approvals/${app.id}?type=${appType}&tab=${activeTab}`);
                 return;
             }
 
@@ -314,7 +266,6 @@ export default function ApprovalsListPage() {
 
         } catch (err) {
             console.error(err);
-
             alert(
                 "Unable to lock application. Please try again."
             );
@@ -387,14 +338,13 @@ export default function ApprovalsListPage() {
                                     const displayCategory = rawCat ? rawCat.replace('_', ' ') : 'N/A';
                                     const genId = isIndividual ? (app as ParticipantsApplicationResponse).participant_id : (app as InstitutionsResponse).institution_id;
 
-                                    const isChecking = lockedIds.has(app.id);
-                                    const isFading = fadingOutIds.has(app.id);
-
+                                    const lockInfo = (app as any).lock_info;
+                                    const isChecking = lockInfo && lockInfo.locked_by !== user?.id;
                                     return (
                                         <tr
                                             key={app.id}
                                             onClick={(e) => handleRowAction(app, e)}
-                                            className={`${styles.tableRow} ${isFading ? styles.tableRowFadeOut : ''}`}
+                                            className={styles.tableRow}
                                             style={isChecking && activeTab === 'pending' ? { backgroundColor: '#fef2f2', opacity: 0.8 } : {}}
                                         >
                                             <td className={styles.boldCell}>{displayName}</td>

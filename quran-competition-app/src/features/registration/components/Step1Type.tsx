@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { RegistrationFormData } from '../views/register/RegisterPage';
 import { pb } from '../../../api/db';
+import { institutionsApi } from '../../../api/routes/institutions.api';
 import styles from './Step1Type.module.css';
 
 interface Step1Props {
@@ -46,17 +47,12 @@ export default function Step1Type({ formData, updateForm, onCaptchaVerified }: S
         updateForm('institution_verified', false);
 
         try {
-            const records = await pb.collection('institutions').getList(1, 1, {
-                filter: `institution_id = "${formData.institution_id.trim()}" && passcode = "${passcode.trim()}"`
-            });
-            const record = records.items[0];
+            const record = await institutionsApi.verifyInstitution(
+                formData.institution_id,
+                passcode
+            );
 
-            if (!record) {
-                setVerificationMessage({ 
-                    text: 'No institution found matching this ID and Passcode.', 
-                    isError: true 
-                });
-            } else if (record.status !== 'approved') {
+            if (record.status !== 'approved') {
                 setVerificationMessage({ 
                     text: 'Institution is registered but not approved yet. Please wait for approval.', 
                     isError: true 
@@ -69,8 +65,15 @@ export default function Step1Type({ formData, updateForm, onCaptchaVerified }: S
                 updateForm('institution_ref', record.id);
                 updateForm('institution_verified', true);
             }
-        } catch (e) {
-            setVerificationMessage({ text: 'Failed to verify institution details. Please try again.', isError: true });
+        } catch (e: any) {
+            if (e.status === 404) {
+                setVerificationMessage({ 
+                    text: 'No institution found matching this ID and Passcode.', 
+                    isError: true 
+                });
+            } else {
+                setVerificationMessage({ text: 'Failed to verify institution details. Please try again.', isError: true });
+            }
         } finally {
             setVerifying(false);
         }

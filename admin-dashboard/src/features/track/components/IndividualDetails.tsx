@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
+import { pb } from '../../../api/db';
 import { Lock, Edit, Printer, CheckCircle, XCircle, Unlock } from 'lucide-react';
 import { adminTrackApi } from '../../../api/track';
 import type { ParticipantsApplicationResponse } from '../../../api/track';
@@ -54,6 +55,7 @@ export default function IndividualDetails({
     const birthCertInputRef = useRef<HTMLInputElement>(null);
     const photoInputRef = useRef<HTMLInputElement>(null);
     const [printPreview, setPrintPreview] = useState<string | null>(null);
+    const [isPrintLoading, setIsPrintLoading] = useState(false);
 
     const [metadata, setMetadata] = useState<Record<string, any>>({});
 
@@ -100,9 +102,9 @@ export default function IndividualDetails({
             if (modalState.type === 'approve') {
                 updated = await adminTrackApi.updateStatusAndLock(individualRecord.id, 'individual', 'approved', true);
             } else if (modalState.type === 'lock') {
-                updated = await adminTrackApi.updateStatusAndLock(individualRecord.id, 'individual', individualRecord.status, true);
+                updated = await adminTrackApi.updateLockStatus(individualRecord.id, 'individual', true);
             } else if (modalState.type === 'unlock') {
-                updated = await adminTrackApi.updateStatusAndLock(individualRecord.id, 'individual', individualRecord.status, false);
+                updated = await adminTrackApi.updateLockStatus(individualRecord.id, 'individual', false);
             } else if (modalState.type === 'reject') {
                 if (!rejectReason.trim()) {
                     alert('Please provide a reason for rejection.');
@@ -642,9 +644,26 @@ export default function IndividualDetails({
             <div className={printStyles.downloadBar}>
                 <button
                     className={printStyles.downloadBtn}
-                    onClick={() => setPrintPreview(generateIndividualFormHTML(individualRecord, metadata.print_template))}
+                    onClick={async () => {
+                        setIsPrintLoading(true);
+                        try {
+                            const res = await pb.send<any>(`/api/admin/print-form`, {
+                                method: 'GET',
+                                query: { id: individualRecord.id }
+                            });
+                            if (res) {
+                                setPrintPreview(generateIndividualFormHTML(res, metadata.print_template));
+                            }
+                        } catch (err) {
+                            console.error('Failed to fetch print details:', err);
+                            alert('Failed to retrieve print details. Please try again.');
+                        } finally {
+                            setIsPrintLoading(false);
+                        }
+                    }}
+                    disabled={isPrintLoading}
                 >
-                    <Printer size={15} /> <span className={styles.btnText}>Print Application Form</span>
+                    <Printer size={15} /> <span className={styles.btnText}>{isPrintLoading ? 'Loading Form...' : 'Print Application Form'}</span>
                 </button>
             </div>
 

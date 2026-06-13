@@ -107,64 +107,6 @@ export interface InstitutionsResponse extends RecordModel {
  *  6. all digits, other lengths               → id exact match (PocketBase internal)
  *  7. otherwise                               → full_name partial match (~)
  */
-type QueryType =
-    | 'institution_id'
-    | 'participant_id'
-    | 'email'
-    | 'aadhaar'
-    | 'phone'
-    | 'record_id'
-    | 'name';
-
-function classifyQuery(raw: string): { type: QueryType; filter: string } {
-    const q = raw.trim().replace(/"/g, '\\"');
-    const upper = q.toUpperCase();
-
-    if (upper.startsWith('INST-')) {
-        return { type: 'institution_id', filter: `institution_id = "${q}"` };
-    }
-    if (upper.startsWith('APL-')) {
-        return { type: 'participant_id', filter: `participant_id = "${q}"` };
-    }
-    if (q.includes('@') && /\.[a-zA-Z]{2,}/.test(q.split('@')[1] || '')) {
-        return { type: 'email', filter: `email = "${q}"` };
-    }
-    const digits = q.replace(/\D/g, '');
-    if (digits === q) {
-        // pure numeric string
-        if (q.length > 10) {
-            return { type: 'aadhaar', filter: `aadhaar_number = "${q}"` };
-        }
-        if (q.length >= 6) {
-            return { type: 'phone', filter: `whatsapp_number = "${q}"` };
-        }
-        return { type: 'record_id', filter: `id = "${q}"` };
-    }
-    // Default: partial name match (also catches PocketBase 15-char record IDs with mixed chars)
-    return { type: 'name', filter: `full_name ~ "${q}" || id = "${q}"` };
-}
-
-/** Same classifier but for institution-side fields */
-function classifyInstitutionQuery(raw: string): { type: QueryType; filter: string } {
-    const q = raw.trim().replace(/"/g, '\\"');
-    const upper = q.toUpperCase();
-
-    if (upper.startsWith('INST-')) {
-        return { type: 'institution_id', filter: `institution_id = "${q}"` };
-    }
-    if (q.includes('@') && /\.[a-zA-Z]{2,}/.test(q.split('@')[1] || '')) {
-        return { type: 'email', filter: `email = "${q}"` };
-    }
-    const digits = q.replace(/\D/g, '');
-    if (digits === q) {
-        if (q.length >= 6) {
-            return { type: 'phone', filter: `whatsapp_number = "${q}" || phone_number = "${q}"` };
-        }
-        return { type: 'record_id', filter: `id = "${q}"` };
-    }
-    return { type: 'name', filter: `name ~ "${q}" || id = "${q}"` };
-}
-
 export const adminTrackApi = {
     // Smart search for Individual Application
     trackIndividual: async (queryStr: string): Promise<ParticipantsApplicationResponse | null> => {
@@ -173,9 +115,9 @@ export const adminTrackApi = {
         if (cached) return cached;
 
         try {
-            const { filter } = classifyQuery(queryStr.trim());
-            const record = await pb.collection('participants_application').getFirstListItem<ParticipantsApplicationResponse>(filter, {
-                expand: 'approved_by,institution_ref'
+            const record = await pb.send<ParticipantsApplicationResponse>('/api/admin/track-individual', {
+                method: 'GET',
+                query: { query: queryStr.trim() }
             });
             if (record) cacheSet(indivCache, key, record);
             return record;
@@ -195,25 +137,14 @@ export const adminTrackApi = {
         if (cached) return cached;
 
         try {
-            const { filter } = classifyInstitutionQuery(queryStr.trim());
-
-            const institution = await pb.collection('institutions').getFirstListItem<InstitutionsResponse>(filter, {
-                expand: 'approved_by'
+            const result = await pb.send<{
+                institution: InstitutionsResponse | null;
+                applications: ParticipantsApplicationResponse[];
+            }>('/api/admin/track-institution', {
+                method: 'GET',
+                query: { query: queryStr.trim() }
             });
-
-            if (!institution) {
-                return { institution: null, applications: [] };
-            }
-
-            // Find all applications referencing this institution
-            const applications = await pb.collection('participants_application').getFullList<ParticipantsApplicationResponse>({
-                filter: `institution_ref = "${institution.id}"`,
-                sort: '-created',
-                expand: 'approved_by,institution_ref'
-            });
-
-            const result = { institution, applications };
-            cacheSet(instCache, key, result);
+            if (result) cacheSet(instCache, key, result);
             return result;
         } catch (e) {
             console.error('Error tracking institution applications:', e);
@@ -243,27 +174,52 @@ export const adminTrackApi = {
         isLocked: boolean,
         rejectionReason?: string
     ) => {
-
-        const collection =
-            type === 'individual'
-                ? 'participants_application'
-                : 'institutions';
-
-        const data: any = {
-            status,
-            is_locked: isLocked,
-            approved_by: pb.authStore.record?.id
-        };
-
+        let result: any;
         if (status === 'approved') {
-            data.rejection_reason = "";
-        } else if (rejectionReason !== undefined) {
-            data.rejection_reason = rejectionReason;
-        }
+            result = await pb.send('/api/admin/approve', {
+                method: 'POST',
+                body: { id, type }
+            });
+        } else if (status === 'rejected') {
+            result = await pb.send('/api/admin/reject', {
+                method: 'POST',
+                body: { id, type, rejection_reason: rejectionReason || '' }
+            });
+        } else {
+            const collection =
+                type === 'individual'
+                    ? 'participants_application'
+                    : 'institutions';
 
-        const result = await pb
-            .collection(collection)
-            .update(id, data);
+            const data: any = {
+                status,
+                is_locked: isLocked,
+                approved_by: pb.authStore.record?.id
+            };
+
+            if (status === 'approved') {
+                data.rejection_reason = "";
+            } else if (rejectionReason !== undefined) {
+                data.rejection_reason = rejectionReason;
+            }
+
+            result = await pb
+                .collection(collection)
+                .update(id, data);
+        }
+        invalidateTrackCache(id);
+        return result;
+    },
+
+    updateLockStatus: async (
+        id: string,
+        type: 'individual' | 'institution',
+        isLocked: boolean
+    ) => {
+        const result = await pb.send('/api/admin/toggle-lock', {
+            method: 'POST',
+            body: { id, type, is_locked: isLocked }
+        });
         invalidateTrackCache(id);
         return result;
     }

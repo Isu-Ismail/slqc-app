@@ -14,6 +14,9 @@ $app.onServe().bindFunc((e) => {
         "today_count",
         "institution_count",
         "time",
+        "event_date",
+        "event_age_criteria",
+        "age_buffer_months",
         "madrasa_application_status",
         "participant_application_status",
         "individual_rules",
@@ -23,6 +26,15 @@ $app.onServe().bindFunc((e) => {
     try {
         const collection = $app.findCollectionByNameOrId("metadata");
         if (collection) {
+            // Also ensure metadata API rules are public
+            const metadataCol = $app.findCollectionByNameOrId("metadata");
+            if (metadataCol) {
+                metadataCol.listRule = "";
+                metadataCol.viewRule = "";
+                $app.save(metadataCol);
+                console.log("Updated API rules for collection: metadata to public");
+            }
+
             for (let i = 0; i < keys.length; i++) {
                 const key = keys[i];
                 try {
@@ -37,6 +49,16 @@ $app.onServe().bindFunc((e) => {
                             record.set("value", 0);
                         } else if (key === "time") {
                             record.set("value", JSON.stringify({ date: "2026-06-19T00:00:00" }));
+                        } else if (key === "event_date") {
+                            record.set("value", "2026-06-19T00:00:00");
+                        } else if (key === "event_age_criteria") {
+                            record.set("value", JSON.stringify({
+                                "5_juz": { "min": 0, "max": 15 },
+                                "15_juz": { "min": 0, "max": 19 },
+                                "30_juz": { "min": 0, "max": 25 }
+                            }));
+                        } else if (key === "age_buffer_months") {
+                            record.set("value", 3);
                         } else if (key === "madrasa_application_status" || key === "participant_application_status") {
                             record.set("value", JSON.stringify({ status: "open" }));
                         } else if (key === "individual_rules") {
@@ -55,6 +77,63 @@ $app.onServe().bindFunc((e) => {
         }
     } catch (err) {
         console.error("Failed to check/create metadata records: " + err);
+    }
+
+    try {
+        const collectionsToUpdate = ["participants_application", "institutions"];
+        for (let i = 0; i < collectionsToUpdate.length; i++) {
+            const colName = collectionsToUpdate[i];
+            const col = $app.findCollectionByNameOrId(colName);
+            if (col) {
+                const adminRule = '@request.auth.id != "" && (@request.auth.designation = "admin" || @request.auth.designation = "coordinators")';
+                col.listRule = adminRule;
+                col.viewRule = adminRule;
+                $app.save(col);
+                console.log("Updated API rules for collection: " + colName);
+            }
+        }
+
+        const locksCol = $app.findCollectionByNameOrId("approval_locks");
+        if (locksCol) {
+            locksCol.listRule = '@request.auth.id != ""';
+            locksCol.viewRule = '@request.auth.id != ""';
+            locksCol.createRule = '@request.auth.id != ""';
+            locksCol.updateRule = '@request.auth.id != ""';
+            locksCol.deleteRule = '@request.auth.id != ""';
+            $app.save(locksCol);
+            console.log("Updated API rules for collection: approval_locks");
+        }
+        const triggerCol = $app.findCollectionByNameOrId("trigger_collection");
+        if (triggerCol) {
+            triggerCol.listRule = "";
+            triggerCol.viewRule = "";
+            $app.save(triggerCol);
+            console.log("Updated API rules for collection: trigger_collection to public");
+
+            // Ensure participants_application trigger record exists
+            try {
+                $app.findFirstRecordByData("trigger_collection", "column_name", "participants_application");
+            } catch (_) {
+                const record = new Record(triggerCol);
+                record.set("column_name", "participants_application");
+                record.set("random_value", "initial");
+                $app.save(record);
+                console.log("Created default trigger record for participants_application");
+            }
+
+            // Ensure institutions trigger record exists
+            try {
+                $app.findFirstRecordByData("trigger_collection", "column_name", "institutions");
+            } catch (_) {
+                const record = new Record(triggerCol);
+                record.set("column_name", "institutions");
+                record.set("random_value", "initial");
+                $app.save(record);
+                console.log("Created default trigger record for institutions");
+            }
+        }
+    } catch (ruleErr) {
+        console.error("Failed to update collection API rules: " + ruleErr);
     }
 
     return e.next();

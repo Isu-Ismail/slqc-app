@@ -71,11 +71,6 @@ export const institutionsApi = {
 
     // Update an existing institution record
     updateInstitution: async (id: string, params: Partial<RegisterInstitutionParams> | FormData): Promise<InstitutionsResponse> => {
-        const record = await pb.collection('institutions').getOne<InstitutionsResponse>(id);
-        if (record && record.is_locked) {
-            throw new Error("This institution is locked and cannot be modified.");
-        }
-
         let formData: FormData;
         if (params instanceof FormData) {
             formData = params;
@@ -87,7 +82,8 @@ export const institutionsApi = {
             if (params.email !== undefined) formData.append('email', params.email);
             formData.append('phone_number', params.phone_number || '');
             if (params.whatsapp_number !== undefined) formData.append('whatsapp_number', params.whatsapp_number);
-            const nameToUse = params.name !== undefined ? params.name : record.name;
+            
+            const nameToUse = params.name || 'institution';
             const safeName = nameToUse.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
 
             if (params.document) {
@@ -103,6 +99,24 @@ export const institutionsApi = {
             if (params.instituition_location !== undefined) formData.append('instituition_location', params.instituition_location);
         }
 
-        return await pb.collection('institutions').update<InstitutionsResponse>(id, formData);
+        formData.set('id', id);
+        const cachedPasscode = sessionStorage.getItem('quran_competition_track_institution_passcode') || '';
+        formData.set('passcode', cachedPasscode);
+
+        return await pb.send<InstitutionsResponse>(`/api/public/update-institution`, {
+            method: 'POST',
+            body: formData
+        });
+    },
+
+    // Verify an institution credentials
+    verifyInstitution: async (institutionId: string, passcode: string): Promise<any> => {
+        return await pb.send<any>('/api/public/verify-institution', {
+            method: 'GET',
+            query: {
+                institution_id: institutionId.trim(),
+                passcode: passcode.trim()
+            }
+        });
     }
 };

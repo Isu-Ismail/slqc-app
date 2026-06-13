@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { Lock, Edit, Printer } from 'lucide-react';
+import { pb } from '../../../../../api/db';
 import type { ParticipantsApplicationResponse } from '../../../../../api/types';
 import { useRegistrationStatus } from '../../../../../shared/context/StatusContext';
 import styles from '../TrackPage.module.css';
@@ -51,6 +52,8 @@ export default function IndividualDetails({
     const birthCertFileInputRef = useRef<HTMLInputElement>(null);
     const photoInputRef = useRef<HTMLInputElement>(null);
     const [printPreview, setPrintPreview] = useState<string | null>(null);
+    const [printRecord, setPrintRecord] = useState<any | null>(null);
+    const [isPrintLoading, setIsPrintLoading] = useState(false);
 
     const { metadata } = useRegistrationStatus();
 
@@ -641,20 +644,42 @@ export default function IndividualDetails({
                     <button
                         type="button"
                         className={styles.btnPrimary}
-                        onClick={() => setPrintPreview(individualRecord.id)}
+                        onClick={async () => {
+                            setIsPrintLoading(true);
+                            try {
+                                const dob = localStorage.getItem('quran_competition_track_individual_dob') || '';
+                                const res = await pb.send<any>(`/api/public/print-form`, {
+                                    method: 'GET',
+                                    query: { id: individualRecord.id, dob }
+                                });
+                                if (res) {
+                                    setPrintRecord(res);
+                                    setPrintPreview(individualRecord.id);
+                                }
+                            } catch (err) {
+                                console.error('Failed to fetch print details:', err);
+                                alert('Failed to retrieve print details. Please try again.');
+                            } finally {
+                                setIsPrintLoading(false);
+                            }
+                        }}
+                        disabled={isPrintLoading}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
                     >
-                        <Printer size={16} /> Print Registration Card
+                        <Printer size={16} /> {isPrintLoading ? 'Loading Form...' : 'Print Registration Card'}
                     </button>
                 </div>
             )}
 
-            {printPreview && (
+            {printPreview && printRecord && (
                 <PrintPreviewModal 
                     isOpen={true} 
-                    onClose={() => setPrintPreview(null)} 
+                    onClose={() => {
+                        setPrintPreview(null);
+                        setPrintRecord(null);
+                    }} 
                     title="Print Registration Card"
-                    htmlContent={generateIndividualFormHTML(individualRecord, metadata?.print_template)}
+                    htmlContent={generateIndividualFormHTML(printRecord, metadata?.print_template)}
                 />
             )}
 

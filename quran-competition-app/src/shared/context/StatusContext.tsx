@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { pb } from '../../api/db';
+import { metadataApi } from '../../api/routes/metadata.api';
 
 type StatusType = 'waiting' | 'open' | 'closed';
 
@@ -31,12 +32,7 @@ export const StatusProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     useEffect(() => {
         // Fetch initially
-        pb.collection('metadata').getFullList({ requestKey: null }).then((records) => {
-            const stats: Record<string, any> = {};
-            records.forEach((r) => {
-                stats[r.key] = r.value;
-                stats[`_${r.key}_record`] = r;
-            });
+        metadataApi.getStats().then((stats) => {
             setMetadata(stats);
         }).catch((err) => {
             // Ignore auto-cancellation errors (happens in React StrictMode dev double-mount)
@@ -47,19 +43,16 @@ export const StatusProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
 
         // Subscribe to changes (Only ONE subscription for the entire app!)
-        pb.collection('metadata').subscribe('*', (e) => {
-            if (e.action === 'update' || e.action === 'create') {
-                const record = e.record;
-                setMetadata((prev) => ({
-                    ...prev,
-                    [record.key]: record.value,
-                    [`_${record.key}_record`]: record
-                }));
-            }
+        const unsubscribe = metadataApi.subscribeStats((record) => {
+            setMetadata((prev) => ({
+                ...prev,
+                [record.key]: record.value,
+                [`_${record.key}_record`]: record
+            }));
         });
 
         return () => {
-            pb.collection('metadata').unsubscribe('*');
+            unsubscribe();
         };
     }, []);
 
