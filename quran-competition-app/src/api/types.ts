@@ -151,6 +151,7 @@ export type ParticipantsApplicationRecord = {
 	birthcertificate_photo?: FileNameString
 	aadhaar_number: string
 	allocated_venue?: string
+	allocated_slot?: string
 	candidate_photo?: FileNameString
 	category: ParticipantsApplicationCategoryOptions
 	created: IsoAutoDateString

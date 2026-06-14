@@ -12,6 +12,8 @@ interface Venue {
     capacity: number;
     slots?: any;
     allocatedCount?: number;
+    judges?: string[];
+    expand?: any;
 }
 
 interface VenueSettingsFormProps {
@@ -68,6 +70,56 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
     const [allocationSummary, setAllocationSummary] = useState<any | null>(null);
     const [allocationProgress, setAllocationProgress] = useState<number>(0);
     const [allocationStep, setAllocationStep] = useState<string>('');
+    const [allJudges, setAllJudges] = useState<any[]>([]);
+    const [selectedJudges, setSelectedJudges] = useState<string[]>([]);
+
+    const parseJudgesField = (judgesVal: any): string[] => {
+        if (!judgesVal) return [];
+        if (Array.isArray(judgesVal)) return judgesVal;
+        if (typeof judgesVal === 'string') {
+            try {
+                const parsed = JSON.parse(judgesVal);
+                if (Array.isArray(parsed)) return parsed;
+            } catch (_) {}
+            return judgesVal ? [judgesVal] : [];
+        }
+        return [];
+    };
+
+    const isJudgeAssignedElsewhere = (judgeId: string) => {
+        return venues.some(v => 
+            v.id !== editingVenue?.id && 
+            parseJudgesField(v.judges).includes(judgeId)
+        );
+    };
+
+    const getAssignedVenueNameForJudge = (judgeId: string) => {
+        const assigned = venues.find(v => 
+            v.id !== editingVenue?.id && 
+            parseJudgesField(v.judges).includes(judgeId)
+        );
+        return assigned ? assigned.name : null;
+    };
+
+    const getVenueJudgesDisplay = (venue: Venue) => {
+        let list: any[] = [];
+        const venueJudges = parseJudgesField(venue.judges);
+        if (venue.expand?.judges) {
+            list = Array.isArray(venue.expand.judges) ? venue.expand.judges : [venue.expand.judges];
+        } else if (venueJudges.length > 0) {
+            list = venueJudges.map(jId => allJudges.find(aj => aj.id === jId)).filter(Boolean);
+        }
+        if (list.length === 0) return <span style={{ color: '#94a3b8' }}>No Judges Assigned</span>;
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {list.map((j: any) => (
+                    <div key={j.id} style={{ fontSize: '13px', fontWeight: '500' }}>
+                        {j.name} <span style={{ color: '#64748b', fontSize: '11px', fontFamily: 'monospace' }}>({j.phone_number})</span>
+                    </div>
+                ))}
+            </div>
+        );
+    };
 
     // Allocate / Unallocate Selection Modal States
     const [showAllocateSelectModal, setShowAllocateSelectModal] = useState(false);
@@ -126,7 +178,8 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
         try {
             // Fetch venues
             const venueRecords = await pb.collection('venue_detail').getFullList({
-                sort: 'name'
+                sort: 'name',
+                expand: 'judges'
             });
 
             // Fetch approved student counts per venue
@@ -142,6 +195,12 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                 }
             });
 
+            // Fetch judges list
+            const judgesRecords = await pb.collection('judges').getFullList({
+                sort: 'name'
+            });
+            setAllJudges(judgesRecords);
+
             const formattedVenues: Venue[] = venueRecords.map(v => ({
                 id: v.id,
                 name: v.name,
@@ -149,7 +208,9 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                 category: v.category,
                 capacity: v.capacity,
                 slots: v.slots,
-                allocatedCount: counts[v.name] || 0
+                allocatedCount: counts[v.name] || 0,
+                judges: parseJudgesField(v.judges),
+                expand: v.expand
             }));
 
             setVenues(formattedVenues);
@@ -170,6 +231,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
         setVenueDesc('');
         setVenueCategory('5_juz');
         setSlots([{ name: 'Slot 1', startTime: '09:00', endTime: '12:00', capacity: 18 }]);
+        setSelectedJudges([]);
         setShowModal(true);
     };
 
@@ -178,6 +240,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
         setVenueName(v.name);
         setVenueDesc(v.description);
         setVenueCategory(v.category);
+        setSelectedJudges(parseJudgesField(v.judges));
         
         let loadedSlots = [];
         try {
@@ -227,6 +290,35 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
         setSlots(prev => prev.filter((_, i) => i !== idx));
     };
 
+    const syncJudgesAllocatedVenueFrontend = async () => {
+        try {
+            const [venuesList, judgesList] = await Promise.all([
+                pb.collection('venue_detail').getFullList(),
+                pb.collection('judges').getFullList()
+            ]);
+
+            const judgeToVenueMap: Record<string, string> = {};
+            venuesList.forEach(v => {
+                const judgeIds = parseJudgesField(v.judges);
+                judgeIds.forEach(id => {
+                    judgeToVenueMap[id] = v.id;
+                });
+            });
+
+            for (const j of judgesList) {
+                const expectedVenue = judgeToVenueMap[j.id] || "";
+                const currentVenue = j.allocated_venue || "";
+                if (expectedVenue !== currentVenue) {
+                    await pb.collection('judges').update(j.id, {
+                        allocated_venue: expectedVenue
+                    });
+                }
+            }
+        } catch (err) {
+            console.error("Failed to sync judges allocated venue frontend:", err);
+        }
+    };
+
     const handleSaveVenue = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!venueName.trim()) return;
@@ -249,14 +341,45 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                 description: venueDesc.trim(),
                 category: venueCategory,
                 capacity: totalCapacity,
-                slots: slotsWithFormattedTime
+                slots: slotsWithFormattedTime,
+                judges: selectedJudges
             };
 
+            let savedVenue;
             if (editingVenue) {
-                await pb.collection('venue_detail').update(editingVenue.id, data);
+                savedVenue = await pb.collection('venue_detail').update(editingVenue.id, data);
             } else {
-                await pb.collection('venue_detail').create(data);
+                savedVenue = await pb.collection('venue_detail').create(data);
             }
+
+            const venueId = savedVenue.id;
+
+            // Manually update selected judges' allocated_venue to the venue ID
+            for (const judgeId of selectedJudges) {
+                try {
+                    await pb.collection('judges').update(judgeId, {
+                        allocated_venue: venueId
+                    });
+                } catch (err) {
+                    console.error(`Failed to update judge ${judgeId} to venue:`, err);
+                }
+            }
+
+            // Manually clear allocated_venue for removed judges
+            const previousJudges = editingVenue ? parseJudgesField(editingVenue.judges) : [];
+            const removedJudges = previousJudges.filter(id => !selectedJudges.includes(id));
+            for (const judgeId of removedJudges) {
+                try {
+                    await pb.collection('judges').update(judgeId, {
+                        allocated_venue: ""
+                    });
+                } catch (err) {
+                    console.error(`Failed to clear judge ${judgeId} venue allocation:`, err);
+                }
+            }
+
+            // Fallback: Sync allocated venue to judges collection records
+            await syncJudgesAllocatedVenueFrontend();
 
             setShowModal(false);
             await loadVenuesAndAllocations();
@@ -278,7 +401,21 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
             closeDialog();
             setLoading(true);
             try {
+                // Clear allocated_venue for all judges assigned to this venue before deleting
+                const assignedJudges = parseJudgesField(v.judges);
+                for (const judgeId of assignedJudges) {
+                    try {
+                        await pb.collection('judges').update(judgeId, {
+                            allocated_venue: ""
+                        });
+                    } catch (err) {
+                        console.error(`Failed to clear judge ${judgeId} venue assignment:`, err);
+                    }
+                }
+
                 await pb.collection('venue_detail').delete(v.id);
+                // Fallback: Sync allocated venue to judges collection records
+                await syncJudgesAllocatedVenueFrontend();
                 await loadVenuesAndAllocations();
                 onAllocationComplete?.();
             } catch (err: any) {
@@ -571,6 +708,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                                     <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Category</th>
                                     <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Capacity</th>
                                     <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Allocated Candidates</th>
+                                    <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Assigned Judges</th>
                                     <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569', textAlign: 'right' }}>Actions</th>
                                 </tr>
                             </thead>
@@ -605,6 +743,9 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                                                 </span>
                                                 <span style={{ color: '#94a3b8', fontSize: '12px' }}>/ {v.capacity}</span>
                                             </div>
+                                        </td>
+                                        <td style={{ padding: '14px 20px' }}>
+                                            {getVenueJudgesDisplay(v)}
                                         </td>
                                         <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
@@ -702,6 +843,112 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                                         <option value="15_juz">15 Juz</option>
                                         <option value="30_juz">30 Juz</option>
                                     </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>Assign Judges (can select multiple)</label>
+                                
+                                {/* Selected Judges Badges / Tickets */}
+                                {selectedJudges.length > 0 && (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
+                                        {selectedJudges.map(jId => {
+                                            const j = allJudges.find(aj => aj.id === jId);
+                                            if (!j) return null;
+                                            return (
+                                                <span key={jId} style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    padding: '4px 10px',
+                                                    backgroundColor: '#ccfbf1',
+                                                    color: '#0f766e',
+                                                    borderRadius: '16px',
+                                                    fontSize: '12px',
+                                                    fontWeight: 'bold',
+                                                    border: '1px solid #99f6e4'
+                                                }}>
+                                                    {j.name}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSelectedJudges(prev => prev.filter(id => id !== jId))}
+                                                        style={{
+                                                            border: 'none',
+                                                            background: 'none',
+                                                            cursor: 'pointer',
+                                                            color: '#0f766e',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            padding: 0,
+                                                            fontSize: '16px',
+                                                            fontWeight: 'bold',
+                                                            lineHeight: '1'
+                                                        }}
+                                                        title="Remove judge assignment"
+                                                    >
+                                                        &times;
+                                                    </button>
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                <div style={{
+                                    border: '1px solid #cbd5e1',
+                                    borderRadius: '8px',
+                                    padding: '12px',
+                                    maxHeight: '140px',
+                                    overflowY: 'auto',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '8px',
+                                    backgroundColor: '#fff'
+                                }}>
+                                    {allJudges.length === 0 ? (
+                                        <div style={{ color: '#94a3b8', fontSize: '13px', fontStyle: 'italic' }}>No judges registered in the system.</div>
+                                    ) : (
+                                        allJudges
+                                            .filter(j => !selectedJudges.includes(j.id))
+                                            .map(j => {
+                                                const assignedElsewhere = isJudgeAssignedElsewhere(j.id);
+                                                const assignedVenueName = getAssignedVenueNameForJudge(j.id);
+                                                const isChecked = selectedJudges.includes(j.id);
+                                                
+                                                return (
+                                                    <label key={j.id} style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        fontSize: '13px',
+                                                        color: assignedElsewhere ? '#94a3b8' : '#1e293b',
+                                                        cursor: assignedElsewhere ? 'not-allowed' : 'pointer',
+                                                        userSelect: 'none'
+                                                    }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isChecked}
+                                                            disabled={assignedElsewhere}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    setSelectedJudges(prev => [...prev, j.id]);
+                                                                } else {
+                                                                    setSelectedJudges(prev => prev.filter(id => id !== j.id));
+                                                                }
+                                                            }}
+                                                            style={{ cursor: assignedElsewhere ? 'not-allowed' : 'pointer' }}
+                                                        />
+                                                        <span style={{ fontWeight: '600' }}>{j.name}</span>
+                                                        <span style={{ fontSize: '12px', color: '#64748b' }}>({j.phone_number})</span>
+                                                        {assignedElsewhere && (
+                                                            <span style={{ fontSize: '11px', color: '#ef4444', fontStyle: 'italic' }}>
+                                                                - Assigned to {assignedVenueName}
+                                                            </span>
+                                                        )}
+                                                    </label>
+                                                );
+                                            })
+                                    )}
                                 </div>
                             </div>
 

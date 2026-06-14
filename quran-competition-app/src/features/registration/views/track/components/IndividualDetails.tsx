@@ -186,9 +186,35 @@ export default function IndividualDetails({
     };
 
     return (
-        <div className={styles.detailsCard}>
-            <div className={styles.detailsHeader}>
-                <h3>Application Details</h3>
+        <>
+            {(individualRecord.allocated_venue || individualRecord.allocated_slot) && (
+                <div className={styles.detailsCard} style={{ marginBottom: '20px', borderLeft: '4px solid #10b981' }}>
+                    <div className={styles.detailsHeader} style={{ marginBottom: '12px', paddingBottom: '12px' }}>
+                        <h3 style={{ color: '#047857', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981' }}></span>
+                            Venue & Slot Allocation
+                        </h3>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                        <div>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Allocated Venue</span>
+                            <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e293b', marginTop: '4px' }}>
+                                {individualRecord.allocated_venue || 'N/A'}
+                            </div>
+                        </div>
+                        <div>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Timing / Slot</span>
+                            <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e293b', marginTop: '4px' }}>
+                                {individualRecord.allocated_slot || 'N/A'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className={styles.detailsCard}>
+                <div className={styles.detailsHeader}>
+                    <h3>Application Details</h3>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <div className={`${styles.statusBadge} ${getStatusClass(individualRecord.status)}`}>
                         {individualRecord.status.toUpperCase()}
@@ -759,5 +785,6 @@ export default function IndividualDetails({
                 </div>
             )}
         </div>
+        </>
     );
 }

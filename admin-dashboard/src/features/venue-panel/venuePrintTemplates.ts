@@ -16,7 +16,7 @@ export function getCompactJuzLabel(code: string): string {
     return mapping[code] || code;
 }
 
-export function generateVenueListHTML(venueName: string, candidates: any[], venueSlots: any[]): string {
+export function generateVenueListHTML(venueName: string, candidates: any[], venueSlots: any[], judges: any[] = []): string {
     // Group candidates by slot
     const candidatesBySlot: Record<string, any[]> = {};
     
@@ -66,17 +66,44 @@ export function generateVenueListHTML(venueName: string, candidates: any[], venu
                     <h3 style="margin-top: 5px; font-size: 16px; color: #0f766e;">${slotTitleDisplay}</h3>
                 </div>
                 
-                <table class="meta-info-table" style="width: 100%; margin-bottom: 15px; font-size: 12px; border-collapse: collapse;">
+                <table class="meta-info-table" style="width: 100%; margin-bottom: 12px; font-size: 12px; border-collapse: collapse;">
                     <tr>
                         <td style="padding: 3px 0; width: 33%;"><strong>Venue:</strong> ${venueName}</td>
                         <td style="padding: 3px 0; width: 33%; text-align: center;"><strong>Date:</strong> __________________</td>
                         <td style="padding: 3px 0; width: 33%; text-align: right;"><strong>Candidates in Slot:</strong> ${slotCandidates.length}</td>
                     </tr>
-                    <tr>
-                        <td style="padding: 3px 0;"><strong>Judge 1:</strong> __________________</td>
-                        <td style="padding: 3px 0; text-align: center;"><strong>Judge 2:</strong> __________________</td>
-                        <td style="padding: 3px 0; text-align: right;"><strong>Judge 3:</strong> __________________</td>
-                    </tr>
+                </table>
+
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 11px;">
+                    <thead>
+                        <tr>
+                            <th style="border: 1px solid #000; padding: 5px; text-align: left; background: none; font-size: 11px; color: #000; font-weight: bold;">Judge Details</th>
+                            <th style="border: 1px solid #000; padding: 5px; text-align: left; background: none; font-size: 11px; color: #000; font-weight: bold; width: 30%;">Phone Number</th>
+                            <th style="border: 1px solid #000; padding: 5px; text-align: center; background: none; font-size: 11px; color: #000; font-weight: bold; width: 180px;">Signature</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${(() => {
+                            const list = Array.isArray(judges) ? judges : (judges ? [judges] : []);
+                            if (list.length > 0) {
+                                return list.map((j: any, idx: number) => `
+                                    <tr>
+                                        <td style="border: 1px solid #000; padding: 6px; font-weight: bold; font-size: 11px;">Judge ${idx + 1}: ${j.name}</td>
+                                        <td style="border: 1px solid #000; padding: 6px; font-family: monospace; font-size: 11px;">${j.phone_number}</td>
+                                        <td style="border: 1px solid #000; padding: 6px; height: 35px;"></td>
+                                    </tr>
+                                `).join('');
+                            } else {
+                                return `
+                                    <tr>
+                                        <td style="border: 1px solid #000; padding: 6px; font-style: italic; font-size: 11px;">No judges assigned.</td>
+                                        <td style="border: 1px solid #000; padding: 6px; font-size: 11px;">—</td>
+                                        <td style="border: 1px solid #000; padding: 6px; height: 35px; text-align: center; font-size: 10px; color: #64748b;">Signature: __________________</td>
+                                    </tr>
+                                `;
+                            }
+                        })()}
+                    </tbody>
                 </table>
 
                 <table>
@@ -468,7 +495,7 @@ export function generateIDCardsHTML(venueName: string, candidates: any[], venueS
     `;
 }
 
-export function generateMarksheetHTML(venueName: string, candidates: any[]): string {
+export function generateMarksheetHTML(venueName: string, candidates: any[], judges: any[] = []): string {
     const rows = candidates.map((c, index) => {
         const categoryLabel = c.category === '5_juz' ? '5 Juz' : c.category === '15_juz' ? '15 Juz' : '30 Juz';
         const juzOptionLabel = getCompactJuzLabel(c.juzz_options || c.selected_juz);
@@ -523,8 +550,9 @@ export function generateMarksheetHTML(venueName: string, candidates: any[]): str
                 }
                 .meta-table {
                     width: 100%;
-                    margin-bottom: 15px;
+                    margin-bottom: 12px;
                     font-size: 11px;
+                    border-collapse: collapse;
                 }
                 .meta-table td {
                     padding: 2px 0;
@@ -584,11 +612,38 @@ export function generateMarksheetHTML(venueName: string, candidates: any[]): str
                     <td style="width: 33%; text-align: center;"><strong>Date:</strong> ____________________</td>
                     <td style="width: 33%; text-align: right;"><strong>Total Candidates:</strong> ${candidates.length}</td>
                 </tr>
-                <tr>
-                    <td><strong>Judge 1 Name:</strong> ____________________</td>
-                    <td style="text-align: center;"><strong>Judge 2 Name:</strong> ____________________</td>
-                    <td style="text-align: right;"><strong>Judge 3 Name:</strong> ____________________</td>
-                </tr>
+            </table>
+
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 11px;">
+                <thead>
+                    <tr>
+                        <th style="border: 1px solid #000; padding: 5px; text-align: left; background: none; font-size: 11px; color: #000; font-weight: bold;">Judge Details</th>
+                        <th style="border: 1px solid #000; padding: 5px; text-align: left; background: none; font-size: 11px; color: #000; font-weight: bold; width: 30%;">Phone Number</th>
+                        <th style="border: 1px solid #000; padding: 5px; text-align: center; background: none; font-size: 11px; color: #000; font-weight: bold; width: 180px;">Signature</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${(() => {
+                        const list = Array.isArray(judges) ? judges : (judges ? [judges] : []);
+                        if (list.length > 0) {
+                            return list.map((j: any, idx: number) => `
+                                <tr>
+                                    <td style="border: 1px solid #000; padding: 6px; font-weight: bold; font-size: 11px;">Judge ${idx + 1}: ${j.name}</td>
+                                    <td style="border: 1px solid #000; padding: 6px; font-family: monospace; font-size: 11px;">${j.phone_number}</td>
+                                    <td style="border: 1px solid #000; padding: 6px; height: 35px;"></td>
+                                </tr>
+                            `).join('');
+                        } else {
+                            return `
+                                <tr>
+                                    <td style="border: 1px solid #000; padding: 6px; font-style: italic; font-size: 11px;">No judges assigned.</td>
+                                    <td style="border: 1px solid #000; padding: 6px; font-size: 11px;">—</td>
+                                    <td style="border: 1px solid #000; padding: 6px; height: 35px; text-align: center; font-size: 10px; color: #64748b;">Signature: __________________</td>
+                                </tr>
+                            `;
+                        }
+                    })()}
+                </tbody>
             </table>
 
             <table class="marks-table">
@@ -610,16 +665,29 @@ export function generateMarksheetHTML(venueName: string, candidates: any[]): str
                 </tbody>
             </table>
 
-            <div class="signatures-section">
-                <div>
-                    <div class="sig-line">Judge 1 Signature</div>
-                </div>
-                <div>
-                    <div class="sig-line">Judge 2 Signature</div>
-                </div>
-                <div>
-                    <div class="sig-line">Judge 3 Signature</div>
-                </div>
+            <div class="signatures-section" style="display: grid; grid-template-columns: repeat(${Math.max(1, judges.length || 3)}, 1fr); gap: 30px; text-align: center; font-size: 11px; margin-top: 40px; page-break-inside: avoid;">
+                ${(() => {
+                    const list = Array.isArray(judges) ? judges : (judges ? [judges] : []);
+                    if (list.length > 0) {
+                        return list.map((j: any) => `
+                            <div>
+                                <div class="sig-line"><strong>${j.name}</strong> Signature</div>
+                            </div>
+                        `).join('');
+                    } else {
+                        return `
+                            <div>
+                                <div class="sig-line">Judge 1 Signature</div>
+                            </div>
+                            <div>
+                                <div class="sig-line">Judge 2 Signature</div>
+                            </div>
+                            <div>
+                                <div class="sig-line">Judge 3 Signature</div>
+                            </div>
+                        `;
+                    }
+                })()}
             </div>
         </body>
         </html>

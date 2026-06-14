@@ -100,11 +100,19 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
         venues.forEach(v => {
             let slotsVal = [];
             try {
-                const rawSlots = v.get("slots");
-                if (rawSlots) {
-                    slotsVal = typeof rawSlots === 'string' ? JSON.parse(rawSlots) : rawSlots;
+                // PocketBase getString retrieves the raw JSON string directly from the record
+                const jsonStr = v.getString("slots");
+                if (jsonStr) {
+                    slotsVal = JSON.parse(jsonStr);
                 }
-            } catch (_) {}
+            } catch (_) {
+                try {
+                    const rawSlots = v.get("slots");
+                    if (rawSlots) {
+                        slotsVal = typeof rawSlots === 'string' ? JSON.parse(rawSlots) : rawSlots;
+                    }
+                } catch (__) {}
+            }
 
             // Fallback to general slot if no slots defined
             if (!Array.isArray(slotsVal) || slotsVal.length === 0) {
@@ -116,13 +124,17 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
             }
 
             slotsVal.forEach((slot, idx) => {
+                const sName = slot["name"] || slot.name || ("Slot " + (idx + 1));
+                const sTime = slot["time"] || slot.time || ((slot["startTime"] || slot.startTime) && (slot["endTime"] || slot.endTime) ? (slot["startTime"] || slot.startTime) + " - " + (slot["endTime"] || slot.endTime) : "");
+                const sCap = parseInt(slot["capacity"] || slot.capacity, 10) || 18;
+
                 venuesByCat.push({
                     record: v,
                     id: v.get("id"),
                     name: v.get("name"),
-                    slotName: slot.name || ("Slot " + (idx + 1)),
-                    slotTime: slot.time || "",
-                    capacity: parseInt(slot.capacity, 10) || 18,
+                    slotName: sName,
+                    slotTime: sTime,
+                    capacity: sCap,
                     allocatedCount: 0,
                     instCounts: {} // institution_ref -> count
                 });
@@ -189,11 +201,18 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
                     minInstCount = instCount;
                     selectedTarget = t;
                 } else if (instCount === minInstCount) {
-                    // Tie breaker: pick slot target with more remaining capacity
-                    const remCapNew = t.capacity - t.allocatedCount;
-                    const remCapSelected = selectedTarget ? (selectedTarget.capacity - selectedTarget.allocatedCount) : 0;
-                    if (remCapNew > remCapSelected) {
+                    // Tie breaker: pick slot target with fewer allocated candidates overall (even distribution)
+                    const countNew = t.allocatedCount;
+                    const countSelected = selectedTarget ? selectedTarget.allocatedCount : Infinity;
+                    if (countNew < countSelected) {
                         selectedTarget = t;
+                    } else if (countNew === countSelected) {
+                        // Secondary tie-breaker: pick slot target with more remaining capacity
+                        const remCapNew = t.capacity - t.allocatedCount;
+                        const remCapSelected = selectedTarget ? (selectedTarget.capacity - selectedTarget.allocatedCount) : 0;
+                        if (remCapNew > remCapSelected) {
+                            selectedTarget = t;
+                        }
                     }
                 }
             });
@@ -201,7 +220,7 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
             if (selectedTarget) {
                 // Update DB record
                 cand.set("allocated_venue", selectedTarget.name);
-                const slotStr = selectedTarget.slotName + (selectedTarget.slotTime ? " (" + selectedTarget.slotTime + ")" : "");
+                const slotStr = selectedTarget.slotName + (selectedTarget.slotTime ? " - " + selectedTarget.slotTime : "");
                 cand.set("allocated_slot", slotStr);
                 $app.save(cand);
 

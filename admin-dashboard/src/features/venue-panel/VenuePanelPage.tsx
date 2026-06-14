@@ -14,6 +14,8 @@ interface Venue {
     capacity: number;
     slots?: any;
     allocatedCount?: number;
+    judges?: string[];
+    expand?: any;
 }
 
 interface Participant {
@@ -39,7 +41,9 @@ interface Participant {
 export default function VenuePanelPage() {
     const user = pb.authStore.model;
     const [venues, setVenues] = useState<Venue[]>([]);
-    const [activeTab, setActiveTab] = useState<string>('settings');
+    const [activeTab, setActiveTab] = useState<string>(
+        user?.designation === 'coordinators' ? '' : 'settings'
+    );
     
     // Cache for loaded candidates per venue name. Key: "venueName", Value: Participant[]
     const [cache, setCache] = useState<Record<string, Participant[]>>({});
@@ -59,7 +63,7 @@ export default function VenuePanelPage() {
                 method: 'GET',
                 query: { venue: activeTab, slot: 'all' } // Always fetch all slots for full list split by pages
             });
-            const html = generateVenueListHTML(activeTab, res, currentVenueSlots);
+            const html = generateVenueListHTML(activeTab, res, currentVenueSlots, currentVenue?.expand?.judges || []);
             setPrintTitle(`Venue Allocation List - ${activeTab}`);
             setPrintPreview(html);
         } catch (err) {
@@ -95,7 +99,7 @@ export default function VenuePanelPage() {
                 method: 'GET',
                 query: { venue: activeTab, slot: 'all' }
             });
-            const html = generateMarksheetHTML(activeTab, res);
+            const html = generateMarksheetHTML(activeTab, res, currentVenue?.expand?.judges || []);
             setPrintTitle(`Judges Marksheet - ${activeTab}`);
             setPrintPreview(html);
         } catch (err) {
@@ -110,7 +114,8 @@ export default function VenuePanelPage() {
     const loadVenues = async () => {
         try {
             const venueRecords = await pb.collection('venue_detail').getFullList({
-                sort: 'name'
+                sort: 'name',
+                expand: 'judges'
             });
 
             // Fetch approved student counts per venue to show on tabs
@@ -133,10 +138,16 @@ export default function VenuePanelPage() {
                 category: v.category,
                 capacity: v.capacity,
                 slots: v.slots,
-                allocatedCount: counts[v.name] || 0
+                allocatedCount: counts[v.name] || 0,
+                judges: Array.isArray(v.judges) ? v.judges : [],
+                expand: v.expand
             }));
 
             setVenues(formattedVenues);
+            // If coordinator and currently on settings or no active tab, auto-select first venue
+            if (user?.designation === 'coordinators' && (activeTab === 'settings' || !activeTab) && formattedVenues.length > 0) {
+                setActiveTab(formattedVenues[0].name);
+            }
             // Clear the candidates cache when venue configuration is reloaded/saved
             setCache({});
         } catch (err) {
@@ -182,11 +193,11 @@ export default function VenuePanelPage() {
         loadCandidatesForVenue(activeTab, false);
     }, [activeTab, venues]);
 
-    if (user?.designation !== 'admin') {
+    if (user?.designation !== 'admin' && user?.designation !== 'coordinators') {
         return (
             <div className={styles.restricted}>
                 <h2>Access Denied</h2>
-                <p>Only Administrators can access the Venue Panel.</p>
+                <p>Only Administrators and Coordinators can access the Venue Panel.</p>
             </div>
         );
     }
@@ -213,10 +224,8 @@ export default function VenuePanelPage() {
         ? candidatesList
         : candidatesList.filter(c => {
             if (!c.allocated_slot) return false;
-            if (c.allocated_slot === selectedSlot) return true;
-            // Robust match: compare base slot names (e.g. "Slot 1")
-            const cleanAlloc = c.allocated_slot.split(' (')[0].trim();
-            const cleanSelected = selectedSlot.split(' (')[0].trim();
+            const cleanAlloc = c.allocated_slot.split(' - ')[0].split(' (')[0].trim().toLowerCase();
+            const cleanSelected = selectedSlot.split(' - ')[0].split(' (')[0].trim().toLowerCase();
             return cleanAlloc === cleanSelected;
         });
 
@@ -237,21 +246,23 @@ export default function VenuePanelPage() {
 
             {/* Navigation Tabs */}
             <div className={styles.tabsContainer} style={{ borderBottom: '2px solid #e2e8f0', paddingBottom: '0' }}>
-                <button
-                    type="button"
-                    className={`${styles.tabBtn} ${activeTab === 'settings' ? styles.activeTab : ''}`}
-                    onClick={() => { setActiveTab('settings'); loadVenues(); }}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '12px 16px',
-                        borderRadius: '8px 8px 0 0',
-                        borderBottom: activeTab === 'settings' ? '3px solid #0d9488' : '3px solid transparent'
-                    }}
-                >
-                    <Settings size={16} /> Venue Settings & Allocator
-                </button>
+                {user?.designation === 'admin' && (
+                    <button
+                        type="button"
+                        className={`${styles.tabBtn} ${activeTab === 'settings' ? styles.activeTab : ''}`}
+                        onClick={() => { setActiveTab('settings'); loadVenues(); }}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '12px 16px',
+                            borderRadius: '8px 8px 0 0',
+                            borderBottom: activeTab === 'settings' ? '3px solid #0d9488' : '3px solid transparent'
+                        }}
+                    >
+                        <Settings size={16} /> Venue Settings & Allocator
+                    </button>
+                )}
 
                 {venues.map(v => (
                     <button
@@ -285,7 +296,7 @@ export default function VenuePanelPage() {
 
             {/* Content Area */}
             <div style={{ marginTop: '20px' }}>
-                {activeTab === 'settings' && (
+                {activeTab === 'settings' && user?.designation === 'admin' && (
                     <VenueSettingsForm onAllocationComplete={loadVenues} />
                 )}
 
@@ -304,11 +315,43 @@ export default function VenuePanelPage() {
                             flexWrap: 'wrap',
                             gap: '16px'
                         }}>
-                            <div>
+                             <div>
                                 <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: '#1e293b' }}>{currentVenue.name}</h3>
                                 <p style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>
                                     {currentVenue.description || 'No description provided.'} • Category: <strong style={{ color: '#0f766e' }}>{currentVenue.category === '5_juz' ? '5 Juz' : currentVenue.category === '15_juz' ? '15 Juz' : '30 Juz'}</strong>
                                 </p>
+                                {(() => {
+                                    const judgesList = currentVenue.expand?.judges 
+                                        ? (Array.isArray(currentVenue.expand.judges) ? currentVenue.expand.judges : [currentVenue.expand.judges]) 
+                                        : [];
+                                    if (judgesList.length > 0) {
+                                        return (
+                                            <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                                                <span style={{ fontSize: '12px', color: '#475569', fontWeight: 'bold' }}>Assigned Judges:</span>
+                                                {judgesList.map((j: any) => (
+                                                    <span key={j.id} style={{
+                                                        fontSize: '12px',
+                                                        backgroundColor: '#0d9488',
+                                                        color: '#ffffff',
+                                                        padding: '3px 8px',
+                                                        borderRadius: '6px',
+                                                        fontWeight: '500',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px'
+                                                    }}>
+                                                        {j.name} <span style={{ opacity: 0.85, fontSize: '11px' }}>({j.phone_number})</span>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        );
+                                    }
+                                    return (
+                                        <div style={{ marginTop: '8px', fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>
+                                            No judges assigned to this venue
+                                        </div>
+                                    );
+                                })()}
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                 <div style={{ textAlign: 'right' }}>

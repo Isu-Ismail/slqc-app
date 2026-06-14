@@ -88,6 +88,19 @@
         "presentable": false
       },
       {
+        "cascadeDelete": false,
+        "collectionId": "pbc_judges00001",
+        "hidden": false,
+        "id": "relation_judges",
+        "maxSelect": null,
+        "minSelect": 0,
+        "name": "judges",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "relation"
+      },
+      {
         "id": "autodate2990389176",
         "name": "created",
         "type": "autodate",
@@ -109,6 +122,111 @@
     "indexes": [
       "CREATE UNIQUE INDEX `idx_venue_name_unique` ON `venue_detail` (`name`)"
     ],
+    "system": false
+  },
+  {
+    "id": "pbc_judges00001",
+    "name": "judges",
+    "type": "base",
+    "listRule": "@request.auth.id != \"\"",
+    "viewRule": "@request.auth.id != \"\"",
+    "createRule": "@request.auth.designation = \"admin\"",
+    "updateRule": "@request.auth.designation = \"admin\"",
+    "deleteRule": "@request.auth.designation = \"admin\"",
+    "fields": [
+      {
+        "id": "text3208210256",
+        "name": "id",
+        "type": "text",
+        "system": true,
+        "required": true,
+        "primaryKey": true,
+        "presentable": false,
+        "min": 15,
+        "max": 15,
+        "pattern": "^[a-z0-9]+$",
+        "autogeneratePattern": "[a-z0-9]{15}"
+      },
+      {
+        "id": "judge_name",
+        "name": "name",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "presentable": true,
+        "min": 0,
+        "max": 0,
+        "pattern": "",
+        "autogeneratePattern": ""
+      },
+      {
+        "id": "judge_phone",
+        "name": "phone_number",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "presentable": false,
+        "min": 0,
+        "max": 0,
+        "pattern": "",
+        "autogeneratePattern": ""
+      },
+      {
+        "id": "judge_inst",
+        "name": "institution",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "presentable": false,
+        "min": 0,
+        "max": 0,
+        "pattern": "",
+        "autogeneratePattern": ""
+      },
+      {
+        "id": "judge_stay",
+        "name": "place_of_stay",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "presentable": false,
+        "min": 0,
+        "max": 0,
+        "pattern": "",
+        "autogeneratePattern": ""
+      },
+      {
+        "id": "judge_pickup",
+        "name": "pickup_incharge",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "presentable": false,
+        "min": 0,
+        "max": 0,
+        "pattern": "",
+        "autogeneratePattern": ""
+      },
+      {
+        "id": "autodate2990389176",
+        "name": "created",
+        "type": "autodate",
+        "system": true,
+        "onCreate": true,
+        "onUpdate": false,
+        "presentable": false
+      },
+      {
+        "id": "autodate3332085495",
+        "name": "updated",
+        "type": "autodate",
+        "system": true,
+        "onCreate": true,
+        "onUpdate": true,
+        "presentable": false
+      }
+    ],
+    "indexes": [],
     "system": false
   }
 ]

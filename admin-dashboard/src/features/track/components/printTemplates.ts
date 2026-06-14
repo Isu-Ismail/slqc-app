@@ -40,6 +40,28 @@ function formatDate(dateStr: string): string {
     } catch { return dateStr; }
 }
 
+function getCompactCategory(cat: string): string {
+    if (cat === '5_juz') return '5';
+    if (cat === '15_juz') return '15';
+    if (cat === '30_juz') return '30';
+    return cat ? cat.replace('_juz', '') : 'N/A';
+}
+
+function getCompactJuz(record: ParticipantsApplicationResponse): string {
+    const code = record.juz_options || '';
+    if (code === '0030') return '1-30';
+    if (code === '0115') return '1-15';
+    if (code === '1530') return '16-30';
+    if (code === '01102630') return '1-10 & 26-30';
+    if (code === '2630') return '26-30';
+    if (code === '0105') return '1-5';
+    
+    const raw = record.selected_juz || '';
+    if (!raw) return 'N/A';
+    const match = raw.match(/Juz\s+([\d&\-\s]+)/i);
+    if (match) return match[1].trim();
+    return raw;
+}
 
 function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: boolean): string {
     const photoUrl = record.candidate_photo
@@ -80,6 +102,13 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
                     <div class="stamp-contact">Ph: ${approverContact}</div>
                     ${approverEmail ? `<div class="stamp-email">${approverEmail}</div>` : ''}
                 </div>
+                ${(record.allocated_venue || record.allocated_slot) ? `
+                <div class="allocation-stamp">
+                    <div class="alloc-badge">ALLOCATED</div>
+                    <div class="alloc-venue">${record.allocated_venue || 'N/A'}</div>
+                    <div class="alloc-slot">${record.allocated_slot || 'N/A'}</div>
+                </div>
+                ` : ''}
             </div>
             <div class="top-right">
                 <div class="photo-box">
@@ -196,7 +225,7 @@ ${PRINT_BASE_STYLES}
 .info-row { display: flex; align-items: baseline; margin-bottom: 2px; }
 .info-label { width: 120px; font-size: 13.5px; font-weight: bold; flex-shrink: 0; }
 .info-val { font-size: 13.5px; }
-.top-center { display: flex; align-items: center; justify-content: center; }
+.top-center { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .top-right { flex-shrink: 0; }
 
 /* ── Approval Stamp ── */
@@ -212,6 +241,20 @@ ${PRINT_BASE_STYLES}
 .stamp-name { font-size: 13px; font-weight: bold; line-height: 1.3; }
 .stamp-contact { font-size: 11.5px; font-weight: bold; line-height: 1.3; }
 .stamp-email { font-size: 10px; line-height: 1.25; color: #333; word-break: break-all; }
+
+/* ── Allocation Stamp ── */
+.allocation-stamp { 
+    border: 2.5px double #059669; 
+    border-radius: 5px; 
+    padding: 5px 12px; 
+    text-align: center; 
+    transform: rotate(1.5deg);
+    min-width: 140px;
+    color: #059669;
+}
+.alloc-badge { font-size: 15px; font-weight: 900; letter-spacing: 1.5px; border-bottom: 1.5px solid #059669; padding-bottom: 2px; margin-bottom: 3px; line-height: 1; }
+.alloc-venue { font-size: 13px; font-weight: bold; line-height: 1.3; }
+.alloc-slot { font-size: 11.5px; font-weight: bold; line-height: 1.3; }
 
 /* ── Photo Box ── */
 .photo-box { 
@@ -328,12 +371,15 @@ export function generateAttendanceSheetHTML(
 
         let rows = '';
         apps.forEach((app, i) => {
+            const compJuz = getCompactJuz(app);
             rows += `<tr>
                 <td style="text-align:center;">${i + 1}</td>
                 <td style="font-weight:bold;">${app.full_name}</td>
-                <td>${app.whatsapp_number}</td>
                 <td>${app.aadhaar_number}</td>
                 <td style="font-family:monospace;font-size:12px;">${app.participant_id || app.id}</td>
+                <td>${compJuz}</td>
+                <td>${app.allocated_venue || '—'}</td>
+                <td style="font-size:11px;">${app.allocated_slot || '—'}</td>
                 <td style="height:38px;"></td>
             </tr>`;
         });
@@ -362,10 +408,12 @@ export function generateAttendanceSheetHTML(
                 <thead><tr>
                     <th style="width:40px;">S.No</th>
                     <th>Applicant Name</th>
-                    <th style="width:125px;">Phone Number</th>
-                    <th style="width:135px;">Aadhaar Number</th>
-                    <th style="width:135px;">Participant ID</th>
-                    <th style="width:105px;">Signature</th>
+                    <th style="width:115px;">Aadhaar Number</th>
+                    <th style="width:115px;">Participant ID</th>
+                    <th style="width:100px;">Juz Option</th>
+                    <th style="width:115px;">Venue</th>
+                    <th style="width:170px;">Slot / Timing</th>
+                    <th style="width:100px;">Signature</th>
                 </tr></thead>
                 <tbody>${rows}</tbody>
             </table>

@@ -72,11 +72,11 @@ function App() {
                 <Route
                     path="/venue-panel"
                     element={
-                        <RequireAdmin>
+                        <RequireAuth>
                             <MainLayout>
                                 <VenuePanelPage />
                             </MainLayout>
-                        </RequireAdmin>
+                        </RequireAuth>
                     }
                 />
                 <Route

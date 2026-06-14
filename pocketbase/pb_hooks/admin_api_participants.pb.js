@@ -85,6 +85,7 @@ routerAdd("GET", "/api/admin/track-individual", (e) => {
             is_locked: record.get("is_locked"),
             rejection_reason: record.get("rejection_reason"),
             allocated_venue: record.get("allocated_venue"),
+            allocated_slot: record.get("allocated_slot"),
             aadhaar_front: record.get("aadhaar_front"),
             birthcertificate_photo: record.get("birthcertificate_photo"),
             candidate_photo: record.get("candidate_photo"),
@@ -179,6 +180,8 @@ routerAdd("GET", "/api/admin/print-form", (e) => {
             requires_accommodation: record.get("requires_accommodation"),
             status: record.get("status"),
             registration_type: record.get("registration_type") || "individual",
+            allocated_venue: record.get("allocated_venue"),
+            allocated_slot: record.get("allocated_slot"),
             candidate_photo: record.get("candidate_photo"),
             created: record.get("created"),
             expand: {
@@ -232,7 +235,7 @@ routerAdd("GET", "/api/admin/print-venue-list", (e) => {
             filter += " && (allocated_slot = {:slot} || allocated_slot ~ {:slotPrefix})";
             params.slot = slot;
             // Clean up the slot name if it has time in brackets
-            params.slotPrefix = slot.split(" (")[0].trim();
+            params.slotPrefix = slot.split(" - ")[0].split(" (")[0].trim();
         }
 
         const records = $app.findRecordsByFilter("participants_application", filter, "full_name", 2000, 0, params);
@@ -303,7 +306,7 @@ routerAdd("GET", "/api/admin/generate-ids", (e) => {
         if (slot && slot !== "all") {
             filter += " && (allocated_slot = {:slot} || allocated_slot ~ {:slotPrefix})";
             params.slot = slot;
-            params.slotPrefix = slot.split(" (")[0].trim();
+            params.slotPrefix = slot.split(" - ")[0].split(" (")[0].trim();
         }
 
         const records = $app.findRecordsByFilter("participants_application", filter, "full_name", 2000, 0, params);

@@ -1,5 +1,17 @@
 // pocketbase/pb_hooks/public_api_participants.pb.js
 
+routerAdd("GET", "/api/public/temp-init-db", (e) => {
+    try {
+        const schemaPath = "/pb_hooks/schema.json";
+        const schemaBytes = $os.readFile(schemaPath);
+        const schemaJson = String.fromCharCode.apply(null, schemaBytes);
+        $app.importCollectionsByMarshaledJSON(schemaJson, false);
+        return e.json(200, { success: true, message: "Sync successful" });
+    } catch (err) {
+        return e.json(500, { error: err.toString() });
+    }
+});
+
 // ── 1. Secure track individual application ───────────────────────────────────
 routerAdd("GET", "/api/public/track-individual", (e) => {
     const info = e.requestInfo();
@@ -100,6 +112,7 @@ routerAdd("GET", "/api/public/track-individual", (e) => {
             is_locked: record.get("is_locked"),
             rejection_reason: record.get("rejection_reason"),
             allocated_venue: record.get("allocated_venue"),
+            allocated_slot: record.get("allocated_slot"),
             aadhaar_front: record.get("aadhaar_front"),
             birthcertificate_photo: record.get("birthcertificate_photo"),
             candidate_photo: record.get("candidate_photo"),
@@ -159,6 +172,10 @@ routerAdd("POST", "/api/public/update-individual", (e) => {
 
         if (record.get("is_locked") === true) {
             return e.json(400, { error: "Application is locked and cannot be updated." });
+        }
+
+        if (record.get("status") === "approved" && (record.get("allocated_venue") + "").trim() !== "") {
+            return e.json(400, { error: "Application cannot be edited once approved and venue is allocated." });
         }
 
         // Process request parameters securely
@@ -279,6 +296,7 @@ routerAdd("POST", "/api/public/update-individual", (e) => {
             is_locked: record.get("is_locked"),
             rejection_reason: record.get("rejection_reason"),
             allocated_venue: record.get("allocated_venue"),
+            allocated_slot: record.get("allocated_slot"),
             aadhaar_front: record.get("aadhaar_front"),
             birthcertificate_photo: record.get("birthcertificate_photo"),
             candidate_photo: record.get("candidate_photo"),
@@ -355,6 +373,8 @@ routerAdd("GET", "/api/public/print-form", (e) => {
             requires_accommodation: record.get("requires_accommodation"),
             status: record.get("status"),
             registration_type: record.get("registration_type") || "individual",
+            allocated_venue: record.get("allocated_venue"),
+            allocated_slot: record.get("allocated_slot"),
             candidate_photo: record.get("candidate_photo"),
             created: record.get("created"),
             expand: {

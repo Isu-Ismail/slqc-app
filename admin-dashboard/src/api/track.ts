@@ -73,6 +73,7 @@ export interface ParticipantsApplicationResponse extends RecordModel {
     approved_by?: string;
     participant_id?: string;
     allocated_venue?: string;
+    allocated_slot?: string;
     selected_juz?: string;
     juz_options?: string;
 }
