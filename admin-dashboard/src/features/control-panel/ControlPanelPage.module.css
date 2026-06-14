@@ -91,7 +91,8 @@
 }
 
 .btnPrimary:hover {
-    background: #115e59;
+    background: #0f766e;
+    filter: brightness(0.85);
 }
 
 .btnPrimary:disabled {
@@ -112,7 +113,8 @@
 }
 
 .btnOutline:hover {
-    background: #f0fdfa;
+    background: #0f766e;
+    color: white;
 }
 
 .btnSecondary {
@@ -128,7 +130,8 @@
 }
 
 .btnSecondary:hover {
-    background: #f8fafc;
+    background: #e2e8f0;
+    border-color: #94a3b8;
 }
 
 .btnSecondary:disabled {
@@ -204,13 +207,13 @@
 }
 
 .tabBtn:hover {
-    background-color: rgba(16, 185, 129, 0.08);
-    color: #059669;
+    background-color: rgba(13, 148, 136, 0.12);
+    color: #0d9488;
 }
 
 .activeTab {
-    background-color: rgba(16, 185, 129, 0.12);
-    color: #059669;
+    background-color: rgba(13, 148, 136, 0.20);
+    color: #0d9488;
 }
 
 @media (max-width: 768px) {

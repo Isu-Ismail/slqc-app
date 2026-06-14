@@ -19,13 +19,14 @@ function initDb(app) {
         settings.rateLimits.enabled = true;
         
         const desiredRules = [
-            { label: "*:auth", maxRequests: 2, duration: 3, audience: "" },
-            { label: "*:create", maxRequests: 20, duration: 5, audience: "" },
-            { label: "/api/batch", maxRequests: 3, duration: 1, audience: "" },
-            { label: "/api/", maxRequests: 300, duration: 10, audience: "" },
-            { label: "/api/public/verify-institution", maxRequests: 5, duration: 60, audience: "" },
-            { label: "/api/public/submit-application", maxRequests: 3, duration: 60, audience: "" },
-            { label: "/api/public/track-individual", maxRequests: 10, duration: 30, audience: "" }
+            { label: "*:auth", maxRequests: 50, duration: 3, audience: "" },
+            { label: "*:create", maxRequests: 100, duration: 5, audience: "" },
+            { label: "/api/batch", maxRequests: 50, duration: 1, audience: "" },
+            { label: "/api/realtime", maxRequests: 5000, duration: 10, audience: "" },
+            { label: "/api/", maxRequests: 2000, duration: 10, audience: "" },
+            { label: "/api/public/verify-institution", maxRequests: 100, duration: 60, audience: "" },
+            { label: "/api/public/submit-application", maxRequests: 50, duration: 60, audience: "" },
+            { label: "/api/public/track-individual", maxRequests: 100, duration: 30, audience: "" }
         ];
 
         try {

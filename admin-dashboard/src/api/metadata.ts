@@ -45,10 +45,14 @@ export const metadataApi = {
         const record = records.find(r => r.id === id);
         if (!record) throw new Error("Metadata record not found");
 
-        return await pb.send<MetadataRecord>('/api/admin/update-metadata', {
+        const finalValue = typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value);
+
+        const updated = await pb.send<MetadataRecord>('/api/admin/update-metadata', {
             method: 'POST',
-            body: { key: record.key, value: value, clear_document: String(clearDocument) }
+            body: { key: record.key, value: finalValue, clear_document: String(clearDocument) }
         });
+        metadataCache = null;
+        return updated;
     },
 
     /**
@@ -63,20 +67,25 @@ export const metadataApi = {
         formData.append('key', record.key);
         formData.append('document', file);
 
-        return await pb.send<MetadataRecord>('/api/admin/update-metadata', {
+        const updated = await pb.send<MetadataRecord>('/api/admin/update-metadata', {
             method: 'POST',
             body: formData
         });
+        metadataCache = null;
+        return updated;
     },
 
     /**
      * Create a new metadata record
      */
     async createMetadata(key: string, value: any): Promise<MetadataRecord> {
-        return await pb.send<MetadataRecord>('/api/admin/update-metadata', {
+        const finalValue = typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value);
+        const created = await pb.send<MetadataRecord>('/api/admin/update-metadata', {
             method: 'POST',
-            body: { key, value }
+            body: { key, value: finalValue }
         });
+        metadataCache = null;
+        return created;
     },
 
     /**
@@ -86,10 +95,12 @@ export const metadataApi = {
         const formData = new FormData();
         formData.append('key', key);
         formData.append('document', file);
-        return await pb.send<MetadataRecord>('/api/admin/update-metadata', {
+        const created = await pb.send<MetadataRecord>('/api/admin/update-metadata', {
             method: 'POST',
             body: formData
         });
+        metadataCache = null;
+        return created;
     },
 
     /**

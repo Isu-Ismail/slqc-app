@@ -99,20 +99,30 @@ export function AgeEligibilityForm({ metadata, onUpdate }: Props) {
 
         const ageRecord = metadata['event_age_criteria'];
         if (ageRecord && ageRecord.value) {
-            setAgeCriteria({
-                '5_juz': {
-                    min: typeof ageRecord.value['5_juz']?.min === 'number' ? ageRecord.value['5_juz'].min : 0,
-                    max: typeof ageRecord.value['5_juz']?.max === 'number' ? ageRecord.value['5_juz'].max : 15
-                },
-                '15_juz': {
-                    min: typeof ageRecord.value['15_juz']?.min === 'number' ? ageRecord.value['15_juz'].min : 0,
-                    max: typeof ageRecord.value['15_juz']?.max === 'number' ? ageRecord.value['15_juz'].max : 19
-                },
-                '30_juz': {
-                    min: typeof ageRecord.value['30_juz']?.min === 'number' ? ageRecord.value['30_juz'].min : 0,
-                    max: typeof ageRecord.value['30_juz']?.max === 'number' ? ageRecord.value['30_juz'].max : 25
+            let val = ageRecord.value;
+            if (typeof val === 'string') {
+                try {
+                    val = JSON.parse(val);
+                } catch (e) {
+                    console.error('Failed to parse ageCriteria value', e);
                 }
-            });
+            }
+            if (val) {
+                setAgeCriteria({
+                    '5_juz': {
+                        min: typeof val['5_juz']?.min === 'number' ? val['5_juz'].min : 0,
+                        max: typeof val['5_juz']?.max === 'number' ? val['5_juz'].max : 15
+                    },
+                    '15_juz': {
+                        min: typeof val['15_juz']?.min === 'number' ? val['15_juz'].min : 0,
+                        max: typeof val['15_juz']?.max === 'number' ? val['15_juz'].max : 19
+                    },
+                    '30_juz': {
+                        min: typeof val['30_juz']?.min === 'number' ? val['30_juz'].min : 0,
+                        max: typeof val['30_juz']?.max === 'number' ? val['30_juz'].max : 25
+                    }
+                });
+            }
         }
     }, [metadata]);
 

@@ -423,6 +423,20 @@ export default function TrackPage() {
             setIndividualRecord(updated);
             setIsEditMode(false);
             
+            // Sync updated data back to institution applications list if active
+            setInstitutionData(prev => {
+                if (!prev) return null;
+                const updatedApps = prev.applications.map(a => a.id === updated.id ? updated : a);
+                return { ...prev, applications: updatedApps };
+            });
+
+            // Update searchDob and localStorage query/dob cache in case DOB changed
+            if (updated.dob) {
+                const cleanDob = updated.dob.split(' ')[0];
+                setSearchDob(cleanDob);
+                localStorage.setItem('quran_competition_track_individual_dob', cleanDob);
+            }
+            
             // Auto-switch query to Application ID so status rechecks work if Aadhaar is changed
             setIndividualQuery(updated.id);
             localStorage.setItem('quran_competition_track_individual_query', updated.id);

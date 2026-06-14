@@ -31,7 +31,40 @@ export default function DashboardPage() {
     const { metadata } = useRegistrationStatus();
     const [activeCategory, setActiveCategory] = useState<'5_juz' | '15_juz' | '30_juz'>('5_juz');
     const [modalContent, setModalContent] = useState<{ title: string; body: string } | null>(null);
+    const [modalLoading, setModalLoading] = useState(false);
     const pad = (n: number) => String(n).padStart(2, '0');
+
+    const handleViewRules = async (title: string, keyBase: string) => {
+        const rec = metadata[`_${keyBase}_record`];
+        const valText = metadata[keyBase]; // Fallback text from context
+
+        if (rec && rec.document) {
+            const fileUrl = pb.files.getURL(rec, rec.document);
+            const lowerDoc = rec.document.toLowerCase();
+            if (lowerDoc.endsWith('.pdf')) {
+                window.open(fileUrl, '_blank');
+                return;
+            }
+            
+            // It is .txt or .html
+            setModalLoading(true);
+            setModalContent({ title, body: 'Loading file content...' });
+            try {
+                const res = await fetch(fileUrl);
+                const text = await res.text();
+                setModalContent({ title, body: text });
+            } catch (err) {
+                console.error(err);
+                setModalContent({ title, body: 'Failed to load file content.' });
+            } finally {
+                setModalLoading(false);
+            }
+        } else if (valText) {
+            setModalContent({ title, body: valText });
+        } else {
+            setModalContent({ title, body: 'Rules content not uploaded yet.' });
+        }
+    };
 
     // Default configuration merged with real-time metadata from Context
     const stats: Record<string, any> = {
@@ -430,7 +463,11 @@ export default function DashboardPage() {
                         <p style={{ fontSize: '13px', color: '#64748b', margin: 0, flex: 1, lineHeight: '1.45' }}>Read the overall evaluation criteria, scoring marks, and rules of the competition.</p>
                         {(() => {
                             const rec = metadata._overall_rules_record;
-                            if (rec && rec.document) {
+                            const hasDoc = rec && rec.document;
+                            const isPdf = hasDoc && rec.document.toLowerCase().endsWith('.pdf');
+                            const hasText = !!metadata.overall_rules;
+
+                            if (hasDoc && isPdf) {
                                 return (
                                     <a
                                         href={pb.files.getURL(rec, rec.document)}
@@ -443,16 +480,15 @@ export default function DashboardPage() {
                                     </a>
                                 );
                             }
-                            const hasText = !!metadata.overall_rules;
                             return (
                                 <button
                                     type="button"
                                     className={styles.btnSecondarySmall}
                                     style={{ alignSelf: 'flex-start', background: '#ffffff', color: '#0f766e', border: '1px solid #0d9488', width: 'auto' }}
-                                    onClick={() => setModalContent({ title: 'Overall Competition Rules', body: metadata.overall_rules || 'Overall rules not uploaded yet.' })}
-                                    disabled={!hasText}
+                                    onClick={() => handleViewRules('Overall Competition Rules', 'overall_rules')}
+                                    disabled={!hasDoc && !hasText}
                                 >
-                                    {hasText ? 'View Overall Rules' : 'Not Uploaded Yet'}
+                                    {hasDoc || hasText ? 'View Overall Rules' : 'Not Uploaded Yet'}
                                 </button>
                             );
                         })()}
@@ -464,7 +500,11 @@ export default function DashboardPage() {
                         <p style={{ fontSize: '13px', color: '#64748b', margin: 0, flex: 1, lineHeight: '1.45' }}>Guidelines, age criteria, dress code, and terms for individual candidates.</p>
                         {(() => {
                             const rec = metadata._individual_rules_record;
-                            if (rec && rec.document) {
+                            const hasDoc = rec && rec.document;
+                            const isPdf = hasDoc && rec.document.toLowerCase().endsWith('.pdf');
+                            const hasText = !!metadata.individual_rules;
+
+                            if (hasDoc && isPdf) {
                                 return (
                                     <a
                                         href={pb.files.getURL(rec, rec.document)}
@@ -477,16 +517,15 @@ export default function DashboardPage() {
                                     </a>
                                 );
                             }
-                            const hasText = !!metadata.individual_rules;
                             return (
                                 <button
                                     type="button"
                                     className={styles.btnSecondarySmall}
                                     style={{ alignSelf: 'flex-start', background: '#ffffff', color: '#0f766e', border: '1px solid #0d9488', width: 'auto' }}
-                                    onClick={() => setModalContent({ title: 'Individual Rules & Regulations', body: metadata.individual_rules || 'Individual rules not uploaded yet.' })}
-                                    disabled={!hasText}
+                                    onClick={() => handleViewRules('Individual Rules & Regulations', 'individual_rules')}
+                                    disabled={!hasDoc && !hasText}
                                 >
-                                    {hasText ? 'View Individual Rules' : 'Not Uploaded Yet'}
+                                    {hasDoc || hasText ? 'View Individual Rules' : 'Not Uploaded Yet'}
                                 </button>
                             );
                         })()}
@@ -498,7 +537,11 @@ export default function DashboardPage() {
                         <p style={{ fontSize: '13px', color: '#64748b', margin: 0, flex: 1, lineHeight: '1.45' }}>Rules and submission instructions for Madrasas, Schools, and coordinators.</p>
                         {(() => {
                             const rec = metadata._institution_rules_record;
-                            if (rec && rec.document) {
+                            const hasDoc = rec && rec.document;
+                            const isPdf = hasDoc && rec.document.toLowerCase().endsWith('.pdf');
+                            const hasText = !!metadata.institution_rules;
+
+                            if (hasDoc && isPdf) {
                                 return (
                                     <a
                                         href={pb.files.getURL(rec, rec.document)}
@@ -511,16 +554,15 @@ export default function DashboardPage() {
                                     </a>
                                 );
                             }
-                            const hasText = !!metadata.institution_rules;
                             return (
                                 <button
                                     type="button"
                                     className={styles.btnSecondarySmall}
                                     style={{ alignSelf: 'flex-start', background: '#ffffff', color: '#0f766e', border: '1px solid #0d9488', width: 'auto' }}
-                                    onClick={() => setModalContent({ title: 'Institution Rules & Regulations', body: metadata.institution_rules || 'Institution rules not uploaded yet.' })}
-                                    disabled={!hasText}
+                                    onClick={() => handleViewRules('Institution Rules & Regulations', 'institution_rules')}
+                                    disabled={!hasDoc && !hasText}
                                 >
-                                    {hasText ? 'View Institution Rules' : 'Not Uploaded Yet'}
+                                    {hasDoc || hasText ? 'View Institution Rules' : 'Not Uploaded Yet'}
                                 </button>
                             );
                         })()}
@@ -532,7 +574,11 @@ export default function DashboardPage() {
                         <p style={{ fontSize: '13px', color: '#64748b', margin: 0, flex: 1, lineHeight: '1.45' }}>Must-know instructions, checklist, and code of conduct for reporting at the venue.</p>
                         {(() => {
                             const rec = metadata._dos_and_donts_record;
-                            if (rec && rec.document) {
+                            const hasDoc = rec && rec.document;
+                            const isPdf = hasDoc && rec.document.toLowerCase().endsWith('.pdf');
+                            const hasText = !!metadata.dos_and_donts;
+
+                            if (hasDoc && isPdf) {
                                 return (
                                     <a
                                         href={pb.files.getURL(rec, rec.document)}
@@ -545,16 +591,15 @@ export default function DashboardPage() {
                                     </a>
                                 );
                             }
-                            const hasText = !!metadata.dos_and_donts;
                             return (
                                 <button
                                     type="button"
                                     className={styles.btnSecondarySmall}
                                     style={{ alignSelf: 'flex-start', background: '#ffffff', color: '#0f766e', border: '1px solid #0d9488', width: 'auto' }}
-                                    onClick={() => setModalContent({ title: "Do's & Don'ts", body: metadata.dos_and_donts || "Do's and Don'ts not uploaded yet." })}
-                                    disabled={!hasText}
+                                    onClick={() => handleViewRules("Do's & Don'ts", 'dos_and_donts')}
+                                    disabled={!hasDoc && !hasText}
                                 >
-                                    {hasText ? "View Do's & Don'ts" : 'Not Uploaded Yet'}
+                                    {hasDoc || hasText ? "View Do's & Don'ts" : 'Not Uploaded Yet'}
                                 </button>
                             );
                         })()}
@@ -649,10 +694,20 @@ export default function DashboardPage() {
                             lineHeight: '1.6',
                             color: '#334155'
                         }}>
-                            <div
-                                style={{ fontFamily: 'inherit' }}
-                                dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(modalContent.body) }}
-                            />
+                            {modalLoading ? (
+                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '40px 0', color: '#64748b' }}>
+                                    Loading document content...
+                                </div>
+                            ) : (
+                                <div
+                                    style={{ fontFamily: 'inherit' }}
+                                    dangerouslySetInnerHTML={{
+                                        __html: /<[a-z][\s\S]*>/i.test(modalContent.body)
+                                            ? modalContent.body
+                                            : parseMarkdownToHtml(modalContent.body)
+                                    }}
+                                />
+                            )}
                         </div>
                         <div style={{
                             padding: '16px 24px',

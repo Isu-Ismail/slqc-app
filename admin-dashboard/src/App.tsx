@@ -4,10 +4,12 @@ import LoginPage from './features/auth/LoginPage';
 import AdminDashboardPage from './features/dashboard/AdminDashboardPage';
 import ControlPanelPage from './features/control-panel/ControlPanelPage';
 import OrganisersPage from './features/organisers/OrganisersPage';
+import VenuePanelPage from './features/venue-panel/VenuePanelPage';
 import TrackPage from './features/track/TrackPage';
 import ApprovalsListPage from './features/approvals/ApprovalsListPage';
 import ApprovalReviewPage from './features/approvals/ApprovalReviewPage';
 import ApplicationsListPage from './features/applications/ApplicationsListPage';
+import JudgesPage from './features/judges/JudgesPage';
 import MainLayout from './shared/components/Layout/MainLayout';
 
 // 1. IMPORTANT: Import pb at the top so the router can use it!
@@ -39,6 +41,7 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
     return children;
 }
 
+// 4. Router
 function App() {
     return (
         <BrowserRouter basename="/slqc-admin">
@@ -67,6 +70,16 @@ function App() {
                     }
                 />
                 <Route
+                    path="/venue-panel"
+                    element={
+                        <RequireAdmin>
+                            <MainLayout>
+                                <VenuePanelPage />
+                            </MainLayout>
+                        </RequireAdmin>
+                    }
+                />
+                <Route
                     path="/control-panel"
                     element={
                         <RequireAdmin>
@@ -82,6 +95,16 @@ function App() {
                         <RequireAdmin>
                             <MainLayout>
                                 <OrganisersPage />
+                            </MainLayout>
+                        </RequireAdmin>
+                    }
+                />
+                <Route
+                    path="/judges"
+                    element={
+                        <RequireAdmin>
+                            <MainLayout>
+                                <JudgesPage />
                             </MainLayout>
                         </RequireAdmin>
                     }

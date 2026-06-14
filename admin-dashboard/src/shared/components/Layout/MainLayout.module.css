@@ -34,7 +34,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 36px;
+    margin-bottom: 18px;
     text-decoration: none;
 }
 
@@ -67,19 +67,23 @@
 .nav {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
     flex: 1;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    padding-right: 4px;
+    margin-bottom: 16px;
 }
 
 .navLink {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    border-radius: 10px;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
     color: var(--text);
     text-decoration: none;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 500;
     transition: all 0.2s ease;
     white-space: nowrap;
@@ -97,8 +101,17 @@
 }
 
 .navIcon {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
+}
+
+.navSectionTitle {
+    font-size: 10px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 14px 0 6px 12px;
 }
 
 .sidebarFooter {

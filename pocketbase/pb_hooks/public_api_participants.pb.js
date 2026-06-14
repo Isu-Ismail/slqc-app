@@ -1,7 +1,4 @@
-// pocketbase/pb_hooks/public_api.pb.js
-//
-// Premade, secure public APIs for viewing and editing participant/institution data
-// so client/user side does not query the database collections directly.
+// pocketbase/pb_hooks/public_api_participants.pb.js
 
 // ── 1. Secure track individual application ───────────────────────────────────
 routerAdd("GET", "/api/public/track-individual", (e) => {
@@ -72,7 +69,17 @@ routerAdd("GET", "/api/public/track-individual", (e) => {
             } catch (_) {}
         }
 
+        let expandedApprover = null;
+        const approvedBy = record.get("approved_by");
+        if (approvedBy) {
+            try {
+                expandedApprover = $app.findRecordById("users", approvedBy);
+            } catch (_) {}
+        }
+
         const responseData = {
+            collectionId: record.collection().id,
+            collectionName: record.collection().name,
             id: record.get("id"),
             participant_id: record.get("participant_id"),
             full_name: record.get("full_name"),
@@ -100,19 +107,26 @@ routerAdd("GET", "/api/public/track-individual", (e) => {
             updated: record.get("updated")
         };
 
-        if (expandedInst) {
-            responseData.expand = {
-                institution_ref: {
-                    id: expandedInst.get("id"),
-                    name: expandedInst.get("name"),
-                    institution_id: expandedInst.get("institution_id"),
-                    email: expandedInst.get("email"),
-                    phone_number: expandedInst.get("phone_number"),
-                    whatsapp_number: expandedInst.get("whatsapp_number"),
-                    address: expandedInst.get("address")
-                }
-            };
-        }
+        responseData.expand = {
+            approved_by: expandedApprover ? {
+                name: expandedApprover.get("name") || expandedApprover.get("username") || "Organising Committee",
+                mobile: expandedApprover.get("mobile") || "Official Support",
+                email: expandedApprover.get("email") || "support@competition.com"
+            } : (record.get("status") === "approved" ? {
+                name: "Organising Committee",
+                mobile: "Official Support",
+                email: "support@competition.com"
+            } : null),
+            institution_ref: expandedInst ? {
+                id: expandedInst.get("id"),
+                name: expandedInst.get("name"),
+                institution_id: expandedInst.get("institution_id"),
+                email: expandedInst.get("email"),
+                phone_number: expandedInst.get("phone_number"),
+                whatsapp_number: expandedInst.get("whatsapp_number"),
+                address: expandedInst.get("address")
+            } : null
+        };
 
         return e.json(200, responseData);
 
@@ -123,28 +137,10 @@ routerAdd("GET", "/api/public/track-individual", (e) => {
 
 // ── 2. Secure update individual application ─────────────────────────────────
 routerAdd("POST", "/api/public/update-individual", (e) => {
-    const body = new DynamicModel({
-        id: "",
-        dob: "",
-        status: "",
-        full_name: "",
-        father_name: "",
-        father_number: "",
-        aadhaar_number: "",
-        gender: "",
-        category: "",
-        juz_options: "",
-        selected_juz: "",
-        whatsapp_number: "",
-        email: "",
-        guardian_name: "",
-        guardian_phone: "",
-        requires_accommodation: ""
-    });
-    e.bindBody(body);
-
-    const id = body.id;
-    const dob = body.dob;
+    // Context verification
+    const info = e.requestInfo();
+    const id = (info.query.id || "").trim();
+    const dob = (info.query.dob || "").trim();
 
     if (!id || !dob) {
         return e.json(400, { error: "Missing required parameters: id and dob" });
@@ -153,7 +149,7 @@ routerAdd("POST", "/api/public/update-individual", (e) => {
     try {
         const record = $app.findRecordById("participants_application", id);
         if (!record) {
-            return e.json(404, { error: "Record not found" });
+            return e.json(404, { error: "Application not found" });
         }
 
         // Verify DOB match
@@ -161,51 +157,59 @@ routerAdd("POST", "/api/public/update-individual", (e) => {
             return e.json(403, { error: "Unauthorized. Date of birth mismatch." });
         }
 
-        // Check if locked
-        if (record.get("is_locked")) {
-            return e.json(400, { error: "This application is locked and cannot be modified." });
+        if (record.get("is_locked") === true) {
+            return e.json(400, { error: "Application is locked and cannot be updated." });
         }
 
-        // Extract old status
-        const oldStatus = record.get("status");
-
-        // List of fields that public users are allowed to edit
-        const editableFields = [
-            "full_name", "father_name", "father_number", "aadhaar_number",
-            "gender", "category", "juz_options", "selected_juz",
-            "whatsapp_number", "email", "guardian_name", "guardian_phone",
-            "requires_accommodation"
-        ];
-
-        // Apply string field updates if present in data
-        for (let i = 0; i < editableFields.length; i++) {
-            const field = editableFields[i];
-            const val = body[field];
-            if (val !== undefined && val !== null && val !== "") {
-                if (field === "requires_accommodation") {
-                    record.set(field, val === "true" || val === true);
-                } else {
-                    record.set(field, val);
-                }
+        // Process request parameters securely
+        const headers = info.headers || {};
+        let contentType = "";
+        const ctHeader = headers["content_type"] || headers["content-type"] || headers["Content-Type"] || headers["Content-Type"];
+        if (ctHeader) {
+            if (typeof ctHeader === "string") {
+                contentType = ctHeader;
+            } else if (Array.isArray(ctHeader) && ctHeader.length > 0) {
+                contentType = ctHeader[0];
+            } else if (typeof ctHeader.length === "number" && ctHeader.length > 0) {
+                contentType = ctHeader[0];
+            } else {
+                contentType = String(ctHeader);
             }
         }
+        contentType = contentType.toLowerCase();
 
-        // Check for specific reapplying state
-        const formStatus = body.status;
-        if (formStatus !== undefined && formStatus !== null && formStatus !== "") {
-            if (oldStatus === "rejected" && (formStatus === "reapplied" || formStatus === "pending")) {
-                record.set("status", formStatus);
-                record.set("approved_by", "");
-                record.set("rejection_reason", "");
+        const data = info.data || {};
+        
+        const getFormVal = (name) => {
+            let val = data[name] || "";
+            if (!val) {
+                if (typeof e.FormValue === "function") {
+                    val = e.FormValue(name) || "";
+                } else if (typeof e.formValue === "function") {
+                    val = e.formValue(name) || "";
+                } else if (e.request && typeof e.request.FormValue === "function") {
+                    val = e.request.FormValue(name) || "";
+                } else if (e.request && typeof e.request.formValue === "function") {
+                    val = e.request.formValue(name) || "";
+                }
+            }
+            return val;
+        };
+
+        const formStatus = getFormVal("status");
+        const oldStatus = record.get("status");
+
+        if (formStatus) {
+            if (oldStatus === "rejected") {
+                if (formStatus !== "reapplied") {
+                    return e.json(400, { error: "Invalid status transition" });
+                }
             } else if (formStatus !== oldStatus) {
                 return e.json(403, { error: "Unauthorized status transition" });
             }
         }
 
         // Handle file uploads securely using findUploadedFiles if multipart body is present
-        const info = e.requestInfo();
-        const headers = info.headers || {};
-        const contentType = headers["content-type"] || "";
         if (contentType.indexOf("multipart/form-data") !== -1) {
             const aadhaarFiles = e.findUploadedFiles("aadhaar_front");
             if (aadhaarFiles && aadhaarFiles.length > 0) {
@@ -223,6 +227,25 @@ routerAdd("POST", "/api/public/update-individual", (e) => {
             }
         }
 
+        // Update fields securely
+        const fields = [
+            "full_name", "father_name", "father_number", "aadhaar_number", 
+            "dob", "gender", "category", "juz_options", "selected_juz", 
+            "whatsapp_number", "email", "guardian_name", "guardian_phone", 
+            "requires_accommodation", "status", "approved_by", "rejection_reason"
+        ];
+
+        fields.forEach(field => {
+            let val = getFormVal(field);
+            if (val) {
+                if (field === "requires_accommodation") {
+                    record.set(field, val === "true" || val === true);
+                } else {
+                    record.set(field, val);
+                }
+            }
+        });
+
         $app.save(record);
 
         // Update trigger manually for real-time tracking
@@ -235,259 +258,40 @@ routerAdd("POST", "/api/public/update-individual", (e) => {
             }
         } catch (_) {}
 
-        // Fetch updated record to return
-        const updated = $app.findRecordById("participants_application", id);
-        const responseData = {
-            id: updated.get("id"),
-            participant_id: updated.get("participant_id"),
-            full_name: updated.get("full_name"),
-            father_name: updated.get("father_name"),
-            father_number: updated.get("father_number"),
-            aadhaar_number: updated.get("aadhaar_number"),
-            dob: updated.get("dob"),
-            gender: updated.get("gender"),
-            category: updated.get("category"),
-            juz_options: updated.get("juz_options"),
-            selected_juz: updated.get("selected_juz"),
-            whatsapp_number: updated.get("whatsapp_number"),
-            email: updated.get("email"),
-            guardian_name: updated.get("guardian_name"),
-            guardian_phone: updated.get("guardian_phone"),
-            requires_accommodation: updated.get("requires_accommodation"),
-            status: updated.get("status"),
-            is_locked: updated.get("is_locked"),
-            rejection_reason: updated.get("rejection_reason"),
-            allocated_venue: updated.get("allocated_venue"),
-            aadhaar_front: updated.get("aadhaar_front"),
-            birthcertificate_photo: updated.get("birthcertificate_photo"),
-            candidate_photo: updated.get("candidate_photo"),
-            created: updated.get("created"),
-            updated: updated.get("updated")
-        };
-
-        return e.json(200, responseData);
-
-    } catch (err) {
-        return e.json(500, { error: "Failed to update record: " + err });
-    }
-});
-
-// ── 3. Secure track institution ─────────────────────────────────────────────
-routerAdd("GET", "/api/public/track-institution", (e) => {
-    const info = e.requestInfo();
-    const query = (info.query.query || "").trim();
-    const passcode = (info.query.passcode || "").trim();
-
-    if (!query || !passcode) {
-        return e.json(400, { error: "Missing query or passcode parameters" });
-    }
-
-    try {
-        const upper = query.toUpperCase();
-        let records = [];
-
-        if (upper.indexOf("INST-") === 0) {
-            records = $app.findRecordsByFilter(
-                "institutions",
-                "institution_id = {:query} && passcode = {:passcode}",
-                "",
-                1,
-                0,
-                { query: upper, passcode: passcode }
-            );
-        } else if (query.length === 15) {
-            records = $app.findRecordsByFilter(
-                "institutions",
-                "id = {:query} && passcode = {:passcode}",
-                "",
-                1,
-                0,
-                { query: query, passcode: passcode }
-            );
-        }
-
-        if (!records || records.length === 0) {
-            return e.json(404, { error: "No matching institution found" });
-        }
-
-        const institution = records[0];
-
-        // Fetch all applications referencing this institution
-        const applications = $app.findRecordsByFilter(
-            "participants_application",
-            "institution_ref = {:instId}",
-            "-created",
-            9999,
-            0,
-            { instId: institution.get("id") }
-        );
-
-        const appList = [];
-        for (let i = 0; i < applications.length; i++) {
-            const app = applications[i];
-            appList.push({
-                id: app.get("id"),
-                participant_id: app.get("participant_id"),
-                full_name: app.get("full_name"),
-                father_name: app.get("father_name"),
-                father_number: app.get("father_number"),
-                aadhaar_number: app.get("aadhaar_number"),
-                dob: app.get("dob"),
-                gender: app.get("gender"),
-                category: app.get("category"),
-                juz_options: app.get("juz_options"),
-                selected_juz: app.get("selected_juz"),
-                whatsapp_number: app.get("whatsapp_number"),
-                email: app.get("email"),
-                guardian_name: app.get("guardian_name"),
-                guardian_phone: app.get("guardian_phone"),
-                requires_accommodation: app.get("requires_accommodation"),
-                status: app.get("status"),
-                is_locked: app.get("is_locked"),
-                rejection_reason: app.get("rejection_reason"),
-                allocated_venue: app.get("allocated_venue"),
-                aadhaar_front: app.get("aadhaar_front"),
-                birthcertificate_photo: app.get("birthcertificate_photo"),
-                candidate_photo: app.get("candidate_photo"),
-                created: app.get("created"),
-                updated: app.get("updated")
-            });
-        }
-
         return e.json(200, {
-            institution: {
-                id: institution.get("id"),
-                institution_id: institution.get("institution_id"),
-                name: institution.get("name"),
-                address: institution.get("address"),
-                contact_person: institution.get("contact_person"),
-                email: institution.get("email"),
-                whatsapp_number: institution.get("whatsapp_number"),
-                phone_number: institution.get("phone_number"),
-                document: institution.get("document"),
-                instituition_location: institution.get("instituition_location"),
-                instituition_building_proof: institution.get("instituition_building_proof"),
-                status: institution.get("status"),
-                is_locked: institution.get("is_locked"),
-                rejection_reason: institution.get("rejection_reason"),
-                passcode: institution.get("passcode")
-            },
-            applications: appList
+            id: record.get("id"),
+            participant_id: record.get("participant_id"),
+            full_name: record.get("full_name"),
+            father_name: record.get("father_name"),
+            father_number: record.get("father_number"),
+            aadhaar_number: record.get("aadhaar_number"),
+            dob: record.get("dob"),
+            gender: record.get("gender"),
+            category: record.get("category"),
+            juz_options: record.get("juz_options"),
+            selected_juz: record.get("selected_juz"),
+            whatsapp_number: record.get("whatsapp_number"),
+            email: record.get("email"),
+            guardian_name: record.get("guardian_name"),
+            guardian_phone: record.get("guardian_phone"),
+            requires_accommodation: record.get("requires_accommodation"),
+            status: record.get("status"),
+            is_locked: record.get("is_locked"),
+            rejection_reason: record.get("rejection_reason"),
+            allocated_venue: record.get("allocated_venue"),
+            aadhaar_front: record.get("aadhaar_front"),
+            birthcertificate_photo: record.get("birthcertificate_photo"),
+            candidate_photo: record.get("candidate_photo"),
+            created: record.get("created"),
+            updated: record.get("updated")
         });
 
     } catch (err) {
-        return e.json(500, { error: "Failed to query database: " + err });
+        return e.json(500, { error: "Failed to update individual application: " + err });
     }
 });
 
-// ── 4. Secure update institution ─────────────────────────────────────────────
-routerAdd("POST", "/api/public/update-institution", (e) => {
-    const body = new DynamicModel({
-        id: "",
-        passcode: "",
-        name: "",
-        address: "",
-        contact_person: "",
-        email: "",
-        whatsapp_number: "",
-        phone_number: "",
-        instituition_location: ""
-    });
-    e.bindBody(body);
-
-    const id = body.id;
-    const passcode = body.passcode;
-
-    if (!id || !passcode) {
-        return e.json(400, { error: "Missing required parameters: id and passcode" });
-    }
-
-    try {
-        const record = $app.findRecordById("institutions", id);
-        if (!record) {
-            return e.json(404, { error: "Institution not found" });
-        }
-
-        // Verify passcode
-        if (record.get("passcode") !== passcode) {
-            return e.json(403, { error: "Unauthorized. Passcode mismatch." });
-        }
-
-        // Check if locked
-        if (record.get("is_locked")) {
-            return e.json(400, { error: "This institution registration is locked and cannot be modified." });
-        }
-
-        // List of fields that public institutions are allowed to edit
-        const editableFields = [
-            "name", "address", "contact_person", "email", "whatsapp_number", "phone_number",
-            "instituition_location"
-        ];
-
-        // Apply string field updates if present in data
-        for (let i = 0; i < editableFields.length; i++) {
-            const field = editableFields[i];
-            const val = body[field];
-            if (val !== undefined && val !== null && val !== "") {
-                record.set(field, val);
-            }
-        }
-
-        // Handle file uploads securely using findUploadedFiles if multipart body is present
-        const info = e.requestInfo();
-        const headers = info.headers || {};
-        const contentType = headers["content-type"] || "";
-        if (contentType.indexOf("multipart/form-data") !== -1) {
-            const docFiles = e.findUploadedFiles("document");
-            if (docFiles && docFiles.length > 0) {
-                record.set("document", docFiles[0]);
-            }
-
-            const buildingProofFiles = e.findUploadedFiles("instituition_building_proof");
-            if (buildingProofFiles && buildingProofFiles.length > 0) {
-                record.set("instituition_building_proof", buildingProofFiles[0]);
-            }
-        }
-
-        $app.save(record);
-
-        // Update trigger manually for real-time tracking
-        try {
-            const triggerCol = $app.findCollectionByNameOrId("trigger_collection");
-            if (triggerCol) {
-                const tr = $app.findFirstRecordByData("trigger_collection", "column_name", "institutions");
-                tr.set("random_value", $security.randomString(10));
-                $app.save(tr);
-            }
-        } catch (_) {}
-
-        // Fetch updated record to return
-        const updated = $app.findRecordById("institutions", id);
-
-        return e.json(200, {
-            id: updated.get("id"),
-            institution_id: updated.get("institution_id"),
-            name: updated.get("name"),
-            address: updated.get("address"),
-            contact_person: updated.get("contact_person"),
-            email: updated.get("email"),
-            whatsapp_number: updated.get("whatsapp_number"),
-            phone_number: updated.get("phone_number"),
-            document: updated.get("document"),
-            instituition_location: updated.get("instituition_location"),
-            instituition_building_proof: updated.get("instituition_building_proof"),
-            status: updated.get("status"),
-            is_locked: updated.get("is_locked"),
-            rejection_reason: updated.get("rejection_reason"),
-            passcode: updated.get("passcode")
-        });
-
-    } catch (err) {
-        return e.json(500, { error: "Failed to update institution: " + err });
-    }
-});
-
-// ── 5. Secure public print application details ──────────────────────────────
+// ── 3. Secure public print application details ──────────────────────────────
 routerAdd("GET", "/api/public/print-form", (e) => {
     const info = e.requestInfo();
     const id = (info.query.id || "").trim();
@@ -574,43 +378,9 @@ routerAdd("GET", "/api/public/print-form", (e) => {
     } catch (err) {
         return e.json(500, { error: "Failed to retrieve print details: " + err });
     }
-});// ── 6. Secure verify institution ─────────────────────────────────────────────
-routerAdd("GET", "/api/public/verify-institution", (e) => {
-    const info = e.requestInfo();
-    const institutionId = (info.query.institution_id || "").trim();
-    const passcode = (info.query.passcode || "").trim();
-
-    if (!institutionId || !passcode) {
-        return e.json(400, { error: "Missing required parameters: institution_id and passcode" });
-    }
-
-    try {
-        const records = $app.findRecordsByFilter(
-            "institutions",
-            "institution_id = {:instId} && passcode = {:passcode}",
-            "",
-            1,
-            0,
-            { instId: institutionId, passcode: passcode }
-        );
-
-        if (!records || records.length === 0) {
-            return e.json(404, { error: "No matching institution found with this ID and passcode." });
-        }
-
-        const record = records[0];
-        return e.json(200, {
-            id: record.get("id"),
-            institution_id: record.get("institution_id"),
-            name: record.get("name"),
-            status: record.get("status")
-        });
-    } catch (err) {
-        return e.json(500, { error: "Failed to verify institution: " + err });
-    }
 });
 
-// ── 7. Secure check Aadhaar registration ─────────────────────────────────────
+// ── 4. Secure check Aadhaar registration ─────────────────────────────────────
 routerAdd("GET", "/api/public/check-aadhaar", (e) => {
     const info = e.requestInfo();
     const aadhaar = (info.query.aadhaar || "").trim();
@@ -632,7 +402,7 @@ routerAdd("GET", "/api/public/check-aadhaar", (e) => {
     }
 });
 
-// ── 8. Secure submit application ─────────────────────────────────────────────
+// ── 5. Secure submit application ─────────────────────────────────────────────
 routerAdd("POST", "/api/public/submit-application", (e) => {
     const body = new DynamicModel({
         registration_type: "",
@@ -806,5 +576,3 @@ routerAdd("POST", "/api/public/submit-application", (e) => {
         return e.json(500, { error: "Failed to submit application: " + err });
     }
 });
-
-
