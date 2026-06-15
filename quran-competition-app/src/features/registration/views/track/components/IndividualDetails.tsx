@@ -188,12 +188,53 @@ export default function IndividualDetails({
     return (
         <>
             {(individualRecord.allocated_venue || individualRecord.allocated_slot) && (
-                <div className={styles.detailsCard} style={{ marginBottom: '20px', borderLeft: '4px solid #10b981' }}>
-                    <div className={styles.detailsHeader} style={{ marginBottom: '12px', paddingBottom: '12px' }}>
-                        <h3 style={{ color: '#047857', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981' }}></span>
+                <div className={styles.detailsCard} 
+                     style={{ 
+                         marginBottom: '20px', 
+                         borderLeft: individualRecord.arrival_status === 'present' 
+                             ? '4px solid #10b981' 
+                             : individualRecord.arrival_status === 'absent' 
+                                 ? '4px solid #ef4444' 
+                                 : '4px solid #3b82f6' 
+                     }}>
+                    <div className={styles.detailsHeader} style={{ marginBottom: '12px', paddingBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3 style={{ 
+                            color: individualRecord.arrival_status === 'present' 
+                                ? '#047857' 
+                                : individualRecord.arrival_status === 'absent' 
+                                    ? '#b91c1c' 
+                                    : '#1d4ed8', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '8px',
+                            margin: 0 
+                        }}>
+                            <span style={{ 
+                                display: 'inline-block', 
+                                width: '8px', 
+                                height: '8px', 
+                                borderRadius: '50%', 
+                                backgroundColor: individualRecord.arrival_status === 'present' 
+                                    ? '#10b981' 
+                                    : individualRecord.arrival_status === 'absent' 
+                                        ? '#ef4444' 
+                                        : '#3b82f6' 
+                            }}></span>
                             Venue & Slot Allocation
                         </h3>
+                        {individualRecord.arrival_status && individualRecord.arrival_status !== 'none' && (
+                            <span style={{ 
+                                fontSize: '11px', 
+                                fontWeight: 700, 
+                                color: individualRecord.arrival_status === 'present' ? '#047857' : '#b91c1c', 
+                                backgroundColor: individualRecord.arrival_status === 'present' ? '#d1fae5' : '#fee2e2', 
+                                padding: '2px 8px', 
+                                borderRadius: '99px', 
+                                textTransform: 'uppercase' 
+                            }}>
+                                {individualRecord.arrival_status}
+                            </span>
+                        )}
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                         <div>

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { metadataApi } from '../../api/metadata';
 import type { MetadataRecord } from '../../api/metadata';
-import { Settings, Clock, Award } from 'lucide-react';
+import { Settings, Clock, Award, FileText, Sliders } from 'lucide-react';
 import StatusToggles from './components/StatusToggles';
 import TimeSettingsForm from './components/TimeSettingsForm';
 import { EventDateForm, AgeEligibilityForm } from './components/EventSettingsForm';
 import RulesSettingsForm from './components/RulesSettingsForm';
+import PrintTemplatesForm from './components/PrintTemplatesForm';
 import DynamicListEditor from './components/DynamicListEditor';
 import StatsRecalculator from './components/StatsRecalculator';
 import styles from './ControlPanelPage.module.css';
@@ -63,7 +64,7 @@ export default function ControlPanelPage() {
         };
     }, []);
 
-    const [activeTab, setActiveTab] = useState<'system' | 'timings' | 'rules'>('system');
+    const [activeTab, setActiveTab] = useState<'system' | 'timings' | 'rules' | 'prizes' | 'documents' | 'limits' | 'templates'>('system');
 
     if (user?.designation !== 'admin') {
         return (
@@ -95,7 +96,7 @@ export default function ControlPanelPage() {
                     onClick={() => setActiveTab('timings')}
                     style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
-                    <Clock size={16} /> Competition Timings
+                    <Clock size={16} /> Timings
                 </button>
                 <button
                     type="button"
@@ -103,7 +104,39 @@ export default function ControlPanelPage() {
                     onClick={() => setActiveTab('rules')}
                     style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
-                    <Award size={16} /> Event Rules & Prizes
+                    <Award size={16} /> Date & Age Rules
+                </button>
+                <button
+                    type="button"
+                    className={`${styles.tabBtn} ${activeTab === 'prizes' ? styles.activeTab : ''}`}
+                    onClick={() => setActiveTab('prizes')}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                    <Award size={16} /> Prizes Settings
+                </button>
+                <button
+                    type="button"
+                    className={`${styles.tabBtn} ${activeTab === 'documents' ? styles.activeTab : ''}`}
+                    onClick={() => setActiveTab('documents')}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                    <FileText size={16} /> Document Manager
+                </button>
+                <button
+                    type="button"
+                    className={`${styles.tabBtn} ${activeTab === 'limits' ? styles.activeTab : ''}`}
+                    onClick={() => setActiveTab('limits')}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                    <Sliders size={16} /> Institute Limits
+                </button>
+                <button
+                    type="button"
+                    className={`${styles.tabBtn} ${activeTab === 'templates' ? styles.activeTab : ''}`}
+                    onClick={() => setActiveTab('templates')}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                    <FileText size={16} /> Print Templates
                 </button>
             </div>
 
@@ -130,8 +163,13 @@ export default function ControlPanelPage() {
 
                 {activeTab === 'rules' && (
                     <>
-                        {/* Row 1: Competition Date (Left) & 5 Juz Prizes (Right) */}
                         <EventDateForm metadata={metadata} onUpdate={() => loadMetadata(false, true)} />
+                        <AgeEligibilityForm metadata={metadata} onUpdate={() => loadMetadata(false, true)} />
+                    </>
+                )}
+
+                {activeTab === 'prizes' && (
+                    <>
                         <DynamicListEditor 
                             title="5 Juz Grand Prizes" 
                             metadataKey="prizes_5_juz"
@@ -139,8 +177,6 @@ export default function ControlPanelPage() {
                             onUpdate={() => loadMetadata(false, true)}
                             template={{ rank: '🏅', title: '', value: '', highlight: false }}
                         />
-                        
-                        {/* Row 2: 15 Juz Prizes (Left) & 30 Juz Prizes (Right) */}
                         <DynamicListEditor 
                             title="15 Juz Grand Prizes" 
                             metadataKey="prizes_15_juz"
@@ -155,10 +191,30 @@ export default function ControlPanelPage() {
                             onUpdate={() => loadMetadata(false, true)}
                             template={{ rank: '🏅', title: '', value: '', highlight: false }}
                         />
+                    </>
+                )}
 
-                        {/* Row 3: Age Eligibility Criteria (Left) & Document/Template Manager (Right) */}
-                        <AgeEligibilityForm metadata={metadata} onUpdate={() => loadMetadata(false, true)} />
+                {activeTab === 'documents' && (
+                    <>
                         <RulesSettingsForm metadata={metadata} onUpdate={() => loadMetadata(false, true)} />
+                    </>
+                )}
+
+                {activeTab === 'limits' && (
+                    <>
+                        <DynamicListEditor 
+                            title="Applications Per Institution Limit" 
+                            metadataKey="applications_per_institute"
+                            metadata={metadata}
+                            onUpdate={() => loadMetadata(false, true)}
+                            template={{ cat: '5_juz', count: 3 }}
+                        />
+                    </>
+                )}
+
+                {activeTab === 'templates' && (
+                    <>
+                        <PrintTemplatesForm metadata={metadata} onUpdate={() => loadMetadata(false, true)} />
                     </>
                 )}
             </div>

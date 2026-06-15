@@ -17,8 +17,8 @@ export default function ApprovalsListPage() {
     const hasParams = params.has('type') || params.has('tab');
 
     // On first render with no params (e.g. sidebar click), redirect to the last saved selection
-    const savedType = (sessionStorage.getItem('approvals_type') as 'individual' | 'institution') || 'individual';
-    const savedTab  = (sessionStorage.getItem('approvals_tab')  as 'pending' | 'history')        || 'pending';
+    const savedType = (localStorage.getItem('approvals_type') as 'individual' | 'institution') || 'individual';
+    const savedTab  = (localStorage.getItem('approvals_tab')  as 'pending' | 'history')        || 'pending';
 
     const queryType = (params.get('type') as 'individual' | 'institution') || savedType;
     const queryTab  = (params.get('tab')  as 'pending' | 'history')        || savedTab;
@@ -31,14 +31,18 @@ export default function ApprovalsListPage() {
         if (!hasParams) {
             navigate(`/approvals?type=${savedType}&tab=${savedTab}`, { replace: true });
         }
+        
+        pb.collection('institutions').getFullList({ fields: 'id,name', sort: 'name' })
+            .then(data => setInstitutions(data.map(item => ({ id: item.id, name: item.name }))))
+            .catch(err => console.error("Error fetching institutions:", err));
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Persist selection to sessionStorage whenever URL params change
+    // Persist selection to localStorage whenever URL params change
     useEffect(() => {
         if (hasParams) {
-            sessionStorage.setItem('approvals_type', queryType);
-            sessionStorage.setItem('approvals_tab',  queryTab);
+            localStorage.setItem('approvals_type', queryType);
+            localStorage.setItem('approvals_tab',  queryTab);
         }
     }, [queryType, queryTab, hasParams]);
 
@@ -46,6 +50,18 @@ export default function ApprovalsListPage() {
 
     const initialAppsCache = user ? approvalsApi.getCachedAllocatedApplications(user.id, activeTab === 'pending', appType) : null;
     const initialCountsCache = user ? approvalsApi.getCachedPendingCounts(user.id) : null;
+
+    const [institutions, setInstitutions] = useState<{ id: string; name: string }[]>([]);
+    const [selectedCategory, setSelectedCategory] = useState<string>(localStorage.getItem('approvals_category') || '');
+    const [selectedInstitution, setSelectedInstitution] = useState<string>(localStorage.getItem('approvals_institution') || '');
+
+    useEffect(() => {
+        localStorage.setItem('approvals_category', selectedCategory);
+    }, [selectedCategory]);
+
+    useEffect(() => {
+        localStorage.setItem('approvals_institution', selectedInstitution);
+    }, [selectedInstitution]);
 
     const [applications, setApplications] = useState<AllocatedItem[]>(initialAppsCache || []);
     const [counts, setCounts] = useState(initialCountsCache || { individual: 0, institution: 0 });
@@ -272,15 +288,23 @@ export default function ApprovalsListPage() {
         }
     };
 
+    const filteredApplications = applications.filter(app => {
+        if (appType !== 'individual') return true;
+        const indiv = app as ParticipantsApplicationResponse;
+        if (selectedCategory && indiv.category !== selectedCategory) return false;
+        if (selectedInstitution && indiv.institution_ref !== selectedInstitution) return false;
+        return true;
+    });
+
     return (
         <div className={styles.pageContainer}>
-            <div className={styles.tabsContainer} style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className={styles.tabsContainer} style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ display: 'flex', gap: '8px' }}>
                     <button
                         className={`${styles.tabBtn} ${activeTab === 'pending' ? styles.tabActive : ''}`}
                         onClick={() => setActiveTab('pending')}
                     >
-                        Pending Review ({activeTab === 'pending' ? applications.length : '...'})
+                        Pending Review ({activeTab === 'pending' ? filteredApplications.length : '...'})
                     </button>
                     <button
                         className={`${styles.tabBtn} ${activeTab === 'history' ? styles.tabActive : ''}`}
@@ -290,7 +314,32 @@ export default function ApprovalsListPage() {
                     </button>
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {appType === 'individual' && (
+                        <>
+                            <select
+                                value={selectedCategory}
+                                onChange={(e) => setSelectedCategory(e.target.value)}
+                                className={styles.typeSelect}
+                            >
+                                <option value="">All Categories</option>
+                                <option value="5_juz">5 Juz</option>
+                                <option value="15_juz">15 Juz</option>
+                                <option value="30_juz">30 Juz</option>
+                            </select>
+                            <select
+                                value={selectedInstitution}
+                                onChange={(e) => setSelectedInstitution(e.target.value)}
+                                className={styles.typeSelect}
+                                style={{ maxWidth: '200px' }}
+                            >
+                                <option value="">All Institutions</option>
+                                {institutions.map(inst => (
+                                    <option key={inst.id} value={inst.id}>{inst.name}</option>
+                                ))}
+                            </select>
+                        </>
+                    )}
                     <button
                         onClick={() => fetchApplications(true)}
                         title="Refresh data"
@@ -313,14 +362,14 @@ export default function ApprovalsListPage() {
             <div className={styles.listCard}>
                 {loading ? (
                     <div className={styles.loading}>Loading applications...</div>
-                ) : applications.length === 0 ? (
+                ) : filteredApplications.length === 0 ? (
                     <div className={styles.emptyState}>
                         No applications found in this category.
                     </div>
                 ) : (
                     <div className={styles.tableWrapper}>
                         <table className={styles.table}>
-                            <thead>
+                           <thead>
                                 <tr>
                                     <th>Name</th>
                                     <th>ID</th>
@@ -331,7 +380,7 @@ export default function ApprovalsListPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {applications.map(app => {
+                                {filteredApplications.map(app => {
                                     const isIndividual = appType === 'individual';
                                     const displayName = isIndividual ? (app as ParticipantsApplicationResponse).full_name : (app as InstitutionsResponse).name;
                                     const rawCat = isIndividual ? (app as ParticipantsApplicationResponse).category : null;

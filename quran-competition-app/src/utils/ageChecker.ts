@@ -68,3 +68,34 @@ export function checkAgeEligibility(
 
     return results;
 }
+
+export interface CategoryAvailabilityResult {
+    available: boolean;
+    message: string;
+}
+
+export function checkCategoryAvailability(
+    category: string,
+    institutionApplications: { cat: string; count: number }[] | undefined | null,
+    limits: { cat: string; count: number }[] | undefined | null
+): CategoryAvailabilityResult {
+    if (!category) return { available: true, message: '' };
+
+    const apps = Array.isArray(institutionApplications) ? institutionApplications : [];
+    const lims = Array.isArray(limits) ? limits : [];
+
+    const limitObj = lims.find(l => l.cat === category);
+    const limitCount = limitObj ? Number(limitObj.count) : 3;
+
+    const appObj = apps.find(a => a.cat === category);
+    const currentCount = appObj ? Number(appObj.count) : 0;
+
+    if (currentCount >= limitCount) {
+        return {
+            available: false,
+            message: `Application limit reached. Delete old application if new things need to be done.`
+        };
+    }
+
+    return { available: true, message: '' };
+}

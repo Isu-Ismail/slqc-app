@@ -21,7 +21,7 @@ routerAdd("GET", "/api/admin/track-individual", (e) => {
         let record;
         
         // 1. Search by participant_id
-        if (query.toUpperCase().indexOf("APL-") === 0) {
+        if (query.toUpperCase().indexOf("APL-") === 0 || /^\d{3,4}$/.test(query)) {
             try {
                 const records = $app.findRecordsByFilter("participants_application", "participant_id = {:query}", "", 1, 0, { query: query });
                 if (records && records.length > 0) record = records[0];
@@ -74,7 +74,7 @@ routerAdd("GET", "/api/admin/track-individual", (e) => {
             dob: record.get("dob"),
             gender: record.get("gender"),
             category: record.get("category"),
-            juz_options: record.get("juz_options"),
+            juz_options: record.get("juzz_options"),
             selected_juz: record.get("selected_juz"),
             whatsapp_number: record.get("whatsapp_number"),
             email: record.get("email"),
@@ -147,7 +147,11 @@ routerAdd("GET", "/api/admin/print-form", (e) => {
         if (approvedBy) {
             try {
                 expandedApprover = $app.findRecordById("users", approvedBy);
-            } catch (_) {}
+            } catch (_) {
+                try {
+                    expandedApprover = $app.findRecordById("_superusers", approvedBy);
+                } catch (__) {}
+            }
         }
 
         // Expand institution_ref
@@ -171,7 +175,7 @@ routerAdd("GET", "/api/admin/print-form", (e) => {
             dob: record.get("dob"),
             gender: record.get("gender"),
             category: record.get("category"),
-            juz_options: record.get("juz_options"),
+            juz_options: record.get("juzz_options"),
             selected_juz: record.get("selected_juz"),
             whatsapp_number: record.get("whatsapp_number"),
             email: record.get("email"),
@@ -348,5 +352,66 @@ routerAdd("GET", "/api/admin/generate-ids", (e) => {
         return e.json(200, list);
     } catch (err) {
         return e.json(500, { error: "Failed to get venue participants for ID: " + err });
+    }
+});
+
+routerAdd("POST", "/api/admin/batch-arrival-status", (e) => {
+    const authRecord = e.auth;
+    const isSuperuser = authRecord && authRecord.collection().name === "_superusers";
+    const isAdmin = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "admin";
+    const isCoordinator = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "coordinators";
+
+    if (!isSuperuser && !isAdmin && !isCoordinator) {
+        return e.json(403, { error: "Unauthorized. Admin or coordinator access required." });
+    }
+
+    let updates = null;
+    try {
+        const info = e.requestInfo();
+        const data = info.data || {};
+        updates = data.updates || null;
+    } catch (_) {}
+
+    if (!updates || !Array.isArray(updates)) {
+        try {
+            const body = new DynamicModel({
+                updates: []
+            });
+            e.bindBody(body);
+            updates = body.updates;
+        } catch (_) {}
+    }
+
+    if (!updates || !Array.isArray(updates)) {
+        return e.json(400, { error: "Invalid payload: 'updates' array is required." });
+    }
+
+    try {
+        $app.runInTransaction((txApp) => {
+            for (let i = 0; i < updates.length; i++) {
+                const item = updates[i];
+                if (!item.id || !item.arrival_status) {
+                    throw new Error("Missing 'id' or 'arrival_status' in update item at index " + i);
+                }
+                if (item.arrival_status !== "none" && item.arrival_status !== "present" && item.arrival_status !== "absent") {
+                    throw new Error("Invalid arrival_status value: " + item.arrival_status);
+                }
+                const record = txApp.findRecordById("participants_application", item.id);
+                record.set("arrival_status", item.arrival_status);
+                txApp.save(record);
+            }
+        });
+
+        // Trigger collection update for real-time sync
+        try {
+            const tr = $app.findFirstRecordByData("trigger_collection", "column_name", "participants_application");
+            tr.set("random_value", $security.randomString(10));
+            $app.save(tr);
+        } catch (_) {}
+
+        return e.json(200, { success: true, message: "Arrival statuses updated successfully." });
+    } catch (err) {
+        console.error("Batch arrival status error: " + err);
+        return e.json(500, { error: "Failed to update arrival statuses: " + (err.message || err) });
     }
 });

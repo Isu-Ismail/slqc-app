@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { RegistrationFormData } from '../views/register/RegisterPage';
-import { pb } from '../../../api/db';
 import { institutionsApi } from '../../../api/routes/institutions.api';
 import styles from './Step1Type.module.css';
 
@@ -64,6 +63,7 @@ export default function Step1Type({ formData, updateForm, onCaptchaVerified }: S
                 });
                 updateForm('institution_ref', record.id);
                 updateForm('institution_verified', true);
+                updateForm('institution_applications', record.applications || []);
             }
         } catch (e: any) {
             if (e.status === 404) {

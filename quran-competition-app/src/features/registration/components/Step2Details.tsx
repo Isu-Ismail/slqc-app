@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import type { RegistrationFormData } from '../views/register/RegisterPage';
 import { validators } from '../../../utils/validators';
 import { useRegistrationStatus } from '../../../shared/context/StatusContext';
-import { checkAgeEligibility } from '../../../utils/ageChecker';
+import { checkAgeEligibility, checkCategoryAvailability } from '../../../utils/ageChecker';
 import styles from './Step2Details.module.css';
 import { CATEGORIES_CONFIG, getJuzCodesForCategory, getJuzLabel, FORM_FIELDS_CONFIG } from '../../../config/fieldsConfig';
 
@@ -21,7 +21,32 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
     const { metadata } = useRegistrationStatus();
 
     const eventDate = metadata.event_date;
-    const ageCriteria = metadata.event_age_criteria;
+    const ageCriteria = useMemo(() => {
+        const raw = metadata.event_age_criteria;
+        if (!raw) return undefined;
+        if (typeof raw === 'string') {
+            try {
+                return JSON.parse(raw);
+            } catch {
+                return undefined;
+            }
+        }
+        return raw;
+    }, [metadata.event_age_criteria]);
+
+    const limitConfig = useMemo(() => {
+        const raw = metadata.applications_per_institute;
+        if (!raw) return undefined;
+        if (typeof raw === 'string') {
+            try {
+                return JSON.parse(raw);
+            } catch {
+                return undefined;
+            }
+        }
+        return raw;
+    }, [metadata.applications_per_institute]);
+
     const ageBuffer = metadata.age_buffer_months !== undefined ? Number(metadata.age_buffer_months) : 3;
 
     const eligibility = useMemo(() => {
@@ -38,17 +63,35 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
     }, [formData.dob, eventDate, ageCriteria, ageBuffer]);
 
     useEffect(() => {
-        if (formData.dob && formData.category) {
-            const currentEligibility = eligibility[formData.category];
-            if (currentEligibility && !currentEligibility.eligible) {
-                updateForm('category', '');
-                setErrors(prev => ({
-                    ...prev,
-                    category: `Age mismatch: ${currentEligibility.message}`
-                }));
+        if (formData.category) {
+            if (formData.dob) {
+                const currentEligibility = eligibility[formData.category];
+                if (currentEligibility && !currentEligibility.eligible) {
+                    updateForm('category', '');
+                    setErrors(prev => ({
+                        ...prev,
+                        category: `Age mismatch: ${currentEligibility.message}`
+                    }));
+                    return;
+                }
+            }
+
+            if (formData.registration_type === 'institution') {
+                const availability = checkCategoryAvailability(
+                    formData.category,
+                    formData.institution_applications,
+                    limitConfig
+                );
+                if (!availability.available) {
+                    updateForm('category', '');
+                    setErrors(prev => ({
+                        ...prev,
+                        category: availability.message
+                    }));
+                }
             }
         }
-    }, [formData.dob, formData.category, eligibility, updateForm]);
+    }, [formData.dob, formData.category, eligibility, formData.registration_type, formData.institution_applications, limitConfig, updateForm]);
 
     const validateField = (key: string, value: any) => {
         const fieldConfig = FORM_FIELDS_CONFIG.find(f => f.key === key);
@@ -218,7 +261,22 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
                     </label>
                     <div className={styles.buttonGroup}>
                         {CATEGORIES_CONFIG.map((cat) => {
-                            const isEligible = !formData.dob || eligibility[cat.key as '5_juz' | '15_juz' | '30_juz'].eligible;
+                            const isAgeEligible = !formData.dob || eligibility[cat.key as '5_juz' | '15_juz' | '30_juz'].eligible;
+
+                            let isAvailable = true;
+                            let limitMessage = '';
+                            if (formData.registration_type === 'institution') {
+                                const availability = checkCategoryAvailability(
+                                    cat.key,
+                                    formData.institution_applications,
+                                    limitConfig
+                                );
+                                isAvailable = availability.available;
+                                limitMessage = availability.message;
+                            }
+
+                            const isEligible = isAgeEligible && isAvailable;
+
                             return (
                                 <button
                                     key={cat.key}
@@ -242,7 +300,9 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
                                     <div>{cat.label}</div>
                                     {!isEligible && (
                                         <div style={{ fontSize: '10px', color: '#ff3b30', marginTop: '2px', fontWeight: 'bold' }}>
-                                            {eligibility[cat.key as '5_juz' | '15_juz' | '30_juz'].message}
+                                            {!isAgeEligible 
+                                                ? eligibility[cat.key as '5_juz' | '15_juz' | '30_juz'].message 
+                                                : limitMessage}
                                         </div>
                                     )}
                                 </button>

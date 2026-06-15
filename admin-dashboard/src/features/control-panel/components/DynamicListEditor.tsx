@@ -122,6 +122,13 @@ export default function DynamicListEditor({ title, metadataKey, metadata, onUpda
                                             <option value="true">True / Active</option>
                                             <option value="false">False / Inactive</option>
                                         </select>
+                                    ) : typeof template[key] === 'number' ? (
+                                        <input 
+                                            type="number"
+                                            value={item[key] !== undefined && item[key] !== null ? Number(item[key]) : 0}
+                                            onChange={(e) => handleItemChange(index, key, parseInt(e.target.value, 10) || 0)}
+                                            style={{ width: '100%', padding: '6px', border: '1px solid #cbd5e1', borderRadius: '4px' }}
+                                        />
                                     ) : (
                                         <input 
                                             type="text"

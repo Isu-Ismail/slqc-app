@@ -68,6 +68,7 @@ routerAdd("GET", "/api/admin/pending-approvals", (e) => {
                 item.father_name = r.get("father_name");
                 item.guardian_name = r.get("guardian_name");
                 item.requires_accommodation = r.get("requires_accommodation");
+                item.institution_ref = r.get("institution_ref");
             } else {
                 item.name = r.get("name");
                 item.contact_person = r.get("contact_person");
@@ -130,13 +131,14 @@ routerAdd("POST", "/api/admin/approve", (e) => {
         }
     };
 
-    // 1. Verify admin/superuser authorization
+    // 1. Verify authorization
     const authRecord = e.auth;
     const isSuperuser = authRecord && authRecord.collection().name === "_superusers";
     const isAdmin = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "admin";
+    const isCoordinator = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "coordinators";
 
-    if (!isSuperuser && !isAdmin) {
-        return e.json(403, { error: "Unauthorized. Admin access required." });
+    if (!isSuperuser && !isAdmin && !isCoordinator) {
+        return e.json(403, { error: "Unauthorized. Admin or coordinator access required." });
     }
 
     const body = new DynamicModel({
@@ -169,30 +171,45 @@ routerAdd("POST", "/api/admin/approve", (e) => {
         // Generate sequential participant ID
         if (type === "individual" && !record.get("participant_id")) {
             const cat = record.get("category");
-            let juzPrefix = "05";
-            if (cat === "15_juz") juzPrefix = "15";
-            if (cat === "30_juz") juzPrefix = "30";
+            let startId = 501;
+            if (cat === "15_juz") startId = 1501;
+            if (cat === "30_juz") startId = 3001;
 
-            let nextNum = 1;
+            let nextNum = startId;
             try {
-                const lastRecords = $app.findRecordsByFilter(
+                const activeRecords = $app.findRecordsByFilter(
                     "participants_application",
                     "category = {:cat} && participant_id != ''",
-                    "-participant_id",
-                    1,
+                    "",
+                    9999,
                     0,
                     { cat: cat }
                 );
-                if (lastRecords && lastRecords.length > 0) {
-                    const lastId = lastRecords[0].get("participant_id");
-                    const numPart = lastId.substring(6);
-                    const parsed = parseInt(numPart, 10);
-                    if (!isNaN(parsed)) nextNum = parsed + 1;
+                
+                let maxId = startId - 1;
+                for (let i = 0; i < activeRecords.length; i++) {
+                    const pidStr = activeRecords[i].get("participant_id");
+                    let val = parseInt(pidStr, 10);
+                    if (isNaN(val) && pidStr.startsWith("APL-")) {
+                        const lastPart = pidStr.substring(6);
+                        val = parseInt(lastPart, 10);
+                    }
+                    if (!isNaN(val)) {
+                        if (cat === "5_juz" && val >= 501 && val < 600) {
+                            if (val > maxId) maxId = val;
+                        } else if (cat === "15_juz" && val >= 1501 && val < 3000) {
+                            if (val > maxId) maxId = val;
+                        } else if (cat === "30_juz" && val >= 3001) {
+                            if (val > maxId) maxId = val;
+                        }
+                    }
                 }
-            } catch (_) {}
+                nextNum = maxId + 1;
+            } catch (err) {
+                console.error("Error finding next participant_id: " + err);
+            }
 
-            const padded = ("0000" + nextNum).slice(-5);
-            record.set("participant_id", "APL-" + juzPrefix + padded);
+            record.set("participant_id", String(nextNum));
         }
 
         // Generate unique institution ID
@@ -367,13 +384,14 @@ routerAdd("POST", "/api/admin/reject", (e) => {
         }
     };
 
-    // Verify admin/superuser authorization
+    // Verify authorization
     const authRecord = e.auth;
     const isSuperuser = authRecord && authRecord.collection().name === "_superusers";
     const isAdmin = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "admin";
+    const isCoordinator = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "coordinators";
 
-    if (!isSuperuser && !isAdmin) {
-        return e.json(403, { error: "Unauthorized. Admin access required." });
+    if (!isSuperuser && !isAdmin && !isCoordinator) {
+        return e.json(403, { error: "Unauthorized. Admin or coordinator access required." });
     }
 
     const body = new DynamicModel({

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { pb } from '../../api/db';
 import { Plus, Search, Edit, Trash2, X, ShieldAlert } from 'lucide-react';
 import styles from './JudgesPage.module.css';
@@ -21,9 +22,16 @@ interface Venue {
     judges?: any;
 }
 
+interface InstInfo {
+    id: string;
+    name: string;
+    institution_id: string;
+}
+
 export default function JudgesPage() {
     const [judges, setJudges] = useState<Judge[]>([]);
     const [venues, setVenues] = useState<Venue[]>([]);
+    const [institutions, setInstitutions] = useState<InstInfo[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     
@@ -31,6 +39,10 @@ export default function JudgesPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingJudge, setEditingJudge] = useState<Judge | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Dropdown search states
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [instSearchQuery, setInstSearchQuery] = useState('');
 
     // Form inputs
     const [name, setName] = useState('');
@@ -53,6 +65,16 @@ export default function JudgesPage() {
                 sort: 'name'
             });
             setVenues(venueRecords);
+
+            // Fetch institutions
+            const instRecords = await pb.collection('institutions').getFullList({
+                sort: 'name'
+            });
+            setInstitutions(instRecords.map((r: any) => ({
+                id: r.id,
+                name: r.name,
+                institution_id: r.institution_id
+            })));
         } catch (err) {
             console.error('Failed to load judges panel data:', err);
         } finally {
@@ -63,6 +85,22 @@ export default function JudgesPage() {
     useEffect(() => {
         loadData();
     }, []);
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+            if (!target.closest(`.${styles.searchableSelectContainer}`)) {
+                setIsDropdownOpen(false);
+            }
+        };
+        if (isDropdownOpen) {
+            document.addEventListener('click', handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    }, [isDropdownOpen]);
 
     const openAddModal = () => {
         setEditingJudge(null);
@@ -179,6 +217,11 @@ export default function JudgesPage() {
         );
     });
 
+    const filteredInstitutions = institutions.filter(inst =>
+        inst.name.toLowerCase().includes(instSearchQuery.toLowerCase()) ||
+        (inst.institution_id || '').toLowerCase().includes(instSearchQuery.toLowerCase())
+    );
+
     return (
         <div className={styles.container}>
             <div className={styles.header} style={{ justifyContent: 'flex-end', marginBottom: '16px' }}>
@@ -231,7 +274,15 @@ export default function JudgesPage() {
                                         <tr key={j.id}>
                                             <td className={styles.judgeName}>{j.name}</td>
                                             <td className={styles.phoneNum}>{j.phone_number}</td>
-                                            <td>{j.institution || <span style={{ color: '#94a3b8' }}>—</span>}</td>
+                                            <td>
+                                                {j.institution ? (
+                                                    <Link to={`/track?type=institution&query=${encodeURIComponent(j.institution)}`} className={styles.instLink}>
+                                                        {j.institution}
+                                                    </Link>
+                                                ) : (
+                                                    <span style={{ color: '#94a3b8' }}>—</span>
+                                                )}
+                                            </td>
                                             <td>{j.place_of_stay || <span style={{ color: '#94a3b8' }}>—</span>}</td>
                                             <td>{j.pickup_incharge || <span style={{ color: '#94a3b8' }}>—</span>}</td>
                                             <td>
@@ -294,16 +345,70 @@ export default function JudgesPage() {
                                         required
                                     />
                                 </div>
-                                <div className={styles.formGroup}>
-                                    <label htmlFor="judge-inst">Institution / Madrassa</label>
-                                    <input
-                                        type="text"
-                                        id="judge-inst"
-                                        placeholder="e.g. Darul Uloom"
-                                        value={institution}
-                                        onChange={(e) => setInstitution(e.target.value)}
-                                    />
-                                </div>
+                                 <div className={styles.formGroup} style={{ position: 'relative' }}>
+                                     <label htmlFor="judge-inst">Institution / Madrassa</label>
+                                     <div className={styles.searchableSelectContainer}>
+                                         <div 
+                                             className={styles.selectTrigger} 
+                                             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                         >
+                                             {institution || 'Select an Institution / Madrassa'}
+                                         </div>
+                                         {isDropdownOpen && (
+                                             <div className={styles.selectDropdown}>
+                                                 <div className={styles.dropdownSearchWrapper}>
+                                                     <Search size={14} className={styles.dropdownSearchIcon} />
+                                                     <input
+                                                         type="text"
+                                                         placeholder="Search institution..."
+                                                         className={styles.dropdownSearchInput}
+                                                         value={instSearchQuery}
+                                                         onChange={(e) => setInstSearchQuery(e.target.value)}
+                                                         onClick={(e) => e.stopPropagation()}
+                                                         autoFocus
+                                                     />
+                                                 </div>
+                                                 <div className={styles.dropdownOptionsList}>
+                                                     <div 
+                                                         className={`${styles.dropdownOption} ${!institution ? styles.optionSelected : ''}`}
+                                                         onClick={() => {
+                                                             setInstitution('');
+                                                             setIsDropdownOpen(false);
+                                                             setInstSearchQuery('');
+                                                         }}
+                                                     >
+                                                         — None / Custom text —
+                                                     </div>
+                                                     {filteredInstitutions.map((inst) => (
+                                                         <div 
+                                                             key={inst.id} 
+                                                             className={`${styles.dropdownOption} ${institution === inst.name ? styles.optionSelected : ''}`}
+                                                             onClick={() => {
+                                                                 setInstitution(inst.name);
+                                                                 setIsDropdownOpen(false);
+                                                                 setInstSearchQuery('');
+                                                             }}
+                                                         >
+                                                             {inst.name} ({inst.institution_id || inst.id})
+                                                         </div>
+                                                     ))}
+                                                     {filteredInstitutions.length === 0 && instSearchQuery && (
+                                                         <div 
+                                                             className={styles.dropdownOptionCustom}
+                                                             onClick={() => {
+                                                                 setInstitution(instSearchQuery);
+                                                                 setIsDropdownOpen(false);
+                                                                 setInstSearchQuery('');
+                                                             }}
+                                                         >
+                                                             Use custom name: "{instSearchQuery}"
+                                                         </div>
+                                                     )}
+                                                 </div>
+                                             </div>
+                                         )}
+                                     </div>
+                                 </div>
                                 <div className={styles.formRow}>
                                     <div className={styles.formGroup}>
                                         <label htmlFor="judge-stay">Place of Stay</label>

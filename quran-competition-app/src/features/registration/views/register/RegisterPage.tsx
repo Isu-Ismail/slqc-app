@@ -36,6 +36,7 @@ export interface RegistrationFormData {
     candidate_photo: File | null;
     selected_juz: string;
     juz_options: string;
+    institution_applications?: { cat: string; count: number }[];
 }
 
 const CACHE_KEY = 'quran_competition_registration_form';
@@ -78,6 +79,7 @@ const getInitialFormData = (): RegistrationFormData => {
         candidate_photo: null,
         selected_juz: '',
         juz_options: '',
+        institution_applications: [],
     };
 };
 
@@ -259,7 +261,8 @@ export default function RegisterPage() {
                 birthcertificate_photo: null,
                 candidate_photo: null,
                 selected_juz: '',
-                juz_options: ''
+                juz_options: '',
+                institution_applications: []
             });
             sessionStorage.removeItem(CACHE_KEY);
             setCurrentStep(1);

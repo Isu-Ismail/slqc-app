@@ -20,7 +20,17 @@ $app.onServe().bindFunc((e) => {
         "madrasa_application_status",
         "participant_application_status",
         "individual_rules",
-        "institution_rules"
+        "institution_rules",
+        "applications_per_institute",
+        "application_print_template",
+        "marksheet_template_5_preliminary",
+        "marksheet_template_15_preliminary",
+        "marksheet_template_30_preliminary",
+        "marksheet_template_5_final",
+        "marksheet_template_15_final",
+        "marksheet_template_30_final",
+        "institution_list_template",
+        "stat"
     ];
 
     try {
@@ -57,6 +67,12 @@ $app.onServe().bindFunc((e) => {
                                 "15_juz": { "min": 0, "max": 19 },
                                 "30_juz": { "min": 0, "max": 25 }
                             }));
+                        } else if (key === "applications_per_institute") {
+                            record.set("value", JSON.stringify([
+                                { cat: "5_juz", count: 3 },
+                                { cat: "15_juz", count: 3 },
+                                { cat: "30_juz", count: 3 }
+                            ]));
                         } else if (key === "age_buffer_months") {
                             record.set("value", 3);
                         } else if (key === "madrasa_application_status" || key === "participant_application_status") {
@@ -65,6 +81,10 @@ $app.onServe().bindFunc((e) => {
                             record.set("value", "State Level Quran Competition - Individual Participant Rules & Regulations\n\n1. Eligibility & Registration:\n   - Every candidate must register individually with correct personal information.\n   - Date of Birth must match official documents (Birth Certificate, Aadhaar, or Passport).\n   - Any discrepancy in DOB will result in disqualification.\n\n2. Category Specifications & Age Limits:\n   - 5 Juz Category: Maximum age allowed is 15 years.\n   - 15 Juz Category: Maximum age allowed is 19 years.\n   - 30 Juz Category: Maximum age allowed is 25 years.\n   - Age calculation is based on the day of the competition (with configured tolerance buffer).\n\n3. Code of Conduct:\n   - Participants must dress in modest, formal traditional attire.\n   - Reporting time at the venue must be strictly followed.\n   - The decision of the judging panel is final and binding.");
                         } else if (key === "institution_rules") {
                             record.set("value", "State Level Quran Competition - Institution Rules & Regulations\n\n1. Registration & Verification:\n   - Madrasas, Islamic Schools, and organizations must register as an Institution first.\n   - The institution coordinator is responsible for registering candidates under their account.\n   - Valid proof of institution registration or authorization letter must be uploaded.\n\n2. Application Submission:\n   - Group submissions of candidates must adhere to individual age and category criteria.\n   - All details must be verified by the head of the institution prior to final submission.\n   - The institution code/ID must be shared only with authorized candidates.\n\n3. Coordination:\n   - The coordinator must represent the candidates during venue verification and reporting.\n   - Accommodation requests must be submitted in advance.");
+                        } else if (key.indexOf("template") !== -1) {
+                            record.set("value", "");
+                        } else if (key === "stat") {
+                            record.set("value", "{}");
                         }
 
                         $app.save(record);

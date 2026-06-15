@@ -40,13 +40,6 @@ function formatDate(dateStr: string): string {
     } catch { return dateStr; }
 }
 
-function getCompactCategory(cat: string): string {
-    if (cat === '5_juz') return '5';
-    if (cat === '15_juz') return '15';
-    if (cat === '30_juz') return '30';
-    return cat ? cat.replace('_juz', '') : 'N/A';
-}
-
 function getCompactJuz(record: ParticipantsApplicationResponse): string {
     const code = record.juz_options || '';
     if (code === '0030') return '1-30';
@@ -63,10 +56,21 @@ function getCompactJuz(record: ParticipantsApplicationResponse): string {
     return raw;
 }
 
+function getPrintPhotoUrl(record: any, filename: string): string {
+    if (!filename) return '';
+    let url = pb.files.getURL(record, filename);
+    if (url.startsWith('/')) {
+        return window.location.origin + url;
+    }
+    // Handle local dev URLs when accessed remotely (e.g. via duckdns)
+    if (url.includes('127.0.0.1:8080') || url.includes('localhost:8080')) {
+        return url.replace(/^(https?:\/\/)[^\/]+/, window.location.origin + '/pb1');
+    }
+    return url;
+}
+
 function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: boolean): string {
-    const photoUrl = record.candidate_photo
-        ? pb.files.getURL(record, record.candidate_photo)
-        : '';
+    const photoUrl = getPrintPhotoUrl(record, record.candidate_photo);
     const dob = formatDate(record.dob);
     const submitted = formatDate(record.created);
 

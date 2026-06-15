@@ -318,25 +318,62 @@ export default function TrackPage() {
     };
 
     const handleDeleteIndividual = async (app: ParticipantsApplicationResponse) => {
+        if (app.status === 'approved') {
+            triggerAlert('Cannot delete an approved application.', 'Error');
+            return;
+        }
         const confirmDelete = window.confirm(`Are you sure you want to delete participant ${app.full_name}? This action is permanent and cannot be undone.`);
         if (!confirmDelete) return;
 
         setLoading(true);
         try {
-            await pb.collection('participants_application').delete(app.id);
+            await pb.send('/api/public/institution/delete-application', {
+                method: 'POST',
+                body: {
+                    application_id: app.id,
+                    institution_id: institutionData?.institution?.institution_id,
+                    passcode: institutionPasscode
+                }
+            });
             
             // Proactively update state for instant local feedback
             setInstitutionData(prev => {
                 if (!prev) return null;
                 const newApps = prev.applications.filter(a => a.id !== app.id);
-                const nextData = { ...prev, applications: newApps };
+                // Also update local application counts if institution object is updated
+                let updatedInstitution = prev.institution;
+                if (updatedInstitution) {
+                    let appsVal = [];
+                    try {
+                        const rawApps = updatedInstitution.applications;
+                        if (rawApps) {
+                            appsVal = Array.isArray(rawApps) ? rawApps : JSON.parse(rawApps);
+                        }
+                    } catch (_) {}
+                    
+                    appsVal = appsVal.map((item: any) => {
+                        if (item.cat === app.category) {
+                            return { ...item, count: Math.max(0, (Number(item.count) || 1) - 1) };
+                        }
+                        return item;
+                    });
+                    updatedInstitution = { ...updatedInstitution, applications: appsVal };
+                }
+
+                const nextData = { ...prev, institution: updatedInstitution, applications: newApps };
                 localStorage.setItem('quran_competition_track_institution_data', JSON.stringify(nextData));
                 return nextData;
             });
 
             triggerAlert('Participant application deleted successfully.', 'Deleted', 'success');
         } catch (e: any) {
-            triggerAlert(e.message || 'Failed to delete applicant.', 'Error');
+            let errMsg = 'Failed to delete applicant.';
+            if (e.response && e.response.error) {
+                errMsg = e.response.error;
+            } else if (e.message) {
+                errMsg = e.message;
+            }
+            triggerAlert(errMsg, 'Error');
         } finally {
             setLoading(false);
         }

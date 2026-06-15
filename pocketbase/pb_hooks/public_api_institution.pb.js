@@ -74,7 +74,7 @@ routerAdd("GET", "/api/public/track-institution", (e) => {
                 dob: app.get("dob"),
                 gender: app.get("gender"),
                 category: app.get("category"),
-                juz_options: app.get("juz_options"),
+                juz_options: app.get("juzz_options"),
                 selected_juz: app.get("selected_juz"),
                 whatsapp_number: app.get("whatsapp_number"),
                 email: app.get("email"),
@@ -198,14 +198,24 @@ routerAdd("POST", "/api/public/update-institution", (e) => {
         const headers = info.headers || {};
         const contentType = headers["content-type"] || "";
         if (contentType.indexOf("multipart/form-data") !== -1) {
-            const docFiles = e.findUploadedFiles("document");
-            if (docFiles && docFiles.length > 0) {
-                record.set("document", docFiles[0]);
+            const getUploadedFile = (name) => {
+                try {
+                    const files = e.findUploadedFiles(name);
+                    if (files && files.length > 0) {
+                        return files[0];
+                    }
+                } catch (_) {}
+                return null;
+            };
+
+            const docFile = getUploadedFile("document");
+            if (docFile) {
+                record.set("document", docFile);
             }
 
-            const buildingProofFiles = e.findUploadedFiles("instituition_building_proof");
-            if (buildingProofFiles && buildingProofFiles.length > 0) {
-                record.set("instituition_building_proof", buildingProofFiles[0]);
+            const buildingProofFile = getUploadedFile("instituition_building_proof");
+            if (buildingProofFile) {
+                record.set("instituition_building_proof", buildingProofFile);
             }
         }
 
@@ -272,13 +282,145 @@ routerAdd("GET", "/api/public/verify-institution", (e) => {
         }
 
         const record = records[0];
+        let appsVal = [];
+        try {
+            const jsonStr = record.getString("applications");
+            if (jsonStr) {
+                appsVal = JSON.parse(jsonStr);
+            } else {
+                const rawApps = record.get("applications");
+                if (rawApps) {
+                    if (typeof rawApps === "string") {
+                        appsVal = JSON.parse(rawApps);
+                    } else if (Array.isArray(rawApps) && rawApps.length > 0 && typeof rawApps[0] === "number") {
+                        appsVal = JSON.parse(String.fromCharCode.apply(null, rawApps));
+                    } else {
+                        appsVal = rawApps;
+                    }
+                }
+            }
+        } catch (_) {}
+
         return e.json(200, {
             id: record.get("id"),
             institution_id: record.get("institution_id"),
             name: record.get("name"),
-            status: record.get("status")
+            status: record.get("status"),
+            applications: appsVal
         });
     } catch (err) {
         return e.json(500, { error: "Failed to verify institution: " + err });
+    }
+});
+
+// ── 4. Secure delete institution application ─────────────────────────────────
+routerAdd("POST", "/api/public/institution/delete-application", (e) => {
+    const body = new DynamicModel({
+        application_id: "",
+        institution_id: "",
+        passcode: ""
+    });
+    e.bindBody(body);
+
+    const appId = (body.application_id || "").trim();
+    const instId = (body.institution_id || "").trim();
+    const passcode = (body.passcode || "").trim();
+
+    if (!appId || !instId || !passcode) {
+        return e.json(400, { error: "Missing required parameters: application_id, institution_id, and passcode" });
+    }
+
+    try {
+        // 1. Verify institution credentials
+        const instRecords = $app.findRecordsByFilter(
+            "institutions",
+            "institution_id = {:instId} && passcode = {:passcode}",
+            "",
+            1,
+            0,
+            { instId: instId, passcode: passcode }
+        );
+
+        if (!instRecords || instRecords.length === 0) {
+            return e.json(403, { error: "Invalid institution credentials." });
+        }
+
+        const institution = instRecords[0];
+
+        // 2. Fetch the application
+        const application = $app.findRecordById("participants_application", appId);
+        if (!application) {
+            return e.json(404, { error: "Application not found." });
+        }
+
+        // 3. Verify application belongs to this institution
+        if (application.get("institution_ref") !== institution.get("id")) {
+            return e.json(403, { error: "Unauthorized. This application is not linked to your institution." });
+        }
+
+        // 4. Verify application status is pending or rejected
+        const status = application.get("status");
+        if (status === "approved") {
+            return e.json(400, { error: "Cannot delete an approved application." });
+        }
+
+        // 5. Decrement category count in institution record
+        const category = application.get("category");
+        let appsVal = [];
+        try {
+            const jsonStr = institution.getString("applications");
+            if (jsonStr) {
+                appsVal = JSON.parse(jsonStr);
+            } else {
+                const rawApps = institution.get("applications");
+                if (rawApps) {
+                    if (typeof rawApps === "string") {
+                        appsVal = JSON.parse(rawApps);
+                    } else if (Array.isArray(rawApps) && rawApps.length > 0 && typeof rawApps[0] === "number") {
+                        appsVal = JSON.parse(String.fromCharCode.apply(null, rawApps));
+                    } else {
+                        appsVal = rawApps;
+                    }
+                }
+            }
+        } catch (_) {}
+
+        if (!Array.isArray(appsVal)) {
+            appsVal = [];
+        }
+
+        // Find and decrement count
+        let found = false;
+        for (let i = 0; i < appsVal.length; i++) {
+            if (appsVal[i] && appsVal[i].cat === category) {
+                appsVal[i].count = Math.max(0, (parseInt(appsVal[i].count, 10) || 1) - 1);
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            appsVal.push({ cat: category, count: 0 });
+        }
+
+        institution.set("applications", appsVal);
+        $app.save(institution);
+
+        // 6. Delete application
+        $app.delete(application);
+
+        // Update trigger manually for real-time tracking
+        try {
+            const triggerCol = $app.findCollectionByNameOrId("trigger_collection");
+            if (triggerCol) {
+                const tr = $app.findFirstRecordByData("trigger_collection", "column_name", "participants_application");
+                tr.set("random_value", $security.randomString(10));
+                $app.save(tr);
+            }
+        } catch (_) {}
+
+        return e.json(200, { success: true, message: "Application deleted successfully." });
+
+    } catch (err) {
+        return e.json(500, { error: "Failed to delete application: " + err });
     }
 });

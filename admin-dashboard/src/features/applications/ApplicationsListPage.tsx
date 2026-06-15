@@ -21,8 +21,8 @@ type CacheEntry<T> = {
 const indivCache: Record<string, CacheEntry<ParticipantsApplicationResponse>> = {};
 const instCache:  Record<string, CacheEntry<InstitutionsResponse>>            = {};
 
-function indivKey(search: string, cat: string, status: string) {
-    return `${search}|${cat}|${status}`;
+function indivKey(search: string, cat: string, status: string, instId: string) {
+    return `${search}|${cat}|${status}|${instId}`;
 }
 function instKey(search: string, status: string) {
     return `${search}|${status}`;
@@ -31,13 +31,13 @@ function isFresh(ts: number) {
     return Date.now() - ts < CACHE_TTL;
 }
 
-// ─── Session-storage helpers ──────────────────────────────────────────────────
+// ─── Local-storage helpers ──────────────────────────────────────────────────
 function ss<T>(key: string, fallback: T): T {
-    try { const v = sessionStorage.getItem(key); return v !== null ? (JSON.parse(v) as T) : fallback; }
+    try { const v = localStorage.getItem(key); return v !== null ? (JSON.parse(v) as T) : fallback; }
     catch { return fallback; }
 }
 function ssSet(key: string, val: unknown) {
-    try { sessionStorage.setItem(key, JSON.stringify(val)); } catch { /* noop */ }
+    try { localStorage.setItem(key, JSON.stringify(val)); } catch { /* noop */ }
 }
 
 const BATCH_SIZES = [20, 50, 100] as const;
@@ -139,7 +139,10 @@ export default function ApplicationsListPage() {
     const [indivSearch, setIndivSearch]     = useState<string>(ss('apps_i_search', ''));
     const [indivCat,    setIndivCat]        = useState<string>(ss('apps_i_cat',    ''));
     const [indivStatus, setIndivStatus]     = useState<string>(ss('apps_i_status', ''));
+    const [indivInst,   setIndivInst]       = useState<string>(ss('apps_i_inst',   ''));
     const [indivBatch,  setIndivBatch]      = useState<BatchSize>(ss('apps_i_batch', 20));
+
+    const [institutions, setInstitutions]   = useState<{ id: string; name: string }[]>([]);
 
     const [instSearch,  setInstSearch]      = useState<string>(ss('apps_inst_search', ''));
     const [instStatus,  setInstStatus]      = useState<string>(ss('apps_inst_status', ''));
@@ -207,7 +210,7 @@ export default function ApplicationsListPage() {
 
     // ─── Fetch individuals ────────────────────────────────────────────────
     const fetchIndividuals = useCallback(async (
-        count: number, search: string, cat: string, status: string, append = false
+        count: number, search: string, cat: string, status: string, instId: string, append = false
     ) => {
         append ? setLoadingMore(true) : setLoading(true);
         try {
@@ -215,16 +218,17 @@ export default function ApplicationsListPage() {
             if (search.trim()) filters.push(buildIndivSearchFilter(search.trim()));
             if (cat)    filters.push(`category = "${cat}"`);
             if (status) filters.push(`status = "${status}"`);
+            if (instId) filters.push(`institution_ref = "${instId}"`);
 
             const result = await pb.collection('participants_application')
                 .getList<ParticipantsApplicationResponse>(1, count, {
                     filter: filters.join(' && ') || undefined,
                     sort: '-created',
                     expand: 'institution_ref',
-                    requestKey: `indiv_${count}_${search}_${cat}_${status}`,
+                    requestKey: `indiv_${count}_${search}_${cat}_${status}_${instId}`,
                 });
 
-            const key = indivKey(search, cat, status);
+            const key = indivKey(search, cat, status, instId);
             indivCache[key] = { data: result.items, total: result.totalItems, timestamp: Date.now(), loadedCount: count };
 
             setIndivRows(result.items);
@@ -272,15 +276,15 @@ export default function ApplicationsListPage() {
     }, []);
 
     // ─── Load from cache or fetch (called once on mount) ──────────────────
-    const initIndividuals = useCallback((search: string, cat: string, status: string, batch: BatchSize) => {
-        const key = indivKey(search, cat, status);
+    const initIndividuals = useCallback((search: string, cat: string, status: string, instId: string, batch: BatchSize) => {
+        const key = indivKey(search, cat, status, instId);
         const cached = indivCache[key];
         if (cached && isFresh(cached.timestamp)) {
             setIndivRows(cached.data);
             setIndivTotal(cached.total);
             setIndivLoaded(cached.loadedCount);
         } else {
-            fetchIndividuals(batch, search, cat, status);
+            fetchIndividuals(batch, search, cat, status, instId);
         }
     }, [fetchIndividuals]);
 
@@ -298,8 +302,13 @@ export default function ApplicationsListPage() {
 
     // ─── Mount effect: load ────────────────────────────────────
     useEffect(() => {
+        // Fetch institutions
+        pb.collection('institutions').getFullList({ fields: 'id,name', sort: 'name' })
+            .then(data => setInstitutions(data.map(item => ({ id: item.id, name: item.name }))))
+            .catch(err => console.error("Error fetching institutions:", err));
+
         // Load from cache (or fetch if stale)
-        initIndividuals(indivSearch, indivCat, indivStatus, indivBatch);
+        initIndividuals(indivSearch, indivCat, indivStatus, indivInst, indivBatch);
         initInstitutions(instSearch, instStatus, instBatch);
 
         // Allow filter effects to fire after first mount
@@ -343,7 +352,7 @@ export default function ApplicationsListPage() {
             }
 
             // Update cache
-            const key = indivKey('', '', ''); // invalidate broadly
+            const key = indivKey('', '', '', ''); // invalidate broadly
             if (indivCache[key]) indivCache[key].timestamp = 0;
 
             return next;
@@ -391,17 +400,18 @@ export default function ApplicationsListPage() {
         ssSet('apps_i_search', indivSearch);
         ssSet('apps_i_cat',    indivCat);
         ssSet('apps_i_status', indivStatus);
+        ssSet('apps_i_inst',   indivInst);
         ssSet('apps_i_batch',  indivBatch);
 
         if (!isMounted.current) return; // skip first-mount fire
         setIsSearching(true);
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
-            fetchIndividuals(indivBatch, indivSearch, indivCat, indivStatus);
+            fetchIndividuals(indivBatch, indivSearch, indivCat, indivStatus, indivInst);
         }, 400);
         return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [indivSearch, indivCat, indivStatus, indivBatch]);
+    }, [indivSearch, indivCat, indivStatus, indivInst, indivBatch]);
 
     // ─── Debounced re-fetch when institution filters change (skips mount) ─
     useEffect(() => {
@@ -423,7 +433,7 @@ export default function ApplicationsListPage() {
     const handleLoadMore = (extraBatch: BatchSize) => {
         if (activeTab === 'individual') {
             const nextCount = indivLoaded + extraBatch;
-            fetchIndividuals(nextCount, indivSearch, indivCat, indivStatus, true);
+            fetchIndividuals(nextCount, indivSearch, indivCat, indivStatus, indivInst, true);
         } else {
             const nextCount = instLoaded + extraBatch;
             fetchInstitutions(nextCount, instSearch, instStatus, true);
@@ -433,7 +443,7 @@ export default function ApplicationsListPage() {
     const handleRefresh = () => {
         if (activeTab === 'individual') {
             Object.keys(indivCache).forEach(k => { indivCache[k].timestamp = 0; });
-            fetchIndividuals(indivLoaded || indivBatch, indivSearch, indivCat, indivStatus);
+            fetchIndividuals(indivLoaded || indivBatch, indivSearch, indivCat, indivStatus, indivInst);
         } else {
             Object.keys(instCache).forEach(k => { instCache[k].timestamp = 0; });
             fetchInstitutions(instLoaded || instBatch, instSearch, instStatus);
@@ -510,10 +520,13 @@ export default function ApplicationsListPage() {
                         <option value="approved">Approved</option>
                         <option value="rejected">Rejected</option>
                     </select>
-                    <select className={styles.filterSelect}
-                        disabled title="Venue filter — coming soon"
-                        style={{ opacity: 0.45 }}>
-                        <option>Venue (soon)</option>
+                    <select className={styles.filterSelect} value={indivInst}
+                        onChange={e => setIndivInst(e.target.value)}
+                        style={{ maxWidth: '160px' }}>
+                        <option value="">All Institutions</option>
+                        {institutions.map(inst => (
+                            <option key={inst.id} value={inst.id}>{inst.name}</option>
+                        ))}
                     </select>
                     <select className={styles.filterSelect} value={indivBatch}
                         onChange={e => setIndivBatch(Number(e.target.value) as BatchSize)}

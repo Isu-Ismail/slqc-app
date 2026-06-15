@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { pb } from '../../api/db';
 import { metadataApi } from '../../api/routes/metadata.api';
 
 type StatusType = 'waiting' | 'open' | 'closed';

@@ -3,6 +3,19 @@ import { getJuzLabel } from '../../config/fieldsConfig';
 
 const COMPETITION_TITLE = 'Quran Hifz Competition 2026';
 
+function getPrintPhotoUrl(record: any, filename: string): string {
+    if (!filename) return '';
+    let url = pb.files.getURL(record, filename);
+    if (url.startsWith('/')) {
+        return window.location.origin + url;
+    }
+    // Handle local dev URLs when accessed remotely (e.g. via duckdns)
+    if (url.includes('127.0.0.1:8080') || url.includes('localhost:8080')) {
+        return url.replace(/^(https?:\/\/)[^\/]+/, window.location.origin + '/pb1');
+    }
+    return url;
+}
+
 export function getCompactJuzLabel(code: string): string {
     if (!code) return '';
     const mapping: Record<string, string> = {
@@ -187,9 +200,7 @@ export function generateVenueListHTML(venueName: string, candidates: any[], venu
 
 export function generateIDCardsHTML(venueName: string, candidates: any[], venueSlots: any[]): string {
     const cards = candidates.map(c => {
-        const photoUrl = c.candidate_photo
-            ? pb.files.getURL(c, c.candidate_photo)
-            : 'https://placehold.co/150x180?text=No+Photo';
+        const photoUrl = getPrintPhotoUrl(c, c.candidate_photo) || 'https://placehold.co/150x180?text=No+Photo';
         
         const categoryLabel = c.category === '5_juz' ? '5 Juz' : c.category === '15_juz' ? '15 Juz' : '30 Juz';
         const fullJuzLabel = c.juzz_options ? getJuzLabel(c.juzz_options) : (c.selected_juz || 'N/A');

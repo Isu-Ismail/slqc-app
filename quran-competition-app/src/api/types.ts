@@ -118,6 +118,7 @@ export type InstitutionsRecord = {
 	status: InstitutionsStatusOptions
 	updated: IsoAutoDateString
 	whatsapp_number: string
+	applications?: any
 }
 
 export const ParticipantsApplicationRegistrationTypeOptions = {
@@ -175,6 +176,7 @@ export type ParticipantsApplicationRecord = {
 	whatsapp_number: string
 	selected_juz?: string
 	juz_options?: string
+	arrival_status?: 'none' | 'present' | 'absent'
 }
 
 export type UsersRecord = {

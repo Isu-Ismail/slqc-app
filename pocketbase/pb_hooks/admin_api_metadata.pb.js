@@ -104,7 +104,7 @@ routerAdd("POST", "/api/admin/update-metadata", (e) => {
             if (docFiles && docFiles.length > 0) {
                 record.set("document", docFiles[0]);
                 hasNewDocument = true;
-                if (key.indexOf("_rules") !== -1 || key === "dos_and_donts" || key === "venue_map") {
+                if (key.indexOf("_rules") !== -1 || key === "dos_and_donts" || key === "venue_map" || key.indexOf("template") !== -1) {
                     record.set("value", "");
                 }
             }
@@ -130,5 +130,110 @@ routerAdd("POST", "/api/admin/update-metadata", (e) => {
 
     } catch (err) {
         return e.json(500, { error: "Failed to update metadata: " + err });
+    }
+});
+
+routerAdd("POST", "/api/admin/calculate-stats", (e) => {
+    const authRecord = e.auth;
+    const isSuperuser = authRecord && authRecord.collection().name === "_superusers";
+    const isAdmin = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "admin";
+
+    if (!isSuperuser && !isAdmin) {
+        return e.json(403, { error: "Unauthorized. Admin access required." });
+    }
+
+    try {
+        const institutions = $app.findRecordsByFilter("institutions", "id != ''", "", 99999, 0);
+        const totalInstitutions = institutions.length;
+
+        const applications = $app.findRecordsByFilter("participants_application", "id != ''", "", 99999, 0);
+        const totalApplications = applications.length;
+
+        const statusCounts = {
+            pending: 0,
+            approved: 0,
+            rejected: 0,
+            reapplied: 0
+        };
+
+        const categoryStats = {
+            "5_juz": {
+                total_accepted: 0,
+                options: {}
+            },
+            "15_juz": {
+                total_accepted: 0,
+                options: {}
+            },
+            "30_juz": {
+                total_accepted: 0,
+                options: {}
+            }
+        };
+
+        let totalAccommodationStudents = 0;
+        let approvedAccommodationStudents = 0;
+
+        for (let i = 0; i < applications.length; i++) {
+            const appRec = applications[i];
+            const status = appRec.get("status") || "pending";
+            const cat = appRec.get("category");
+            const juzzOpt = appRec.get("juzz_options") || "none";
+            const reqAcc = appRec.get("requires_accommodation") === true;
+
+            if (statusCounts[status] !== undefined) {
+                statusCounts[status]++;
+            } else {
+                statusCounts[status] = 1;
+            }
+
+            if (reqAcc) {
+                totalAccommodationStudents++;
+                if (status === "approved") {
+                    approvedAccommodationStudents++;
+                }
+            }
+
+            if (status === "approved") {
+                if (categoryStats[cat]) {
+                    categoryStats[cat].total_accepted++;
+                    const optKey = juzzOpt || "none";
+                    if (!categoryStats[cat].options[optKey]) {
+                        categoryStats[cat].options[optKey] = 0;
+                    }
+                    categoryStats[cat].options[optKey]++;
+                }
+            }
+        }
+
+        const statsObj = {
+            total_institutions: totalInstitutions,
+            total_applications: totalApplications,
+            status_counts: statusCounts,
+            category_stats: categoryStats,
+            accommodation_stats: {
+                total_students_needing_accommodation: totalAccommodationStudents,
+                accepted_students_needing_accommodation: approvedAccommodationStudents,
+                institutions_count_incharge: totalInstitutions,
+                grand_total_accommodation: approvedAccommodationStudents + totalInstitutions
+            },
+            last_updated: new Date().toISOString()
+        };
+
+        let record;
+        try {
+            record = $app.findFirstRecordByData("metadata", "key", "stat");
+        } catch (_) {
+            const collection = $app.findCollectionByNameOrId("metadata");
+            record = new Record(collection);
+            record.set("key", "stat");
+        }
+
+        record.set("value", JSON.stringify(statsObj));
+        $app.save(record);
+
+        return e.json(200, statsObj);
+    } catch (err) {
+        return e.json(500, { error: "Failed to calculate statistics: " + err });
     }
 });

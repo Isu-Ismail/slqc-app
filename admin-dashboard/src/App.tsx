@@ -10,6 +10,8 @@ import ApprovalsListPage from './features/approvals/ApprovalsListPage';
 import ApprovalReviewPage from './features/approvals/ApprovalReviewPage';
 import ApplicationsListPage from './features/applications/ApplicationsListPage';
 import JudgesPage from './features/judges/JudgesPage';
+import ArrivalCheckingPage from './features/arrivals/ArrivalCheckingPage';
+import StatsDashboardPage from './features/stats/StatsDashboardPage';
 import MainLayout from './shared/components/Layout/MainLayout';
 
 // 1. IMPORTANT: Import pb at the top so the router can use it!
@@ -55,6 +57,16 @@ function App() {
                         <RequireAuth>
                             <MainLayout>
                                 <AdminDashboardPage />
+                            </MainLayout>
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/stats"
+                    element={
+                        <RequireAuth>
+                            <MainLayout>
+                                <StatsDashboardPage />
                             </MainLayout>
                         </RequireAuth>
                     }
@@ -135,6 +147,16 @@ function App() {
                         <RequireAuth>
                             <MainLayout>
                                 <ApplicationsListPage />
+                            </MainLayout>
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/arrival-checking"
+                    element={
+                        <RequireAuth>
+                            <MainLayout>
+                                <ArrivalCheckingPage />
                             </MainLayout>
                         </RequireAuth>
                     }

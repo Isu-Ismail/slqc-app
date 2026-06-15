@@ -28,8 +28,9 @@ routerAdd("GET", "/api/public/track-individual", (e) => {
         const dobStart = dob + " 00:00:00.000Z";
         const dobEnd = dob + " 23:59:59.999Z";
         
-        // 1. If it starts with APL-, search by participant_id
-        if (upper.indexOf("APL-") === 0) {
+        const isNumericId = /^\d{3,4}$/.test(query);
+        // 1. If it starts with APL- or is a 3/4 digit numeric ID, search by participant_id
+        if (upper.indexOf("APL-") === 0 || isNumericId) {
             try {
                 const records = $app.findRecordsByFilter(
                     "participants_application",
@@ -101,7 +102,7 @@ routerAdd("GET", "/api/public/track-individual", (e) => {
             dob: record.get("dob"),
             gender: record.get("gender"),
             category: record.get("category"),
-            juz_options: record.get("juz_options"),
+            juz_options: record.get("juzz_options"),
             selected_juz: record.get("selected_juz"),
             whatsapp_number: record.get("whatsapp_number"),
             email: record.get("email"),
@@ -228,19 +229,29 @@ routerAdd("POST", "/api/public/update-individual", (e) => {
 
         // Handle file uploads securely using findUploadedFiles if multipart body is present
         if (contentType.indexOf("multipart/form-data") !== -1) {
-            const aadhaarFiles = e.findUploadedFiles("aadhaar_front");
-            if (aadhaarFiles && aadhaarFiles.length > 0) {
-                record.set("aadhaar_front", aadhaarFiles[0]);
+            const getUploadedFile = (name) => {
+                try {
+                    const files = e.findUploadedFiles(name);
+                    if (files && files.length > 0) {
+                        return files[0];
+                    }
+                } catch (_) {}
+                return null;
+            };
+
+            const aadhaarFile = getUploadedFile("aadhaar_front");
+            if (aadhaarFile) {
+                record.set("aadhaar_front", aadhaarFile);
             }
 
-            const birthCertFiles = e.findUploadedFiles("birthcertificate_photo");
-            if (birthCertFiles && birthCertFiles.length > 0) {
-                record.set("birthcertificate_photo", birthCertFiles[0]);
+            const birthCertFile = getUploadedFile("birthcertificate_photo");
+            if (birthCertFile) {
+                record.set("birthcertificate_photo", birthCertFile);
             }
 
-            const candidatePhotoFiles = e.findUploadedFiles("candidate_photo");
-            if (candidatePhotoFiles && candidatePhotoFiles.length > 0) {
-                record.set("candidate_photo", candidatePhotoFiles[0]);
+            const candidatePhotoFile = getUploadedFile("candidate_photo");
+            if (candidatePhotoFile) {
+                record.set("candidate_photo", candidatePhotoFile);
             }
         }
 
@@ -257,6 +268,8 @@ routerAdd("POST", "/api/public/update-individual", (e) => {
             if (val) {
                 if (field === "requires_accommodation") {
                     record.set(field, val === "true" || val === true);
+                } else if (field === "juz_options") {
+                    record.set("juzz_options", val);
                 } else {
                     record.set(field, val);
                 }
@@ -285,7 +298,7 @@ routerAdd("POST", "/api/public/update-individual", (e) => {
             dob: record.get("dob"),
             gender: record.get("gender"),
             category: record.get("category"),
-            juz_options: record.get("juz_options"),
+            juz_options: record.get("juzz_options"),
             selected_juz: record.get("selected_juz"),
             whatsapp_number: record.get("whatsapp_number"),
             email: record.get("email"),
@@ -340,7 +353,11 @@ routerAdd("GET", "/api/public/print-form", (e) => {
         if (approvedBy) {
             try {
                 expandedApprover = $app.findRecordById("users", approvedBy);
-            } catch (_) {}
+            } catch (_) {
+                try {
+                    expandedApprover = $app.findRecordById("_superusers", approvedBy);
+                } catch (__) {}
+            }
         }
 
         // Expand institution_ref
@@ -364,7 +381,7 @@ routerAdd("GET", "/api/public/print-form", (e) => {
             dob: record.get("dob"),
             gender: record.get("gender"),
             category: record.get("category"),
-            juz_options: record.get("juz_options"),
+            juz_options: record.get("juzz_options"),
             selected_juz: record.get("selected_juz"),
             whatsapp_number: record.get("whatsapp_number"),
             email: record.get("email"),
@@ -460,17 +477,66 @@ routerAdd("POST", "/api/public/submit-application", (e) => {
 
     try {
         // 1. Verify Institution details if registration_type is institution
+        let institution = null;
         if (regType === "institution") {
             const instRef = body.institution_ref;
             if (!instRef) {
                 return e.json(400, { error: "Institution reference is required for institution registration." });
             }
-            const inst = $app.findRecordById("institutions", instRef);
-            if (!inst) {
+            institution = $app.findRecordById("institutions", instRef);
+            if (!institution) {
                 return e.json(400, { error: "Invalid institution reference." });
             }
-            if (inst.get("status") !== "approved") {
+            if (institution.get("status") !== "approved") {
                 return e.json(400, { error: "This institution is not approved yet." });
+            }
+
+            // Check applications limit for the category
+            let limitVal = 3; // Default fallback limit
+            try {
+                const limitRec = $app.findFirstRecordByData("metadata", "key", "applications_per_institute");
+                const parsedLimits = JSON.parse(limitRec.get("value") || "[]");
+                for (let i = 0; i < parsedLimits.length; i++) {
+                    if (parsedLimits[i] && parsedLimits[i].cat === category) {
+                        limitVal = parseInt(parsedLimits[i].count, 10) || 0;
+                        break;
+                    }
+                }
+            } catch (_) {}
+
+            let appsVal = [];
+            try {
+                const jsonStr = institution.getString("applications");
+                if (jsonStr) {
+                    appsVal = JSON.parse(jsonStr);
+                } else {
+                    const rawApps = institution.get("applications");
+                    if (rawApps) {
+                        if (typeof rawApps === "string") {
+                            appsVal = JSON.parse(rawApps);
+                        } else if (Array.isArray(rawApps) && rawApps.length > 0 && typeof rawApps[0] === "number") {
+                            appsVal = JSON.parse(String.fromCharCode.apply(null, rawApps));
+                        } else {
+                            appsVal = rawApps;
+                        }
+                    }
+                }
+            } catch (_) {}
+
+            if (!Array.isArray(appsVal)) {
+                appsVal = [];
+            }
+
+            let currentCount = 0;
+            for (let i = 0; i < appsVal.length; i++) {
+                if (appsVal[i] && appsVal[i].cat === category) {
+                    currentCount = parseInt(appsVal[i].count, 10) || 0;
+                    break;
+                }
+            }
+
+            if (currentCount >= limitVal) {
+                return e.json(400, { error: "Application limit reached. Delete old application if new things need to be done." });
             }
         }
 
@@ -556,26 +622,77 @@ routerAdd("POST", "/api/public/submit-application", (e) => {
         record.set("guardian_phone", guardianPhone);
         record.set("requires_accommodation", body.requires_accommodation === "true" || body.requires_accommodation === true);
         record.set("selected_juz", (body.selected_juz || "").trim());
-        record.set("juz_options", (body.juz_options || "").trim());
+        record.set("juzz_options", (body.juz_options || "").trim());
         record.set("status", "pending");
 
         // Files
-        const aadhaarFiles = e.findUploadedFiles("aadhaar_front");
-        if (aadhaarFiles && aadhaarFiles.length > 0) {
-            record.set("aadhaar_front", aadhaarFiles[0]);
+        const getUploadedFile = (name) => {
+            try {
+                const files = e.findUploadedFiles(name);
+                if (files && files.length > 0) {
+                    return files[0];
+                }
+            } catch (_) {}
+            return null;
+        };
+
+        const aadhaarFile = getUploadedFile("aadhaar_front");
+        if (aadhaarFile) {
+            record.set("aadhaar_front", aadhaarFile);
         }
 
-        const birthcertFiles = e.findUploadedFiles("birthcertificate_photo");
-        if (birthcertFiles && birthcertFiles.length > 0) {
-            record.set("birthcertificate_photo", birthcertFiles[0]);
+        const birthcertFile = getUploadedFile("birthcertificate_photo");
+        if (birthcertFile) {
+            record.set("birthcertificate_photo", birthcertFile);
         }
 
-        const candidatePhotoFiles = e.findUploadedFiles("candidate_photo");
-        if (candidatePhotoFiles && candidatePhotoFiles.length > 0) {
-            record.set("candidate_photo", candidatePhotoFiles[0]);
+        const candidatePhotoFile = getUploadedFile("candidate_photo");
+        if (candidatePhotoFile) {
+            record.set("candidate_photo", candidatePhotoFile);
         }
 
         $app.save(record);
+
+        // Update institution applications count
+        if (regType === "institution" && institution) {
+            let appsVal = [];
+            try {
+                const jsonStr = institution.getString("applications");
+                if (jsonStr) {
+                    appsVal = JSON.parse(jsonStr);
+                } else {
+                    const rawApps = institution.get("applications");
+                    if (rawApps) {
+                        if (typeof rawApps === "string") {
+                            appsVal = JSON.parse(rawApps);
+                        } else if (Array.isArray(rawApps) && rawApps.length > 0 && typeof rawApps[0] === "number") {
+                            appsVal = JSON.parse(String.fromCharCode.apply(null, rawApps));
+                        } else {
+                            appsVal = rawApps;
+                        }
+                    }
+                }
+            } catch (_) {}
+
+            if (!Array.isArray(appsVal)) {
+                appsVal = [];
+            }
+
+            let found = false;
+            for (let i = 0; i < appsVal.length; i++) {
+                if (appsVal[i] && appsVal[i].cat === category) {
+                    appsVal[i].count = (parseInt(appsVal[i].count, 10) || 0) + 1;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                appsVal.push({ cat: category, count: 1 });
+            }
+
+            institution.set("applications", JSON.stringify(appsVal));
+            $app.save(institution);
+        }
 
         // Update trigger manually for real-time tracking
         try {

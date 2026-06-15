@@ -56,7 +56,7 @@ routerAdd("GET", "/api/admin/track-institution", (e) => {
                 dob: app.get("dob"),
                 gender: app.get("gender"),
                 category: app.get("category"),
-                juz_options: app.get("juz_options"),
+                juz_options: app.get("juzz_options"),
                 selected_juz: app.get("selected_juz"),
                 whatsapp_number: app.get("whatsapp_number"),
                 email: app.get("email"),

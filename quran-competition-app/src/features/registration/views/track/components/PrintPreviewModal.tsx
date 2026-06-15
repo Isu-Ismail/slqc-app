@@ -50,13 +50,6 @@ function categoryLabel(cat: string): string {
     return cat.replace('_', ' ').toUpperCase();
 }
 
-function getCompactCategory(cat: string): string {
-    if (cat === '5_juz') return '5';
-    if (cat === '15_juz') return '15';
-    if (cat === '30_juz') return '30';
-    return cat ? cat.replace('_juz', '') : 'N/A';
-}
-
 function getCompactJuz(record: ParticipantsApplicationResponse): string {
     const code = record.juz_options || '';
     if (code === '0030') return '1-30';
