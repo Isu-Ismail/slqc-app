@@ -85,7 +85,7 @@ routerAdd("GET", "/api/public/track-institution", (e) => {
                 is_locked: app.get("is_locked"),
                 rejection_reason: app.get("rejection_reason"),
                 allocated_venue: app.get("allocated_venue"),
-                allocated_slot: app.get("allocated_slot"),
+                allocated_order: app.get("allocated_order"),
                 aadhaar_front: app.get("aadhaar_front"),
                 birthcertificate_photo: app.get("birthcertificate_photo"),
                 candidate_photo: app.get("candidate_photo"),

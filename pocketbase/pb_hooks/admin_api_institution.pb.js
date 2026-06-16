@@ -91,7 +91,9 @@ routerAdd("GET", "/api/admin/track-institution", (e) => {
                 status: institution.get("status"),
                 is_locked: institution.get("is_locked"),
                 rejection_reason: institution.get("rejection_reason"),
-                passcode: institution.get("passcode")
+                passcode: institution.get("passcode"),
+                incharge: institution.get("incharge"),
+                incharge_number: institution.get("incharge_number")
             },
             applications: appList
         });
@@ -100,3 +102,61 @@ routerAdd("GET", "/api/admin/track-institution", (e) => {
         return e.json(500, { error: "Failed to query database: " + err });
     }
 });
+
+// ── 5. Assign In-Charge Endpoint ─────────────────────────────────────────────
+routerAdd("POST", "/api/admin/assign-incharge", (e) => {
+    const authRecord = e.auth;
+    const isSuperuser = authRecord && authRecord.collection().name === "_superusers";
+    const isAdmin = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "admin";
+    const isCoordinator = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "coordinators";
+
+    if (!isSuperuser && !isAdmin && !isCoordinator) {
+        return e.json(403, { error: "Unauthorized. Admin or coordinator access required." });
+    }
+
+    try {
+        const body = e.requestInfo().body;
+        const institutionId = body.institutionId;
+        const incharge = (body.incharge || "").trim();
+        const incharge_number = (body.incharge_number || "").trim();
+
+        if (!institutionId) {
+            return e.json(400, { error: "Missing institutionId parameter" });
+        }
+
+        const record = $app.findRecordById("institutions", institutionId);
+        if (!record) {
+            return e.json(404, { error: "Institution not found" });
+        }
+
+        record.set("incharge", incharge);
+        record.set("incharge_number", incharge_number);
+        $app.save(record);
+
+        return e.json(200, {
+            success: true,
+            institution: {
+                id: record.get("id"),
+                institution_id: record.get("institution_id"),
+                name: record.get("name"),
+                address: record.get("address"),
+                contact_person: record.get("contact_person"),
+                email: record.get("email"),
+                whatsapp_number: record.get("whatsapp_number"),
+                phone_number: record.get("phone_number"),
+                document: record.get("document"),
+                instituition_location: record.get("instituition_location"),
+                instituition_building_proof: record.get("instituition_building_proof"),
+                status: record.get("status"),
+                is_locked: record.get("is_locked"),
+                rejection_reason: record.get("rejection_reason"),
+                passcode: record.get("passcode"),
+                incharge: record.get("incharge"),
+                incharge_number: record.get("incharge_number")
+            }
+        });
+    } catch (err) {
+        return e.json(500, { error: "Failed to update incharge: " + err });
+    }
+});
+

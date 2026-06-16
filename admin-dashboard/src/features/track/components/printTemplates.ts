@@ -83,6 +83,7 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
     const approverEmail = approver?.email || (record.status === 'approved' ? "support@competition.com" : "");
 
     const juzDisplay = record.juz_options ? getJuzLabel(record.juz_options) : (record.selected_juz || 'N/A');
+    const arrivalText = record.arrival_status === 'present' ? 'ARRIVED / PRESENT' : (record.arrival_status === 'absent' ? 'NOT ARRIVED / ABSENT' : 'NOT CHECKED-IN / NONE');
 
     return `
     <div class="form-page" style="${pageBreak ? 'page-break-after:always;' : ''}">
@@ -98,6 +99,7 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
                 <div class="info-row"><span class="info-label">Status</span><span class="info-val">${record.status.toUpperCase()}</span></div>
                 <div class="info-row"><span class="info-label">Submitted On</span><span class="info-val">${submitted}</span></div>
                 <div class="info-row"><span class="info-label">Reg. Type</span><span class="info-val">${(record.registration_type || 'individual').charAt(0).toUpperCase() + (record.registration_type || 'individual').slice(1)}</span></div>
+                <div class="info-row"><span class="info-label">Arrival Status</span><span class="info-val">${arrivalText}</span></div>
             </div>
             <div class="top-center">
                 <div class="approval-stamp">
@@ -106,11 +108,10 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
                     <div class="stamp-contact">Ph: ${approverContact}</div>
                     ${approverEmail ? `<div class="stamp-email">${approverEmail}</div>` : ''}
                 </div>
-                ${(record.allocated_venue || record.allocated_slot) ? `
+                ${(record.allocated_venue || record.allocated_order) ? `
                 <div class="allocation-stamp">
                     <div class="alloc-badge">ALLOCATED</div>
-                    <div class="alloc-venue">${record.allocated_venue || 'N/A'}</div>
-                    <div class="alloc-slot">${record.allocated_slot || 'N/A'}</div>
+                    <div class="alloc-venue">${record.allocated_venue || 'N/A'} - ${record.allocated_order || 'N/A'}</div>
                 </div>
                 ` : ''}
             </div>
@@ -135,6 +136,7 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
                 <div class="field"><span class="fl">Aadhaar Number</span><span class="fv">${record.aadhaar_number}</span></div>
                 <div class="field"><span class="fl">Email</span><span class="fv single-line">${record.email || 'N/A'}</span></div>
                 <div class="field"><span class="fl">WhatsApp</span><span class="fv">${record.whatsapp_number}</span></div>
+                <div class="field full-width"><span class="fl">Home Address</span><span class="fv">${record.address || 'N/A'}</span></div>
             </div>
         </div>
 
@@ -204,8 +206,8 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
     </div>`;
 }
 
-function wrapFormsDocument(innerHtml: string): string {
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Application Form</title>
+function wrapFormsDocument(innerHtml: string, title: string = 'Application Form'): string {
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
 <style>
 ${PRINT_BASE_STYLES}
 
@@ -258,7 +260,6 @@ ${PRINT_BASE_STYLES}
 }
 .alloc-badge { font-size: 15px; font-weight: 900; letter-spacing: 1.5px; border-bottom: 1.5px solid #059669; padding-bottom: 2px; margin-bottom: 3px; line-height: 1; }
 .alloc-venue { font-size: 13px; font-weight: bold; line-height: 1.3; }
-.alloc-slot { font-size: 11.5px; font-weight: bold; line-height: 1.3; }
 
 /* ── Photo Box ── */
 .photo-box { 
@@ -315,8 +316,58 @@ ${PRINT_BASE_STYLES}
 </style></head><body>${innerHtml}</body></html>`;
 }
 
+export function replaceIndividualPlaceholders(html: string, record: ParticipantsApplicationResponse): string {
+    const photoUrl = getPrintPhotoUrl(record, record.candidate_photo);
+    const dob = formatDate(record.dob);
+    const submitted = formatDate(record.created);
+    const expand = (record as any).expand || {};
+    const approver = expand.approved_by || {};
+    const institution = expand.institution_ref || {};
+
+    const map: Record<string, string> = {
+        '{{id}}': record.id || '',
+        '{{participant_id}}': record.participant_id || record.id || '',
+        '{{full_name}}': record.full_name || '',
+        '{{father_name}}': record.father_name || '',
+        '{{father_number}}': record.father_number || '',
+        '{{aadhaar_number}}': record.aadhaar_number || '',
+        '{{dob}}': dob,
+        '{{gender}}': record.gender || '',
+        '{{category}}': getCategoryLabel(record.category),
+        '{{selected_juz}}': record.juz_options ? getJuzLabel(record.juz_options) : (record.selected_juz || ''),
+        '{{whatsapp_number}}': record.whatsapp_number || '',
+        '{{email}}': record.email || '',
+        '{{address}}': record.address || '',
+        '{{guardian_name}}': record.guardian_name || '',
+        '{{guardian_phone}}': record.guardian_phone || '',
+        '{{requires_accommodation}}': record.requires_accommodation ? 'Yes' : 'No',
+        '{{status}}': record.status ? record.status.toUpperCase() : '',
+        '{{arrival_status}}': record.arrival_status === 'present' ? 'ARRIVED / PRESENT' : (record.arrival_status === 'absent' ? 'NOT ARRIVED / ABSENT' : 'NOT CHECKED-IN / NONE'),
+        '{{allocated_venue}}': record.allocated_venue || 'N/A',
+        '{{allocated_order}}': record.allocated_order ? String(record.allocated_order) : 'N/A',
+        '{{photo_url}}': photoUrl,
+        '{{candidate_photo}}': photoUrl,
+        '{{created}}': submitted,
+        '{{approved_by_name}}': approver.name || (record.status === 'approved' ? "Organising Committee" : "Pending"),
+        '{{approved_by_mobile}}': approver.mobile || (record.status === 'approved' ? "Official Support" : "N/A"),
+        '{{approved_by_email}}': approver.email || (record.status === 'approved' ? "support@competition.com" : ""),
+        '{{institution_name}}': institution.name || 'N/A',
+        '{{institution_id}}': institution.institution_id || 'N/A',
+        '{{institution_email}}': institution.email || 'N/A',
+        '{{institution_phone}}': institution.phone_number || institution.whatsapp_number || 'N/A',
+        '{{institution_incharge}}': institution.contact_person || 'N/A',
+        '{{institution_address}}': institution.address || 'N/A'
+    };
+
+    let output = html;
+    Object.entries(map).forEach(([key, val]) => {
+        output = output.split(key).join(val);
+    });
+    return output;
+}
+
 /** Generate printable HTML for a single individual application */
-export function generateIndividualFormHTML(record: ParticipantsApplicationResponse, _customTemplate?: string): string {
+export function generateIndividualFormHTML(record: ParticipantsApplicationResponse, customTemplate?: string): string {
     if (record.status !== 'approved') {
         return wrapFormsDocument(`
             <div class="error-msg">
@@ -325,11 +376,14 @@ export function generateIndividualFormHTML(record: ParticipantsApplicationRespon
             </div>
         `);
     }
-    return wrapFormsDocument(singleFormHTML(record, false));
+    if (customTemplate) {
+        return replaceIndividualPlaceholders(customTemplate, record);
+    }
+    return wrapFormsDocument(singleFormHTML(record, false), `application_${record.participant_id || record.id}`);
 }
 
 /** Generate printable HTML for ALL approved student forms under an institution */
-export function generateAllFormsHTML(applications: ParticipantsApplicationResponse[], _customTemplate?: string): string {
+export function generateAllFormsHTML(applications: ParticipantsApplicationResponse[], customTemplate?: string): string {
     const approvedApps = applications.filter(app => app.status === 'approved');
 
     if (approvedApps.length === 0) {
@@ -341,6 +395,12 @@ export function generateAllFormsHTML(applications: ParticipantsApplicationRespon
         `);
     }
 
+    if (customTemplate) {
+        return customTemplate.includes('page-break-after') 
+            ? approvedApps.map(app => replaceIndividualPlaceholders(customTemplate, app)).join('\n')
+            : approvedApps.map(app => `<div style="page-break-after:always;">${replaceIndividualPlaceholders(customTemplate, app)}</div>`).join('\n');
+    }
+
     const sorted = [...approvedApps].sort((a, b) => a.category.localeCompare(b.category));
     const inner = sorted.map((app, i) => singleFormHTML(app, i < sorted.length - 1)).join('\n');
     return wrapFormsDocument(inner);
@@ -349,7 +409,8 @@ export function generateAllFormsHTML(applications: ParticipantsApplicationRespon
 /** Generate printable attendance sheet HTML, grouped by Juz category */
 export function generateAttendanceSheetHTML(
     institution: InstitutionsResponse,
-    applications: ParticipantsApplicationResponse[]
+    applications: ParticipantsApplicationResponse[],
+    customTemplate?: string
 ): string {
     const approvedApps = applications.filter(a => a.status === 'approved');
 
@@ -363,48 +424,58 @@ export function generateAttendanceSheetHTML(
             </body></html>`;
     }
 
-    const categories = ['5_juz', '15_juz', '30_juz'] as const;
-    const labels: Record<string, string> = { '5_juz': '5 Juz', '15_juz': '15 Juz', '30_juz': '30 Juz' };
+    const categories = ['30_juz', '15_juz', '5_juz'] as const;
+    const labels: Record<string, string> = { '30_juz': '30 Juz', '15_juz': '15 Juz', '5_juz': '5 Juz' };
 
-    let sheets = '';
-    const activeCats = categories.filter(c => approvedApps.some(a => a.category === c));
+    let rows = '';
+    let globalIndex = 1;
 
-    activeCats.forEach((cat, catIdx) => {
+    categories.forEach((cat) => {
         const apps = approvedApps.filter(a => a.category === cat);
-        const isLast = catIdx === activeCats.length - 1;
+        if (apps.length === 0) return;
 
-        let rows = '';
-        apps.forEach((app, i) => {
+        rows += `<tr style="background:#f1f5f9; font-weight:bold;">
+            <td colspan="8" style="padding: 8px 10px; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; border-bottom: 2px solid #000;">
+                ${labels[cat]} Category (Total: ${apps.length})
+            </td>
+        </tr>`;
+
+        apps.forEach((app) => {
             const compJuz = getCompactJuz(app);
             rows += `<tr>
-                <td style="text-align:center;">${i + 1}</td>
+                <td style="text-align:center;">${globalIndex++}</td>
                 <td style="font-weight:bold;">${app.full_name}</td>
-                <td>${app.aadhaar_number}</td>
-                <td style="font-family:monospace;font-size:12px;">${app.participant_id || app.id}</td>
-                <td>${compJuz}</td>
-                <td>${app.allocated_venue || '—'}</td>
-                <td style="font-size:11px;">${app.allocated_slot || '—'}</td>
+                <td>${app.father_name || '—'}</td>
+                <td style="font-family:monospace;font-size:12px;text-align:center;">${app.participant_id || app.id}</td>
+                <td style="text-align:center;">${compJuz}</td>
+                <td>${app.allocated_venue ? `${app.allocated_venue} - ${app.allocated_order || 0}` : '—'}</td>
                 <td style="height:38px;"></td>
             </tr>`;
         });
+    });
 
-        sheets += `
-        <div class="sheet" style="${isLast ? '' : 'page-break-after:always;'}">
-            <div class="header">
-                <h1>${COMPETITION_TITLE}</h1>
-                <h2>Attendance Sheet &mdash; ${labels[cat]} Category</h2>
+    const sheets = `
+        <div class="sheet">
+            <div class="header" style="text-align: center; margin-bottom: 15px; border-bottom: 2px solid #000; padding-bottom: 8px;">
+                <div style="font-size: 14px; font-weight: bold; line-height: 1.3;">அல் ஜாமிஉல் அஸ்ஹர் ஜும்ஆ மஸ்ஜித், காயல்பட்டினம்.</div>
+                <div style="font-size: 14px; font-weight: bold; line-height: 1.3;">மத்ரஸத்துல் அஸ்ஹர் லி தஹ்ஃபீலில் குர்ஆனில் கரீம்</div>
+                <div style="font-size: 13px; font-weight: bold; font-family: sans-serif; line-height: 1.3; color: #444;">Madarasathul Azhar Li Thahfeezil Qur'anil Kareem</div>
+                <div style="font-size: 15px; font-weight: bold; margin-top: 4px; line-height: 1.3;">மாநிலம் தழுவிய திருக்குர்ஆன் மனன திறனாய்வுப் போட்டி - 2026</div>
+                <h1 style="font-size: 20px; font-weight: bold; text-transform: uppercase; margin-top: 2px; letter-spacing: 0.5px;">QURAN HIFZ COMPETITION 2026</h1>
+                <h2 style="font-size: 16px; font-weight: bold; margin-top: 4px; border: 1px solid #000; display: inline-block; padding: 2px 12px; background: #f1f5f9;">Attendance Sheet</h2>
             </div>
             
-            <div class="inst-info">
-                <div class="inst-info-col">
-                    <p><strong>Institution:</strong> ${institution.name}</p>
-                    <p><strong>Institution ID:</strong> ${institution.institution_id || 'N/A'}</p>
-                    <p><strong>Total Candidates (${labels[cat]}):</strong> ${apps.length}</p>
+            <div class="inst-info" style="display: flex; justify-content: space-between; gap: 20px; margin-bottom: 20px; font-size: 13px; text-align: left; border: 1px solid #000; padding: 10px 15px; background-color: #fafafa;">
+                <div class="inst-info-col" style="flex: 1.2;">
+                    <p style="margin-bottom: 4px; font-size: 14px;"><strong>Madrasa / School:</strong> <span style="font-size: 15px; font-weight: bold;">${institution.name}</span></p>
+                    <p style="margin-bottom: 4px;"><strong>Institution ID:</strong> ${institution.institution_id || 'N/A'}</p>
+                    <p style="margin-bottom: 4px;"><strong>Address:</strong> ${institution.address || 'N/A'}</p>
                 </div>
-                <div class="inst-info-col">
-                    <p><strong>In-Charge:</strong> ${institution.contact_person} ${institution.phone_number ? `| Ph: ${institution.phone_number}` : ''}</p>
-                    <p><strong>Email:</strong> ${institution.email || 'N/A'}</p>
-                    <p><strong>Address:</strong> ${institution.address || 'N/A'}</p>
+                <div class="inst-info-col" style="flex: 0.8; border-left: 1px dashed #ccc; padding-left: 20px;">
+                    <p style="margin-bottom: 4px;"><strong>In-Charge:</strong> ${institution.contact_person}</p>
+                    <p style="margin-bottom: 4px;"><strong>Phone / Whatsapp:</strong> ${institution.phone_number || institution.whatsapp_number || 'N/A'}</p>
+                    <p style="margin-bottom: 4px;"><strong>Email:</strong> ${institution.email || 'N/A'}</p>
+                    <p style="margin-bottom: 4px;"><strong>Total Candidates:</strong> <strong style="font-size: 14px;">${approvedApps.length}</strong></p>
                 </div>
             </div>
 
@@ -412,11 +483,10 @@ export function generateAttendanceSheetHTML(
                 <thead><tr>
                     <th style="width:40px;">S.No</th>
                     <th>Applicant Name</th>
-                    <th style="width:115px;">Aadhaar Number</th>
-                    <th style="width:115px;">Participant ID</th>
-                    <th style="width:100px;">Juz Option</th>
-                    <th style="width:115px;">Venue</th>
-                    <th style="width:170px;">Slot / Timing</th>
+                    <th>Father's Name</th>
+                    <th style="width:70px; text-align:center;">ID</th>
+                    <th style="width:90px; text-align:center;">Juz Option</th>
+                    <th style="width:150px;">Venue - Order</th>
                     <th style="width:100px;">Signature</th>
                 </tr></thead>
                 <tbody>${rows}</tbody>
@@ -426,7 +496,25 @@ export function generateAttendanceSheetHTML(
                 <div class="sig-block"><div class="sig-line">Date</div></div>
             </div>
         </div>`;
-    });
+
+    if (customTemplate) {
+        const map: Record<string, string> = {
+            '{{sheets}}': sheets,
+            '{{content}}': sheets,
+            '{{institution_name}}': institution.name || '',
+            '{{institution_id}}': institution.institution_id || 'N/A',
+            '{{contact_person}}': institution.contact_person || '',
+            '{{in_charge}}': institution.contact_person || '',
+            '{{in_charge_phone}}': institution.phone_number || institution.whatsapp_number || 'N/A',
+            '{{email}}': institution.email || 'N/A',
+            '{{address}}': institution.address || 'N/A'
+        };
+        let output = customTemplate;
+        Object.entries(map).forEach(([key, val]) => {
+            output = output.split(key).join(val);
+        });
+        return output;
+    }
 
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Attendance Sheet</title>
 <style>
@@ -448,3 +536,4 @@ th { background: #eee; font-weight: bold; text-transform: uppercase; font-size: 
 .sig-line { width: 240px; border-top: 1px solid #000; margin-top: 44px; padding-top: 6px; font-size: 12px; font-weight: bold; }
 </style></head><body>${sheets}</body></html>`;
 }
+

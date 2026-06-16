@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { pb } from '../../api/db';
-import { Search, ChevronLeft, Check, X, ShieldAlert, CheckSquare } from 'lucide-react';
+import { Search, ChevronLeft, Check, X, ShieldAlert, CheckSquare, Printer } from 'lucide-react';
 import type { ParticipantsApplicationResponse, InstitutionsResponse } from '../../api/track';
+import PrintPreviewModal from '../track/components/PrintPreviewModal';
+import { generateAttendanceSheetHTML } from '../track/components/printTemplates';
+import { metadataApi } from '../../api/metadata';
 import styles from './ArrivalCheckingPage.module.css';
 
 const JUZ_LABELS: Record<string, string> = { '5_juz': '5 Juz', '15_juz': '15 Juz', '30_juz': '30 Juz' };
@@ -14,6 +17,15 @@ export default function ArrivalCheckingPage() {
     const [selectedInst, setSelectedInst] = useState<InstitutionsResponse | null>(null);
     const [students, setStudents] = useState<ParticipantsApplicationResponse[]>([]);
     const [loadingStudents, setLoadingStudents] = useState(false);
+    
+    // In-Charge Assign Modal state
+    const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+    const [inchargeName, setInchargeName] = useState('');
+    const [inchargePhone, setInchargePhone] = useState('');
+    const [updatingIncharge, setUpdatingIncharge] = useState(false);
+    
+    // Print Preview state
+    const [printPreview, setPrintPreview] = useState<{ title: string; html: string } | null>(null);
     
     // Local state for tracking edited arrival status before saving
     // key: student.id, value: 'none' | 'present' | 'absent'
@@ -44,6 +56,8 @@ export default function ArrivalCheckingPage() {
     // Fetch students of selected institution (approved only)
     const handleSelectInstitution = async (inst: InstitutionsResponse) => {
         setSelectedInst(inst);
+        setInchargeName(inst.incharge || '');
+        setInchargePhone(inst.incharge_number || '');
         setLoadingStudents(true);
         setLocalStatuses({});
         setMessage(null);
@@ -126,6 +140,55 @@ export default function ArrivalCheckingPage() {
         }
     };
 
+    const handleSaveIncharge = async () => {
+        if (!selectedInst) return;
+        setUpdatingIncharge(true);
+        try {
+            const updated = await pb.collection('institutions').update<InstitutionsResponse>(selectedInst.id, {
+                incharge: inchargeName.trim(),
+                incharge_number: inchargePhone.trim()
+            });
+            setSelectedInst(updated);
+            setInstitutions(prev => prev.map(inst => inst.id === updated.id ? updated : inst));
+            setIsAssignModalOpen(false);
+            setMessage({ type: 'success', text: 'In-Charge details updated successfully.' });
+        } catch (err: any) {
+            console.error("Failed to update incharge:", err);
+            setMessage({ type: 'error', text: err.message || "Failed to update In-Charge details." });
+        } finally {
+            setUpdatingIncharge(false);
+        }
+    };
+
+    const handlePrintInstitutionList = async () => {
+        if (!selectedInst) return;
+        try {
+            const allMeta = await metadataApi.getAllMetadata(true);
+            const tplRecord = allMeta.find(r => r.key === 'institution_list_template');
+            let customTemplateHtml = '';
+            if (tplRecord && tplRecord.document) {
+                try {
+                    const tplUrl = pb.files.getURL(tplRecord, tplRecord.document);
+                    const tplRes = await fetch(tplUrl);
+                    if (tplRes.ok) {
+                        customTemplateHtml = await tplRes.text();
+                    }
+                } catch (e) {
+                    console.error('Failed to load custom list template:', e);
+                }
+            }
+
+            setPrintPreview({
+                title: 'Attendance Sheet Preview',
+                html: generateAttendanceSheetHTML(selectedInst, students, customTemplateHtml || undefined)
+            });
+        } catch (err) {
+            console.error('Failed to prepare attendance sheet:', err);
+            alert('Failed to load print data. Please try again.');
+        }
+    };
+
+
     // Filter institutions locally
     const filteredInstitutions = institutions.filter(inst =>
         inst.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -175,7 +238,15 @@ export default function ArrivalCheckingPage() {
                                     className={styles.instCard}
                                 >
                                     <div className={styles.instName}>{inst.name}</div>
-                                    <div className={styles.instId}>{inst.institution_id || inst.id}</div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div className={styles.instId}>{inst.institution_id || inst.id}</div>
+                                    </div>
+                                    <div className={styles.inchargeInfo}>
+                                        <strong>In-Charge:</strong> {inst.incharge || <span style={{ color: '#94a3b8' }}>None</span>}
+                                    </div>
+                                    <div className={styles.inchargeInfo}>
+                                        <strong>Number:</strong> {inst.incharge_number || <span style={{ color: '#94a3b8' }}>—</span>}
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -188,9 +259,26 @@ export default function ArrivalCheckingPage() {
                         <button onClick={() => setSelectedInst(null)} className={styles.backBtn}>
                             <ChevronLeft size={16} /> Back to Institutions
                         </button>
-                        <div className={styles.headerTitleWrap}>
-                            <h2 className={styles.title}>{selectedInst.name}</h2>
-                            <p className={styles.subtitle}>Institution ID: {selectedInst.institution_id}</p>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '16px', flexWrap: 'wrap' }}>
+                            <div>
+                                <h2 className={styles.title}>{selectedInst.name}</h2>
+                                <p className={styles.subtitle}>Institution ID: {selectedInst.institution_id}</p>
+                                <div style={{ marginTop: '8px', fontSize: '13px', color: '#475569', display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                                    <span><strong>In-Charge Name:</strong> {selectedInst.incharge || <span style={{ color: '#94a3b8' }}>Not Assigned</span>}</span>
+                                    <span><strong>In-Charge Number:</strong> {selectedInst.incharge_number || <span style={{ color: '#94a3b8' }}>—</span>}</span>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setInchargeName(selectedInst.incharge || '');
+                                    setInchargePhone(selectedInst.incharge_number || '');
+                                    setIsAssignModalOpen(true);
+                                }}
+                                className={styles.assignBtn}
+                            >
+                                Assign In-Charge
+                            </button>
                         </div>
                     </div>
 
@@ -268,7 +356,14 @@ export default function ArrivalCheckingPage() {
                                 })}
                             </div>
 
-                            <div className={styles.actionsBar}>
+                            <div className={styles.actionsBar} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
+                                <button
+                                    type="button"
+                                    onClick={handlePrintInstitutionList}
+                                    className={styles.printBtn}
+                                >
+                                    <Printer size={16} /> Print Institution List
+                                </button>
                                 <button
                                     onClick={handleSubmit}
                                     disabled={submitting}
@@ -280,6 +375,64 @@ export default function ArrivalCheckingPage() {
                         </>
                     )}
                 </div>
+            )}
+
+            {/* Assign In-Charge Modal Popup */}
+            {isAssignModalOpen && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modalContent}>
+                        <div className={styles.modalHeader}>
+                            <h3>Assign In-Charge</h3>
+                            <button className={styles.closeBtn} onClick={() => setIsAssignModalOpen(false)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className={styles.modalBody}>
+                            <div className={styles.formGroup}>
+                                <label className={styles.formLabel}>In-Charge Name</label>
+                                <input
+                                    type="text"
+                                    className={styles.formInput}
+                                    placeholder="Enter Name"
+                                    value={inchargeName}
+                                    onChange={e => setInchargeName(e.target.value)}
+                                />
+                            </div>
+                            <div className={styles.formGroup}>
+                                <label className={styles.formLabel}>In-Charge Number</label>
+                                <input
+                                    type="text"
+                                    className={styles.formInput}
+                                    placeholder="Enter Phone Number"
+                                    value={inchargePhone}
+                                    onChange={e => setInchargePhone(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div className={styles.modalFooter}>
+                            <button className={styles.cancelBtn} onClick={() => setIsAssignModalOpen(false)}>
+                                Cancel
+                            </button>
+                            <button
+                                className={styles.saveBtn}
+                                onClick={handleSaveIncharge}
+                                disabled={updatingIncharge}
+                            >
+                                {updatingIncharge ? 'Saving...' : 'Save'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Print Preview Modal */}
+            {printPreview && (
+                <PrintPreviewModal
+                    isOpen={!!printPreview}
+                    onClose={() => setPrintPreview(null)}
+                    title={printPreview.title}
+                    htmlContent={printPreview.html}
+                />
             )}
         </div>
     );

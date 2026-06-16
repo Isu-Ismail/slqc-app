@@ -188,6 +188,28 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
 
         const isAadhaarField = field.key === 'aadhaar_number';
         const isRequired = field.required && (!isAadhaarField || !formData.no_aadhaar);
+ 
+        if (field.type === 'textarea') {
+            return (
+                <div key={field.key} className={field.gridSpan === 2 ? styles.inputGroupFull : styles.inputGroup}>
+                    <label className={styles.inputLabel} htmlFor={field.key}>
+                        {field.label} {isRequired && <span style={{ color: '#ef4444' }}>*</span>}
+                    </label>
+                    <textarea
+                        id={field.key}
+                        className={`${styles.inputField} ${isError ? styles.inputError : ''}`}
+                        placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                        value={(formData as any)[field.key] || ''}
+                        style={{ minHeight: '60px', fontFamily: 'inherit', resize: 'vertical' }}
+                        onChange={(e) => {
+                            updateForm(field.key as keyof RegistrationFormData, e.target.value as any);
+                        }}
+                        onBlur={() => validateField(field.key, (formData as any)[field.key])}
+                    />
+                    {isError && <span className={styles.errorMessage}>{errorMsg}</span>}
+                </div>
+            );
+        }
 
         return (
             <div key={field.key} className={field.gridSpan === 2 ? styles.inputGroupFull : styles.inputGroup}>

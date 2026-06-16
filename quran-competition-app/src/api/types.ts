@@ -119,6 +119,8 @@ export type InstitutionsRecord = {
 	updated: IsoAutoDateString
 	whatsapp_number: string
 	applications?: any
+	incharge?: string
+	incharge_number?: string
 }
 
 export const ParticipantsApplicationRegistrationTypeOptions = {
@@ -152,6 +154,7 @@ export type ParticipantsApplicationRecord = {
 	birthcertificate_photo?: FileNameString
 	aadhaar_number: string
 	allocated_venue?: string
+	allocated_order?: number
 	allocated_slot?: string
 	candidate_photo?: FileNameString
 	category: ParticipantsApplicationCategoryOptions
@@ -177,6 +180,7 @@ export type ParticipantsApplicationRecord = {
 	selected_juz?: string
 	juz_options?: string
 	arrival_status?: 'none' | 'present' | 'absent'
+	address?: string
 }
 
 export type UsersRecord = {

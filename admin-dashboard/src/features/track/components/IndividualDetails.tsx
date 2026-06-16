@@ -56,19 +56,6 @@ export default function IndividualDetails({
     const photoInputRef = useRef<HTMLInputElement>(null);
     const [printPreview, setPrintPreview] = useState<string | null>(null);
     const [isPrintLoading, setIsPrintLoading] = useState(false);
-
-    const [metadata, setMetadata] = useState<Record<string, any>>({});
-
-    useEffect(() => {
-        metadataApi.getAllMetadata().then(records => {
-            const map: Record<string, any> = {};
-            records.forEach(r => {
-                map[r.key] = r.value;
-            });
-            setMetadata(map);
-        }).catch(err => console.error("Failed to load metadata in admin tracker details:", err));
-    }, []);
-
     const [isRefetching, setIsRefetching] = useState(false);
     const [refetchSuccess, setRefetchSuccess] = useState(false);
 
@@ -93,6 +80,45 @@ export default function IndividualDetails({
     const [modalState, setModalState] = useState<{ type: 'approve' | 'reject' | 'lock' | 'unlock' | null }>({ type: null });
     const [rejectReason, setRejectReason] = useState('');
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+    // Allocation override states
+    const [availableVenues, setAvailableVenues] = useState<any[]>([]);
+    const [selectedVenue, setSelectedVenue] = useState(individualRecord.allocated_venue || '');
+    const [selectedOrder, setSelectedOrder] = useState(individualRecord.allocated_order || 0);
+    const [isSavingAllocation, setIsSavingAllocation] = useState(false);
+
+    useEffect(() => {
+        setSelectedVenue(individualRecord.allocated_venue || '');
+        setSelectedOrder(individualRecord.allocated_order || 0);
+    }, [individualRecord.allocated_venue, individualRecord.allocated_order]);
+
+    useEffect(() => {
+        if (individualRecord.category) {
+            pb.collection('venue_detail').getList(1, 100, {
+                filter: `category = "${individualRecord.category}"`
+            }).then(res => {
+                setAvailableVenues(res.items);
+            }).catch(err => {
+                console.error('Failed to load venues:', err);
+            });
+        }
+    }, [individualRecord.category]);
+
+    const handleSaveAllocation = async () => {
+        setIsSavingAllocation(true);
+        try {
+            await pb.collection('participants_application').update(individualRecord.id, {
+                allocated_venue: selectedVenue,
+                allocated_order: Number(selectedOrder)
+            });
+            alert('Allocation updated successfully!');
+            if (onRefresh) await onRefresh();
+        } catch (e: any) {
+            alert(e.message || 'Failed to update allocation.');
+        } finally {
+            setIsSavingAllocation(false);
+        }
+    };
 
     const submitAction = async () => {
         if (!modalState.type) return;
@@ -143,16 +169,16 @@ export default function IndividualDetails({
 
     return (
         <>
-            {(individualRecord.allocated_venue || individualRecord.allocated_slot) && (
+            {individualRecord.status === 'approved' && (
                 <div className={styles.detailsCard} 
                      style={{ 
-                         marginBottom: '20px', 
-                         borderLeft: individualRecord.arrival_status === 'present' 
-                             ? '4px solid #10b981' 
-                             : individualRecord.arrival_status === 'absent' 
-                                 ? '4px solid #ef4444' 
-                                 : '4px solid #3b82f6' 
-                     }}>
+                          marginBottom: '20px', 
+                          borderLeft: individualRecord.arrival_status === 'present' 
+                              ? '4px solid #10b981' 
+                              : individualRecord.arrival_status === 'absent' 
+                                  ? '4px solid #ef4444' 
+                                  : '4px solid #3b82f6' 
+                      }}>
                     <div className={styles.detailsHeader} style={{ marginBottom: '12px', paddingBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <h3 style={{ 
                             color: individualRecord.arrival_status === 'present' 
@@ -176,7 +202,7 @@ export default function IndividualDetails({
                                         ? '#ef4444' 
                                         : '#3b82f6' 
                             }}></span>
-                            Venue & Slot Allocation
+                            Venue & Sequence Allocation
                         </h3>
                         {individualRecord.arrival_status && individualRecord.arrival_status !== 'none' && (
                             <span style={{ 
@@ -195,16 +221,39 @@ export default function IndividualDetails({
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                         <div>
                             <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Allocated Venue</span>
-                            <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e293b', marginTop: '4px' }}>
-                                {individualRecord.allocated_venue || 'N/A'}
-                            </div>
+                            <select
+                                className={styles.formSelect}
+                                style={{ marginTop: '4px', width: '100%', padding: '6px' }}
+                                value={selectedVenue}
+                                onChange={(e) => setSelectedVenue(e.target.value)}
+                            >
+                                <option value="">No Venue / Unallocated</option>
+                                {availableVenues.map(v => (
+                                    <option key={v.id} value={v.name}>{v.name}</option>
+                                ))}
+                            </select>
                         </div>
                         <div>
-                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Timing / Slot</span>
-                            <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e293b', marginTop: '4px' }}>
-                                {individualRecord.allocated_slot || 'N/A'}
-                            </div>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Sequence Order</span>
+                            <input
+                                type="number"
+                                className={styles.formInput}
+                                style={{ marginTop: '4px', width: '100%', padding: '6px' }}
+                                value={selectedOrder}
+                                onChange={(e) => setSelectedOrder(Number(e.target.value))}
+                                min={0}
+                            />
                         </div>
+                    </div>
+                    <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
+                        <button
+                            className={styles.btnPrimary}
+                            style={{ padding: '6px 12px', fontSize: '13px' }}
+                            onClick={handleSaveAllocation}
+                            disabled={isSavingAllocation || (selectedVenue === (individualRecord.allocated_venue || '') && selectedOrder === (individualRecord.allocated_order || 0))}
+                        >
+                            {isSavingAllocation ? 'Saving...' : 'Save Allocation'}
+                        </button>
                     </div>
                 </div>
             )}
@@ -290,6 +339,22 @@ export default function IndividualDetails({
                             value={individualRecord.participant_id}
                             disabled={true}
                             style={{ color: 'var(--success)', fontWeight: 600 }}
+                        />
+                    </div>
+                )}
+
+                {individualRecord.status === 'approved' && (
+                    <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>Approved By</label>
+                        <input
+                            type="text"
+                            className={styles.formInput}
+                            value={
+                                (individualRecord as any).expand?.approved_by
+                                    ? `${(individualRecord as any).expand.approved_by.name || 'Organising Committee'} (${(individualRecord as any).expand.approved_by.mobile || 'Official Support'})`
+                                    : 'Organising Committee (Official Support)'
+                            }
+                            disabled={true}
                         />
                     </div>
                 )}
@@ -424,6 +489,25 @@ export default function IndividualDetails({
                                     />
                                     <span>Requires Accommodation</span>
                                 </label>
+                            </div>
+                        );
+                    }
+
+                    if (field.type === 'textarea') {
+                        const isDisabled = !isEditable;
+                        return (
+                            <div key={field.key} className={`${styles.formGroup} ${field.gridSpan === 2 ? styles.fullWidth : ''}`}>
+                                <label className={styles.formLabel}>
+                                    {field.label} {isEditMode && field.required && <span style={{ color: '#ef4444' }}>*</span>}
+                                </label>
+                                <textarea
+                                    className={styles.formInput}
+                                    style={{ minHeight: '60px', fontFamily: 'inherit', resize: 'vertical' }}
+                                    value={value}
+                                    disabled={isDisabled}
+                                    placeholder={field.placeholder || 'N/A'}
+                                    onChange={(e) => updateEditField(field.key, e.target.value)}
+                                />
                             </div>
                         );
                     }
@@ -714,12 +798,38 @@ export default function IndividualDetails({
                     onClick={async () => {
                         setIsPrintLoading(true);
                         try {
+                            const allMeta = await metadataApi.getAllMetadata(true);
+                            const tplRecord = allMeta.find(r => r.key === 'application_print_template');
+                            let customTemplateHtml = '';
+                            if (tplRecord && tplRecord.document) {
+                                try {
+                                    const tplUrl = pb.files.getURL(tplRecord, tplRecord.document);
+                                    const tplRes = await fetch(tplUrl);
+                                    if (tplRes.ok) {
+                                        customTemplateHtml = await tplRes.text();
+                                    }
+                                } catch (tplErr) {
+                                    console.error('Failed to fetch custom print template:', tplErr);
+                                }
+                            }
+
+                            if (!customTemplateHtml) {
+                                try {
+                                    const fallbackRes = await fetch('/default_templates/application_template.html');
+                                    if (fallbackRes.ok) {
+                                        customTemplateHtml = await fallbackRes.text();
+                                    }
+                                } catch (err) {
+                                    console.error('Failed to fetch local default template:', err);
+                                }
+                            }
+
                             const res = await pb.send<any>(`/api/admin/print-form`, {
                                 method: 'GET',
                                 query: { id: individualRecord.id }
                             });
                             if (res) {
-                                setPrintPreview(generateIndividualFormHTML(res, metadata.print_template));
+                                setPrintPreview(generateIndividualFormHTML(res, customTemplateHtml || undefined));
                             }
                         } catch (err) {
                             console.error('Failed to fetch print details:', err);

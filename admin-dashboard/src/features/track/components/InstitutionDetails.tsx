@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
-import { Lock, Edit, Printer, FileText, ChevronDown, ChevronUp, CheckCircle, XCircle, Unlock, RefreshCw } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Lock, Edit, FileText, ChevronDown, ChevronUp, CheckCircle, XCircle, Unlock, RefreshCw } from 'lucide-react';
 import { pb } from '../../../api/db';
 import { adminTrackApi } from '../../../api/track';
 import type { ParticipantsApplicationResponse, InstitutionsResponse } from '../../../api/track';
 import styles from '../TrackPage.module.css';
 import printStyles from './PrintPreviewModal.module.css';
 import PrintPreviewModal from './PrintPreviewModal';
-import { generateAttendanceSheetHTML, generateAllFormsHTML } from './printTemplates';
+import { generateAllFormsHTML } from './printTemplates';
 import { metadataApi } from '../../../api/metadata';
 
 interface InstitutionDetailsProps {
@@ -81,16 +81,6 @@ export default function InstitutionDetails({
 
     const [isRefetching, setIsRefetching] = useState(false);
     const [refetchSuccess, setRefetchSuccess] = useState(false);
-    const [printTemplate, setPrintTemplate] = useState<string>('');
-
-    useEffect(() => {
-        metadataApi.getAllMetadata().then(records => {
-            const tpl = records.find(r => r.key === 'print_template');
-            if (tpl && typeof tpl.value === 'string') {
-                setPrintTemplate(tpl.value);
-            }
-        }).catch(err => console.error("Failed to load print template in InstitutionDetails:", err));
-    }, []);
 
     const handleRefetch = async () => {
         if (!onRefresh) return;
@@ -499,24 +489,48 @@ export default function InstitutionDetails({
                             <button
                                 className={printStyles.downloadBtn}
                                 style={{ padding: '6px 12px', fontSize: '12px' }}
-                                onClick={() => {
+                                onClick={async () => {
                                     if (!institutionData.institution) return;
-                                    setPrintPreview({
-                                        title: 'Attendance Sheet Preview',
-                                        html: generateAttendanceSheetHTML(institutionData.institution, institutionData.applications)
-                                    });
-                                }}
-                            >
-                                <Printer size={13} /> <span className={styles.btnText}>Print Attendance Sheet</span>
-                            </button>
-                            <button
-                                className={printStyles.downloadBtn}
-                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                                onClick={() => {
-                                    setPrintPreview({
-                                        title: 'All Application Forms',
-                                        html: generateAllFormsHTML(institutionData.applications, printTemplate)
-                                    });
+                                    try {
+                                        const res = await pb.send<any>(`/api/admin/print-institution-students`, {
+                                            method: 'GET',
+                                            query: { id: institutionData.institution.id }
+                                        });
+
+                                        const allMeta = await metadataApi.getAllMetadata(true);
+                                        const tplRecord = allMeta.find(r => r.key === 'application_print_template');
+                                        let customTemplateHtml = '';
+                                        if (tplRecord && tplRecord.document) {
+                                            try {
+                                                const tplUrl = pb.files.getURL(tplRecord, tplRecord.document);
+                                                const tplRes = await fetch(tplUrl);
+                                                if (tplRes.ok) {
+                                                    customTemplateHtml = await tplRes.text();
+                                                }
+                                            } catch (e) {
+                                                console.error('Failed to load custom application template:', e);
+                                            }
+                                        }
+
+                                        if (!customTemplateHtml) {
+                                            try {
+                                                const fallbackRes = await fetch('/default_templates/application_template.html');
+                                                if (fallbackRes.ok) {
+                                                    customTemplateHtml = await fallbackRes.text();
+                                                }
+                                            } catch (err) {
+                                                console.error('Failed to fetch local default template:', err);
+                                            }
+                                        }
+
+                                        setPrintPreview({
+                                            title: 'All Application Forms',
+                                            html: generateAllFormsHTML(res.applications, customTemplateHtml || undefined)
+                                        });
+                                    } catch (err) {
+                                        console.error('Failed to prepare application forms:', err);
+                                        alert('Failed to load print data. Please try again.');
+                                    }
                                 }}
                             >
                                 <FileText size={13} /> <span className={styles.btnText}>Print All Application Forms</span>

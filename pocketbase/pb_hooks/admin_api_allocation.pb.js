@@ -90,66 +90,9 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
         // 4. Reset all previous allocations for this category
         approvedCandidates.forEach(cand => {
             cand.set("allocated_venue", "");
-            cand.set("allocated_slot", "");
+            cand.set("allocated_order", 0);
             $app.save(cand);
         });
-
-        // 5. Group venues (flattened into slots) by category
-        const venuesByCat = [];
-
-        venues.forEach(v => {
-            let slotsVal = [];
-            try {
-                // PocketBase getString retrieves the raw JSON string directly from the record
-                const jsonStr = v.getString("slots");
-                if (jsonStr) {
-                    slotsVal = JSON.parse(jsonStr);
-                }
-            } catch (_) {
-                try {
-                    const rawSlots = v.get("slots");
-                    if (rawSlots) {
-                        slotsVal = typeof rawSlots === 'string' ? JSON.parse(rawSlots) : rawSlots;
-                    }
-                } catch (__) {}
-            }
-
-            // Fallback to general slot if no slots defined
-            if (!Array.isArray(slotsVal) || slotsVal.length === 0) {
-                slotsVal = [{
-                    name: "General Slot",
-                    time: "08:00 AM - 05:00 PM",
-                    capacity: parseInt(v.get("capacity"), 10) || 20
-                }];
-            }
-
-            slotsVal.forEach((slot, idx) => {
-                const sName = slot["name"] || slot.name || ("Slot " + (idx + 1));
-                const sTime = slot["time"] || slot.time || ((slot["startTime"] || slot.startTime) && (slot["endTime"] || slot.endTime) ? (slot["startTime"] || slot.startTime) + " - " + (slot["endTime"] || slot.endTime) : "");
-                const sCap = parseInt(slot["capacity"] || slot.capacity, 10) || 18;
-
-                venuesByCat.push({
-                    record: v,
-                    id: v.get("id"),
-                    name: v.get("name"),
-                    slotName: sName,
-                    slotTime: sTime,
-                    capacity: sCap,
-                    allocatedCount: 0,
-                    instCounts: {} // institution_ref -> count
-                });
-            });
-        });
-
-        // 6. Capacity Check
-        const totalCap = venuesByCat.reduce((sum, v) => sum + v.capacity, 0);
-        if (approvedCandidates.length > totalCap) {
-            return e.json(400, {
-                error: "Insufficient capacity for category '" + category.replace("_", " ") + "'. Candidates: " + approvedCandidates.length + ", Max Capacity: " + totalCap
-            });
-        }
-
-        const allocationSummary = {};
 
         // Helper function to shuffle an array
         const shuffle = (array) => {
@@ -162,8 +105,55 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
             return array;
         };
 
-        // 7. Run allocation
-        // Group candidates by institution
+        // 5. Build venues list with capacity allocation rules
+        const totalCandidates = approvedCandidates.length;
+        const numVenues = venues.length;
+        const venuesList = [];
+
+        venues.forEach(v => {
+            const cap = parseInt(v.get("capacity"), 10) || 0;
+            venuesList.push({
+                record: v,
+                id: v.get("id"),
+                name: v.get("name"),
+                configuredCapacity: cap,
+                capacity: cap || 0, // set dynamic share below if empty
+                allocatedCount: 0,
+                instCounts: {}, // institution_ref -> count
+                allocatedCandidates: [] // track assigned cands
+            });
+        });
+
+        // If capacity is kept empty (0), distribute remainder equally
+        let filledCapTotal = 0;
+        let emptyStagesCount = 0;
+        venuesList.forEach(v => {
+            if (v.configuredCapacity > 0) {
+                filledCapTotal += v.configuredCapacity;
+            } else {
+                emptyStagesCount++;
+            }
+        });
+
+        if (emptyStagesCount > 0) {
+            const remainder = Math.max(0, totalCandidates - filledCapTotal);
+            const equalShare = Math.ceil(remainder / emptyStagesCount);
+            venuesList.forEach(v => {
+                if (v.configuredCapacity <= 0) {
+                    v.capacity = equalShare;
+                }
+            });
+        }
+
+        // 6. Capacity Check
+        const totalCap = venuesList.reduce((sum, v) => sum + v.capacity, 0);
+        if (totalCandidates > totalCap) {
+            return e.json(400, {
+                error: "Insufficient capacity for category '" + category.replace("_", " ") + "'. Candidates: " + totalCandidates + ", Max Capacity: " + totalCap
+            });
+        }
+
+        // 7. Group candidates by institution
         const instGroups = {}; // institution_ref -> candidates[]
         const individualCands = [];
 
@@ -187,11 +177,9 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
         const sortedInsts = Object.keys(instGroups).sort((a, b) => instGroups[b].length - instGroups[a].length);
 
         const allocateCandidate = (cand, instId) => {
-            // Find all slot targets with remaining capacity
-            const availableTargets = venuesByCat.filter(v => v.allocatedCount < v.capacity);
+            const availableTargets = venuesList.filter(v => v.allocatedCount < v.capacity);
             if (availableTargets.length === 0) return false;
 
-            // Find slot target with minimum count of students from this institution
             let selectedTarget = null;
             let minInstCount = Infinity;
 
@@ -201,13 +189,11 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
                     minInstCount = instCount;
                     selectedTarget = t;
                 } else if (instCount === minInstCount) {
-                    // Tie breaker: pick slot target with fewer allocated candidates overall (even distribution)
                     const countNew = t.allocatedCount;
                     const countSelected = selectedTarget ? selectedTarget.allocatedCount : Infinity;
                     if (countNew < countSelected) {
                         selectedTarget = t;
                     } else if (countNew === countSelected) {
-                        // Secondary tie-breaker: pick slot target with more remaining capacity
                         const remCapNew = t.capacity - t.allocatedCount;
                         const remCapSelected = selectedTarget ? (selectedTarget.capacity - selectedTarget.allocatedCount) : 0;
                         if (remCapNew > remCapSelected) {
@@ -218,13 +204,7 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
             });
 
             if (selectedTarget) {
-                // Update DB record
-                cand.set("allocated_venue", selectedTarget.name);
-                const slotStr = selectedTarget.slotName + (selectedTarget.slotTime ? " - " + selectedTarget.slotTime : "");
-                cand.set("allocated_slot", slotStr);
-                $app.save(cand);
-
-                // Update memory state
+                selectedTarget.allocatedCandidates.push(cand);
                 selectedTarget.allocatedCount++;
                 if (instId) {
                     selectedTarget.instCounts[instId] = (selectedTarget.instCounts[instId] || 0) + 1;
@@ -247,13 +227,22 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
             allocateCandidate(cand, "");
         });
 
-        // Populate summary
-        venuesByCat.forEach(s => {
-            const key = s.name + " - " + s.slotName;
-            allocationSummary[key] = {
+        // Shuffle within each stage and write sequential allocated_order to DB
+        venuesList.forEach(venue => {
+            const shuffledCands = shuffle(venue.allocatedCandidates);
+            shuffledCands.forEach((cand, idx) => {
+                cand.set("allocated_venue", venue.name);
+                cand.set("allocated_order", idx + 1);
+                $app.save(cand);
+            });
+        });
+
+        const allocationSummary = {};
+        venuesList.forEach(v => {
+            allocationSummary[v.name] = {
                 category: category,
-                capacity: s.capacity,
-                allocated: s.allocatedCount
+                capacity: v.capacity,
+                allocated: v.allocatedCount
             };
         });
 
@@ -315,7 +304,7 @@ routerAdd("POST", "/api/admin/unallocate-venues", (e) => {
         // Fetch all candidates for the specified category
         const candidates = $app.findRecordsByFilter(
             "participants_application",
-            "category = '" + category + "' && (allocated_venue != '' || allocated_slot != '')",
+            "category = '" + category + "' && (allocated_venue != '' || allocated_order > 0)",
             "",
             999999,
             0
@@ -323,7 +312,7 @@ routerAdd("POST", "/api/admin/unallocate-venues", (e) => {
 
         candidates.forEach(cand => {
             cand.set("allocated_venue", "");
-            cand.set("allocated_slot", "");
+            cand.set("allocated_order", 0);
             $app.save(cand);
         });
 

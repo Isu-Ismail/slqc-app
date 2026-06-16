@@ -9,7 +9,6 @@ function getPrintPhotoUrl(record: any, filename: string): string {
     if (url.startsWith('/')) {
         return window.location.origin + url;
     }
-    // Handle local dev URLs when accessed remotely (e.g. via duckdns)
     if (url.includes('127.0.0.1:8080') || url.includes('localhost:8080')) {
         return url.replace(/^(https?:\/\/)[^\/]+/, window.location.origin + '/pb1');
     }
@@ -29,112 +28,21 @@ export function getCompactJuzLabel(code: string): string {
     return mapping[code] || code;
 }
 
-export function generateVenueListHTML(venueName: string, candidates: any[], venueSlots: any[], judges: any[] = []): string {
-    // Group candidates by slot
-    const candidatesBySlot: Record<string, any[]> = {};
-    
-    candidates.forEach(c => {
-        // Clean slot name (e.g. "Slot 1") to group correctly
-        const slotName = (c.allocated_slot || 'General Slot').split(' (')[0].trim();
-        if (!candidatesBySlot[slotName]) {
-            candidatesBySlot[slotName] = [];
-        }
-        candidatesBySlot[slotName].push(c);
-    });
-
-    const slotsSorted = Object.keys(candidatesBySlot).sort();
-    
-    const slotSections = slotsSorted.map((slotName, slotIdx) => {
-        const slotCandidates = candidatesBySlot[slotName];
+export function generateVenueListHTML(venueName: string, candidates: any[], _venueSlots: any[], judges: any[] = []): string {
+    const rows = candidates.map((c, index) => {
+        const instName = c.expand?.institution_ref?.name || '—';
+        const categoryLabel = c.category === '5_juz' ? '5 Juz' : c.category === '15_juz' ? '15 Juz' : '30 Juz';
+        const juzOptionLabel = getCompactJuzLabel(c.juzz_options || c.selected_juz);
         
-        // Find slot timing details
-        const foundSlot = venueSlots?.find(s => s.name === slotName);
-        const slotTiming = foundSlot?.time || '';
-        const slotTitleDisplay = slotTiming ? `${slotName} (${slotTiming})` : slotName;
-
-        const rows = slotCandidates.map((c, index) => {
-            const instName = c.expand?.institution_ref?.name || '—';
-            const categoryLabel = c.category === '5_juz' ? '5 Juz' : c.category === '15_juz' ? '15 Juz' : '30 Juz';
-            const juzOptionLabel = getCompactJuzLabel(c.juzz_options || c.selected_juz);
-            
-            return `
-                <tr>
-                    <td style="padding: 8px 6px; border: 1px solid #94a3b8; text-align: center; font-weight: bold;">${index + 1}</td>
-                    <td style="padding: 8px 6px; border: 1px solid #94a3b8; font-weight: bold;">${c.full_name}</td>
-                    <td style="padding: 8px 6px; border: 1px solid #94a3b8; font-family: monospace; font-size: 12px; text-align: center;">${c.participant_id || c.id}</td>
-                    <td style="padding: 8px 6px; border: 1px solid #94a3b8; font-size: 13px;">${instName}</td>
-                    <td style="padding: 8px 6px; border: 1px solid #94a3b8; text-align: center; font-size: 13px;">${categoryLabel} (${juzOptionLabel})</td>
-                    <td style="padding: 8px 6px; border: 1px solid #94a3b8; width: 150px;"></td>
-                </tr>
-            `;
-        }).join('');
-
-        const isLast = slotIdx === slotsSorted.length - 1;
-
         return `
-            <div class="slot-page" style="${!isLast ? 'page-break-after: always; margin-bottom: 30px;' : ''}">
-                <div class="header">
-                    <h1>${COMPETITION_TITLE}</h1>
-                    <h2>Venue Allocation & Attendance - ${venueName}</h2>
-                    <h3 style="margin-top: 5px; font-size: 16px; color: #0f766e;">${slotTitleDisplay}</h3>
-                </div>
-                
-                <table class="meta-info-table" style="width: 100%; margin-bottom: 12px; font-size: 12px; border-collapse: collapse;">
-                    <tr>
-                        <td style="padding: 3px 0; width: 33%;"><strong>Venue:</strong> ${venueName}</td>
-                        <td style="padding: 3px 0; width: 33%; text-align: center;"><strong>Date:</strong> __________________</td>
-                        <td style="padding: 3px 0; width: 33%; text-align: right;"><strong>Candidates in Slot:</strong> ${slotCandidates.length}</td>
-                    </tr>
-                </table>
-
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 11px;">
-                    <thead>
-                        <tr>
-                            <th style="border: 1px solid #000; padding: 5px; text-align: left; background: none; font-size: 11px; color: #000; font-weight: bold;">Judge Details</th>
-                            <th style="border: 1px solid #000; padding: 5px; text-align: left; background: none; font-size: 11px; color: #000; font-weight: bold; width: 30%;">Phone Number</th>
-                            <th style="border: 1px solid #000; padding: 5px; text-align: center; background: none; font-size: 11px; color: #000; font-weight: bold; width: 180px;">Signature</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${(() => {
-                            const list = Array.isArray(judges) ? judges : (judges ? [judges] : []);
-                            if (list.length > 0) {
-                                return list.map((j: any, idx: number) => `
-                                    <tr>
-                                        <td style="border: 1px solid #000; padding: 6px; font-weight: bold; font-size: 11px;">Judge ${idx + 1}: ${j.name}</td>
-                                        <td style="border: 1px solid #000; padding: 6px; font-family: monospace; font-size: 11px;">${j.phone_number}</td>
-                                        <td style="border: 1px solid #000; padding: 6px; height: 35px;"></td>
-                                    </tr>
-                                `).join('');
-                            } else {
-                                return `
-                                    <tr>
-                                        <td style="border: 1px solid #000; padding: 6px; font-style: italic; font-size: 11px;">No judges assigned.</td>
-                                        <td style="border: 1px solid #000; padding: 6px; font-size: 11px;">—</td>
-                                        <td style="border: 1px solid #000; padding: 6px; height: 35px; text-align: center; font-size: 10px; color: #64748b;">Signature: __________________</td>
-                                    </tr>
-                                `;
-                            }
-                        })()}
-                    </tbody>
-                </table>
-
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 50px; text-align: center; border: 1px solid #94a3b8;">S.No</th>
-                            <th style="border: 1px solid #94a3b8;">Participant Name</th>
-                            <th style="width: 100px; border: 1px solid #94a3b8; text-align: center;">Register ID</th>
-                            <th style="border: 1px solid #94a3b8;">Institution</th>
-                            <th style="width: 140px; text-align: center; border: 1px solid #94a3b8;">Category & Juz</th>
-                            <th style="width: 150px; text-align: center; border: 1px solid #94a3b8;">Candidate Signature</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rows}
-                    </tbody>
-                </table>
-            </div>
+            <tr>
+                <td style="padding: 8px 6px; border: 1px solid #94a3b8; text-align: center; font-weight: bold;">${c.allocated_order || index + 1}</td>
+                <td style="padding: 8px 6px; border: 1px solid #94a3b8; font-weight: bold;">${c.full_name}</td>
+                <td style="padding: 8px 6px; border: 1px solid #94a3b8; font-family: monospace; font-size: 12px; text-align: center;">${c.participant_id || c.id}</td>
+                <td style="padding: 8px 6px; border: 1px solid #94a3b8; font-size: 13px;">${instName}</td>
+                <td style="padding: 8px 6px; border: 1px solid #94a3b8; text-align: center; font-size: 13px;">${categoryLabel} (${juzOptionLabel})</td>
+                <td style="padding: 8px 6px; border: 1px solid #94a3b8; width: 150px;"></td>
+            </tr>
         `;
     }).join('');
 
@@ -182,23 +90,78 @@ export function generateVenueListHTML(venueName: string, candidates: any[], venu
                 }
                 @media print {
                     body { padding: 0; }
-                    .slot-page {
-                        page-break-after: always;
-                    }
-                    .slot-page:last-child {
-                        page-break-after: avoid;
-                    }
                 }
             </style>
         </head>
         <body>
-            ${slotSections || '<div style="text-align: center; padding: 40px; color: #666;">No candidates allocated to this venue.</div>'}
+            <div class="slot-page">
+                <div class="header">
+                    <h1>${COMPETITION_TITLE}</h1>
+                    <h2>Venue Allocation & Attendance - ${venueName}</h2>
+                </div>
+                
+                <table class="meta-info-table" style="width: 100%; margin-bottom: 12px; font-size: 12px; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 3px 0; width: 33%;"><strong>Venue:</strong> ${venueName}</td>
+                        <td style="padding: 3px 0; width: 33%; text-align: center;"><strong>Date:</strong> __________________</td>
+                        <td style="padding: 3px 0; width: 33%; text-align: right;"><strong>Total Candidates:</strong> ${candidates.length}</td>
+                    </tr>
+                </table>
+
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 11px;">
+                    <thead>
+                        <tr>
+                            <th style="border: 1px solid #000; padding: 5px; text-align: left; background: none; font-size: 11px; color: #000; font-weight: bold;">Judge Details</th>
+                            <th style="border: 1px solid #000; padding: 5px; text-align: left; background: none; font-size: 11px; color: #000; font-weight: bold; width: 30%;">Phone Number</th>
+                            <th style="border: 1px solid #000; padding: 5px; text-align: center; background: none; font-size: 11px; color: #000; font-weight: bold; width: 180px;">Signature</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${(() => {
+                            const list = Array.isArray(judges) ? judges : (judges ? [judges] : []);
+                            if (list.length > 0) {
+                                return list.map((j: any, idx: number) => `
+                                    <tr>
+                                        <td style="border: 1px solid #000; padding: 6px; font-weight: bold; font-size: 11px;">Judge ${idx + 1}: ${j.name}</td>
+                                        <td style="border: 1px solid #000; padding: 6px; font-family: monospace; font-size: 11px;">${j.phone_number}</td>
+                                        <td style="border: 1px solid #000; padding: 6px; height: 35px;"></td>
+                                    </tr>
+                                `).join('');
+                            } else {
+                                return `
+                                    <tr>
+                                        <td style="border: 1px solid #000; padding: 6px; font-style: italic; font-size: 11px;">No judges assigned.</td>
+                                        <td style="border: 1px solid #000; padding: 6px; font-size: 11px;">—</td>
+                                        <td style="border: 1px solid #000; padding: 6px; height: 35px; text-align: center; font-size: 10px; color: #64748b;">Signature: __________________</td>
+                                    </tr>
+                                `;
+                            }
+                        })()}
+                    </tbody>
+                </table>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 50px; text-align: center; border: 1px solid #94a3b8;">Order</th>
+                            <th style="border: 1px solid #94a3b8;">Participant Name</th>
+                            <th style="width: 100px; border: 1px solid #94a3b8; text-align: center;">Register ID</th>
+                            <th style="border: 1px solid #94a3b8;">Institution</th>
+                            <th style="width: 140px; text-align: center; border: 1px solid #94a3b8;">Category & Juz</th>
+                            <th style="width: 150px; text-align: center; border: 1px solid #94a3b8;">Candidate Signature</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows || '<tr><td colspan="6" style="text-align: center; padding: 20px;">No candidates allocated to this venue.</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
         </body>
         </html>
     `;
 }
 
-export function generateIDCardsHTML(venueName: string, candidates: any[], venueSlots: any[]): string {
+export function generateIDCardsHTML(venueName: string, candidates: any[], _venueSlots: any[]): string {
     const cards = candidates.map(c => {
         const photoUrl = getPrintPhotoUrl(c, c.candidate_photo) || 'https://placehold.co/150x180?text=No+Photo';
         
@@ -206,21 +169,13 @@ export function generateIDCardsHTML(venueName: string, candidates: any[], venueS
         const fullJuzLabel = c.juzz_options ? getJuzLabel(c.juzz_options) : (c.selected_juz || 'N/A');
         const instName = c.expand?.institution_ref?.name || 'Individual';
         
-        // Find slot timing details
-        const cleanSlotName = (c.allocated_slot || '').split(' (')[0].trim();
-        const foundSlot = venueSlots?.find(s => s.name === cleanSlotName);
-        const slotTiming = foundSlot?.time || (c.allocated_slot ? c.allocated_slot.match(/\(([^)]+)\)/)?.[1] : '') || '';
-        const slotDisplay = slotTiming ? `${cleanSlotName} (${slotTiming})` : (c.allocated_slot || 'N/A');
-
         return `
             <div class="id-card">
-                <!-- Header: Premium colored header gradient with brand green -->
                 <div class="card-header">
                     <div class="comp-title">${COMPETITION_TITLE}</div>
                     <div class="card-subtitle">CANDIDATE ENTRY PASS</div>
                 </div>
                 
-                <!-- Center Photo and ID Block -->
                 <div class="photo-section">
                     <div class="photo-border">
                         <img src="${photoUrl}" class="photo" alt="Candidate Photo" />
@@ -228,7 +183,6 @@ export function generateIDCardsHTML(venueName: string, candidates: any[], venueS
                     <div class="app-id">${c.participant_id || c.id}</div>
                 </div>
                 
-                <!-- Bottom Details Area -->
                 <div class="details-section">
                     <div class="name-display">${c.full_name}</div>
                     <table class="details-table">
@@ -270,10 +224,9 @@ export function generateIDCardsHTML(venueName: string, candidates: any[], venueS
                     </table>
                 </div>
 
-                <!-- Footer Allocation Banner: Beautiful brand green gradient, stacked rows to prevent wrapping -->
                 <div class="allocation-banner">
                     <div class="alloc-row"><strong>VENUE:</strong> ${c.allocated_venue || venueName}</div>
-                    <div class="alloc-row" style="margin-top: 3px;"><strong>SLOT:</strong> ${slotDisplay}</div>
+                    <div class="alloc-row" style="margin-top: 3px;"><strong>ORDER:</strong> ${c.allocated_order || 'N/A'}</div>
                 </div>
                 
                 <div class="card-footer">
@@ -307,8 +260,6 @@ export function generateIDCardsHTML(venueName: string, candidates: any[], venueS
                     max-width: 1200px;
                     margin: 0 auto;
                 }
-                
-                /* Spacious Creative ID Card (approx 98mm x 150mm) to fit more details */
                 .id-card {
                     width: 98mm;
                     height: 150mm;
@@ -326,7 +277,6 @@ export function generateIDCardsHTML(venueName: string, candidates: any[], venueS
                     page-break-inside: avoid;
                     break-inside: avoid;
                 }
-                
                 .card-header {
                     width: 100%;
                     background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
@@ -349,7 +299,6 @@ export function generateIDCardsHTML(venueName: string, candidates: any[], venueS
                     margin-top: 4px;
                     font-weight: bold;
                 }
-                
                 .photo-section {
                     display: flex;
                     flex-direction: column;
@@ -384,7 +333,6 @@ export function generateIDCardsHTML(venueName: string, candidates: any[], venueS
                     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
                     margin-top: 2px;
                 }
-                
                 .details-section {
                     width: 100%;
                     padding: 0 14px;
@@ -447,7 +395,6 @@ export function generateIDCardsHTML(venueName: string, candidates: any[], venueS
                 .inst-val {
                     font-weight: 800 !important;
                 }
-                
                 .allocation-banner {
                     width: calc(100% - 28px);
                     background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
@@ -469,7 +416,6 @@ export function generateIDCardsHTML(venueName: string, candidates: any[], venueS
                     font-weight: bold;
                     letter-spacing: 0.3px;
                 }
-                
                 .card-footer {
                     width: 100%;
                     background-color: #f8fafc;
@@ -480,7 +426,6 @@ export function generateIDCardsHTML(venueName: string, candidates: any[], venueS
                     text-align: center;
                     font-style: italic;
                 }
-                
                 @media print {
                     body {
                         background-color: #ffffff;

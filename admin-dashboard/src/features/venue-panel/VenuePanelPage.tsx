@@ -27,7 +27,7 @@ interface Participant {
     juz_options: string;
     juzz_options?: string;
     allocated_venue: string;
-    allocated_slot: string;
+    allocated_order: number;
     whatsapp_number: string;
     guardian_phone: string;
     candidate_photo: string;
@@ -49,7 +49,6 @@ export default function VenuePanelPage() {
     const [cache, setCache] = useState<Record<string, Participant[]>>({});
     const [loadingCandidates, setLoadingCandidates] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedSlot, setSelectedSlot] = useState<string>('all');
 
     // Print Modal States
     const [printPreview, setPrintPreview] = useState<string | null>(null);
@@ -61,9 +60,9 @@ export default function VenuePanelPage() {
         try {
             const res = await pb.send<any[]>('/api/admin/print-venue-list', {
                 method: 'GET',
-                query: { venue: activeTab, slot: 'all' } // Always fetch all slots for full list split by pages
+                query: { venue: activeTab }
             });
-            const html = generateVenueListHTML(activeTab, res, currentVenueSlots, currentVenue?.expand?.judges || []);
+            const html = generateVenueListHTML(activeTab, res, [], currentVenue?.expand?.judges || []);
             setPrintTitle(`Venue Allocation List - ${activeTab}`);
             setPrintPreview(html);
         } catch (err) {
@@ -79,9 +78,9 @@ export default function VenuePanelPage() {
         try {
             const res = await pb.send<any[]>('/api/admin/generate-ids', {
                 method: 'GET',
-                query: { venue: activeTab, slot: selectedSlot }
+                query: { venue: activeTab }
             });
-            const html = generateIDCardsHTML(activeTab, res, currentVenueSlots);
+            const html = generateIDCardsHTML(activeTab, res, []);
             setPrintTitle(`ID Cards - ${activeTab}`);
             setPrintPreview(html);
         } catch (err) {
@@ -97,7 +96,7 @@ export default function VenuePanelPage() {
         try {
             const res = await pb.send<any[]>('/api/admin/print-venue-list', {
                 method: 'GET',
-                query: { venue: activeTab, slot: 'all' }
+                query: { venue: activeTab }
             });
             const html = generateMarksheetHTML(activeTab, res, currentVenue?.expand?.judges || []);
             setPrintTitle(`Judges Marksheet - ${activeTab}`);
@@ -144,11 +143,9 @@ export default function VenuePanelPage() {
             }));
 
             setVenues(formattedVenues);
-            // If coordinator and currently on settings or no active tab, auto-select first venue
             if (user?.designation === 'coordinators' && (activeTab === 'settings' || !activeTab) && formattedVenues.length > 0) {
                 setActiveTab(formattedVenues[0].name);
             }
-            // Clear the candidates cache when venue configuration is reloaded/saved
             setCache({});
         } catch (err) {
             console.error('Failed to load venues for panel:', err);
@@ -160,7 +157,6 @@ export default function VenuePanelPage() {
     }, []);
 
     const loadCandidatesForVenue = async (venueName: string, forceRefresh: boolean = false) => {
-        // Return if already cached and not forcing reload
         if (!forceRefresh && cache[venueName]) {
             return;
         }
@@ -172,7 +168,7 @@ export default function VenuePanelPage() {
             const res = await pb.collection('participants_application').getFullList<Participant>({
                 filter: filter,
                 expand: 'institution_ref',
-                sort: 'full_name'
+                sort: 'allocated_order'
             });
 
             setCache(prev => ({
@@ -189,9 +185,39 @@ export default function VenuePanelPage() {
     // Load candidates when active venue tab changes
     useEffect(() => {
         if (activeTab === 'settings' || venues.length === 0) return;
-        setSelectedSlot('all');
         loadCandidatesForVenue(activeTab, false);
     }, [activeTab, venues]);
+
+    const handleMoveOrder = async (index: number, direction: 'up' | 'down') => {
+        const candidatesList = cache[activeTab] || [];
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= candidatesList.length) return;
+
+        const candidateA = candidatesList[index];
+        const candidateB = candidatesList[targetIndex];
+
+        // Swap allocated_orders
+        const tempOrder = candidateA.allocated_order || (index + 1);
+        const nextOrder = candidateB.allocated_order || (targetIndex + 1);
+
+        setLoadingCandidates(true);
+        try {
+            await Promise.all([
+                pb.collection('participants_application').update(candidateA.id, {
+                    allocated_order: nextOrder
+                }),
+                pb.collection('participants_application').update(candidateB.id, {
+                    allocated_order: tempOrder
+                })
+            ]);
+            await loadCandidatesForVenue(activeTab, true);
+        } catch (err) {
+            console.error('Failed to swap orders:', err);
+            alert('Failed to reorder candidates.');
+        } finally {
+            setLoadingCandidates(false);
+        }
+    };
 
     if (user?.designation !== 'admin' && user?.designation !== 'coordinators') {
         return (
@@ -203,34 +229,10 @@ export default function VenuePanelPage() {
     }
 
     const currentVenue = venues.find(v => v.name === activeTab);
-
-    // Parse slots for current venue
-    let currentVenueSlots: { name: string; time: string; capacity: number }[] = [];
-    if (currentVenue) {
-        try {
-            if (currentVenue.slots) {
-                currentVenueSlots = typeof currentVenue.slots === 'string' 
-                    ? JSON.parse(currentVenue.slots) 
-                    : currentVenue.slots;
-            }
-        } catch (_) {}
-    }
-
-    // Get current cache entry
     const candidatesList = cache[activeTab] || [];
 
-    // Filter candidates based on selected slot
-    const slotFilteredCandidates = selectedSlot === 'all'
-        ? candidatesList
-        : candidatesList.filter(c => {
-            if (!c.allocated_slot) return false;
-            const cleanAlloc = c.allocated_slot.split(' - ')[0].split(' (')[0].trim().toLowerCase();
-            const cleanSelected = selectedSlot.split(' - ')[0].split(' (')[0].trim().toLowerCase();
-            return cleanAlloc === cleanSelected;
-        });
-
     // Filter candidates based on search query
-    const filteredCandidates = slotFilteredCandidates.filter(c => {
+    const filteredCandidates = candidatesList.filter(c => {
         const query = searchQuery.toLowerCase();
         return (
             c.full_name.toLowerCase().includes(query) ||
@@ -238,8 +240,6 @@ export default function VenuePanelPage() {
             (c.expand?.institution_ref?.name || '').toLowerCase().includes(query)
         );
     });
-
-
 
     return (
         <div className={styles.container}>
@@ -421,7 +421,9 @@ export default function VenuePanelPage() {
                                     <Printer size={15} /> Generate Marksheet
                                 </button>
                             </div>
-                        </div>                        {/* Search and List Card */}
+                        </div>
+
+                        {/* Search and List Card */}
                         <div className={styles.card} style={{ padding: '0', overflow: 'hidden' }}>
                             <div style={{
                                 padding: '16px 20px',
@@ -453,7 +455,7 @@ export default function VenuePanelPage() {
                                             outline: 'none',
                                             transition: 'all 0.2s'
                                         }}
-                                        title="Reload current slot data"
+                                        title="Reload data"
                                     >
                                         <RefreshCw size={14} style={{ animation: loadingCandidates ? 'spin 1s linear infinite' : 'none' }} /> Reload
                                     </button>
@@ -478,62 +480,6 @@ export default function VenuePanelPage() {
                                 </div>
                             </div>
 
-                            {/* Slot Mini Tabs (Sub-Navigation) */}
-                            {currentVenueSlots.length > 0 && (
-                                <div style={{
-                                    display: 'flex',
-                                    gap: '8px',
-                                    padding: '8px 20px',
-                                    backgroundColor: '#f8fafc',
-                                    borderBottom: '1px solid #e2e8f0',
-                                    overflowX: 'auto'
-                                }}>
-                                    <button
-                                        type="button"
-                                        onClick={() => setSelectedSlot('all')}
-                                        style={{
-                                            padding: '6px 12px',
-                                            fontSize: '12px',
-                                            fontWeight: 'bold',
-                                            border: 'none',
-                                            borderRadius: '16px',
-                                            cursor: 'pointer',
-                                            backgroundColor: selectedSlot === 'all' ? '#0d9488' : '#e2e8f0',
-                                            color: selectedSlot === 'all' ? '#ffffff' : '#475569',
-                                            transition: '0.2s',
-                                            whiteSpace: 'nowrap'
-                                        }}
-                                    >
-                                        All Slots
-                                    </button>
-                                    {currentVenueSlots.map(s => {
-                                        const slotKey = s.name + (s.time ? " (" + s.time + ")" : "");
-                                        const isActive = selectedSlot === slotKey;
-                                        return (
-                                            <button
-                                                key={slotKey}
-                                                type="button"
-                                                onClick={() => setSelectedSlot(slotKey)}
-                                                style={{
-                                                    padding: '6px 12px',
-                                                    fontSize: '12px',
-                                                    fontWeight: 'bold',
-                                                    border: 'none',
-                                                    borderRadius: '16px',
-                                                    cursor: 'pointer',
-                                                    backgroundColor: isActive ? '#0d9488' : '#e2e8f0',
-                                                    color: isActive ? '#ffffff' : '#475569',
-                                                    transition: '0.2s',
-                                                    whiteSpace: 'nowrap'
-                                                }}
-                                            >
-                                                {s.name} {s.time ? `(${s.time})` : ''}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            )}
-
                             {loadingCandidates && filteredCandidates.length === 0 ? (
                                 <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
                                     Loading allocated candidates...
@@ -541,7 +487,7 @@ export default function VenuePanelPage() {
                             ) : filteredCandidates.length === 0 ? (
                                 <div style={{ textAlign: 'center', padding: '48px 20px', color: '#94a3b8' }}>
                                     <Users size={40} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
-                                    <p>No candidates found matching the query or currently allocated to this slot/venue.</p>
+                                    <p>No candidates found matching the query or currently allocated to this venue.</p>
                                 </div>
                             ) : (
                                 <div style={{ overflowX: 'auto' }}>
@@ -551,7 +497,7 @@ export default function VenuePanelPage() {
                                                 <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Participant Name</th>
                                                 <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Register ID</th>
                                                 <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Institution</th>
-                                                <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Allocated Slot</th>
+                                                <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Sequence Order</th>
                                                 <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Category</th>
                                                 <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Juz Option</th>
                                             </tr>
@@ -560,7 +506,32 @@ export default function VenuePanelPage() {
                                             {filteredCandidates.map((c, index) => (
                                                 <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background-color 0.2s' }}>
                                                     <td style={{ padding: '14px 20px', fontWeight: 'bold', color: '#1e293b' }}>
-                                                        {index + 1}. {c.full_name}
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            {user?.designation === 'admin' && (
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginRight: '6px' }}>
+                                                                    <button 
+                                                                        type="button" 
+                                                                        onClick={() => handleMoveOrder(index, 'up')}
+                                                                        disabled={index === 0 || loadingCandidates}
+                                                                        style={{ padding: '2px 4px', fontSize: '8px', cursor: 'pointer', background: '#e2e8f0', border: 'none', borderRadius: '3px' }}
+                                                                        title="Move Up"
+                                                                    >
+                                                                        ▲
+                                                                    </button>
+                                                                    <button 
+                                                                        type="button" 
+                                                                        onClick={() => handleMoveOrder(index, 'down')}
+                                                                        disabled={index === filteredCandidates.length - 1 || loadingCandidates}
+                                                                        style={{ padding: '2px 4px', fontSize: '8px', cursor: 'pointer', background: '#e2e8f0', border: 'none', borderRadius: '3px' }}
+                                                                        title="Move Down"
+                                                                    >
+                                                                        ▼
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                            <span style={{ minWidth: '24px', textAlign: 'center', color: '#64748b' }}>{c.allocated_order || index + 1}.</span>
+                                                            <span>{c.full_name}</span>
+                                                        </div>
                                                     </td>
                                                     <td style={{ padding: '14px 20px' }}>
                                                         <span style={{ fontFamily: 'monospace', padding: '2px 6px', backgroundColor: '#f1f5f9', borderRadius: '4px', fontSize: '12px' }}>
@@ -570,8 +541,8 @@ export default function VenuePanelPage() {
                                                     <td style={{ padding: '14px 20px', color: '#475569' }}>
                                                         {c.expand?.institution_ref?.name || <span style={{ color: '#94a3b8' }}>—</span>}
                                                     </td>
-                                                    <td style={{ padding: '14px 20px', color: '#0f766e', fontWeight: '500' }}>
-                                                        {c.allocated_slot || <span style={{ color: '#94a3b8' }}>General Slot</span>}
+                                                    <td style={{ padding: '14px 20px', color: '#0f766e', fontWeight: 'bold' }}>
+                                                        {c.allocated_order || index + 1}
                                                     </td>
                                                     <td style={{ padding: '14px 20px' }}>
                                                         <span style={{
@@ -607,7 +578,6 @@ export default function VenuePanelPage() {
                 htmlContent={printPreview || ''}
             />
 
-            {/* Custom Embedded CSS Styles for animations and responsiveness */}
             <style>{`
                 @keyframes spin {
                     from { transform: rotate(0deg); }

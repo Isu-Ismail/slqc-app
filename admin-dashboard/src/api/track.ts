@@ -73,9 +73,11 @@ export interface ParticipantsApplicationResponse extends RecordModel {
     approved_by?: string;
     participant_id?: string;
     allocated_venue?: string;
+    allocated_order?: number;
     allocated_slot?: string;
     selected_juz?: string;
     juz_options?: string;
+    address?: string;
 }
 
 export interface InstitutionsResponse extends RecordModel {
@@ -93,6 +95,8 @@ export interface InstitutionsResponse extends RecordModel {
     approved_by?: string;
     institution_id?: string;
     passcode?: string;
+    incharge?: string;
+    incharge_number?: string;
 }
 
 /**

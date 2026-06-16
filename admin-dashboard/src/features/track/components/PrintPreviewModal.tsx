@@ -21,8 +21,22 @@ export default function PrintPreviewModal({ isOpen, onClose, title, htmlContent 
     const handlePrint = () => {
         const iframe = iframeRef.current;
         if (iframe?.contentWindow) {
+            const originalTitle = document.title;
+            let tempTitle = 'application_form';
+            try {
+                const iframeTitle = iframe.contentDocument?.title;
+                if (iframeTitle) {
+                    tempTitle = iframeTitle;
+                }
+            } catch (e) {
+                console.error("Could not read iframe title", e);
+            }
+            document.title = tempTitle;
             iframe.contentWindow.focus();
             iframe.contentWindow.print();
+            setTimeout(() => {
+                document.title = originalTitle;
+            }, 1000);
         }
     };
 

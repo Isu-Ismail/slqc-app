@@ -759,6 +759,13 @@ export default function TrackPage() {
                             setIsEditMode(false);
                             setActiveTab('individual');
                             localStorage.setItem('quran_competition_track_tab', 'individual');
+                            
+                            const cleanId = app.id;
+                            const cleanDob = app.dob ? app.dob.split(' ')[0] : '';
+                            setIndividualQuery(cleanId);
+                            setSearchDob(cleanDob);
+                            localStorage.setItem('quran_competition_track_individual_query', cleanId);
+                            localStorage.setItem('quran_competition_track_individual_dob', cleanDob);
                         }}
                         onDeleteIndividual={handleDeleteIndividual}
                         onRefresh={() => handleSearchInstitution(institutionQuery, institutionPasscode, true)}

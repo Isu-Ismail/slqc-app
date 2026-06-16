@@ -52,7 +52,6 @@ export default function IndividualDetails({
     const birthCertFileInputRef = useRef<HTMLInputElement>(null);
     const photoInputRef = useRef<HTMLInputElement>(null);
     const [printPreview, setPrintPreview] = useState<string | null>(null);
-    const [printRecord, setPrintRecord] = useState<any | null>(null);
     const [isPrintLoading, setIsPrintLoading] = useState(false);
 
     const { metadata } = useRegistrationStatus();
@@ -187,16 +186,16 @@ export default function IndividualDetails({
 
     return (
         <>
-            {(individualRecord.allocated_venue || individualRecord.allocated_slot) && (
+            {(individualRecord.allocated_venue || individualRecord.allocated_order) && (
                 <div className={styles.detailsCard} 
                      style={{ 
-                         marginBottom: '20px', 
-                         borderLeft: individualRecord.arrival_status === 'present' 
-                             ? '4px solid #10b981' 
-                             : individualRecord.arrival_status === 'absent' 
-                                 ? '4px solid #ef4444' 
-                                 : '4px solid #3b82f6' 
-                     }}>
+                          marginBottom: '20px', 
+                          borderLeft: individualRecord.arrival_status === 'present' 
+                              ? '4px solid #10b981' 
+                              : individualRecord.arrival_status === 'absent' 
+                                  ? '4px solid #ef4444' 
+                                  : '4px solid #3b82f6' 
+                      }}>
                     <div className={styles.detailsHeader} style={{ marginBottom: '12px', paddingBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <h3 style={{ 
                             color: individualRecord.arrival_status === 'present' 
@@ -220,7 +219,7 @@ export default function IndividualDetails({
                                         ? '#ef4444' 
                                         : '#3b82f6' 
                             }}></span>
-                            Venue & Slot Allocation
+                            Venue & Sequence Allocation
                         </h3>
                         {individualRecord.arrival_status && individualRecord.arrival_status !== 'none' && (
                             <span style={{ 
@@ -236,17 +235,11 @@ export default function IndividualDetails({
                             </span>
                         )}
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
                         <div>
-                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Allocated Venue</span>
-                            <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e293b', marginTop: '4px' }}>
-                                {individualRecord.allocated_venue || 'N/A'}
-                            </div>
-                        </div>
-                        <div>
-                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Timing / Slot</span>
-                            <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e293b', marginTop: '4px' }}>
-                                {individualRecord.allocated_slot || 'N/A'}
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Allocated Venue & Order</span>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#0f766e', marginTop: '4px' }}>
+                                {individualRecord.allocated_venue ? `${individualRecord.allocated_venue} - ${individualRecord.allocated_order || 'N/A'}` : 'N/A'}
                             </div>
                         </div>
                     </div>
@@ -471,7 +464,26 @@ export default function IndividualDetails({
                             </div>
                         );
                     }
-
+ 
+                    if (field.type === 'textarea') {
+                        const isDisabled = !isEditable;
+                        return (
+                            <div key={field.key} className={`${styles.formGroup} ${field.gridSpan === 2 ? styles.fullWidth : ''}`}>
+                                <label className={styles.formLabel}>
+                                    {field.label} {isEditMode && field.required && <span style={{ color: '#ef4444' }}>*</span>}
+                                </label>
+                                <textarea
+                                    className={styles.formInput}
+                                    style={{ minHeight: '60px', fontFamily: 'inherit', resize: 'vertical' }}
+                                    value={value}
+                                    disabled={isDisabled}
+                                    placeholder={field.placeholder || 'N/A'}
+                                    onChange={(e) => updateEditField(field.key, e.target.value)}
+                                />
+                            </div>
+                        );
+                    }
+ 
                     // Allow editing Aadhaar Number during edit mode
                     const isDisabled = !isEditable;
 
@@ -719,9 +731,34 @@ export default function IndividualDetails({
                                     method: 'GET',
                                     query: { id: individualRecord.id, dob }
                                 });
+                                
+                                const tplRecord = metadata?._application_print_template_record;
+                                let customTemplateHtml = '';
+                                if (tplRecord && tplRecord.document) {
+                                    try {
+                                        const tplUrl = pb.files.getURL(tplRecord, tplRecord.document);
+                                        const tplRes = await fetch(tplUrl);
+                                        if (tplRes.ok) {
+                                            customTemplateHtml = await tplRes.text();
+                                        }
+                                    } catch (e) {
+                                        console.error('Failed to fetch custom template:', e);
+                                    }
+                                }
+
+                                if (!customTemplateHtml) {
+                                    try {
+                                        const fallbackRes = await fetch('/default_templates/application_template.html');
+                                        if (fallbackRes.ok) {
+                                            customTemplateHtml = await fallbackRes.text();
+                                        }
+                                    } catch (err) {
+                                        console.error('Failed to fetch local default template:', err);
+                                    }
+                                }
+
                                 if (res) {
-                                    setPrintRecord(res);
-                                    setPrintPreview(individualRecord.id);
+                                    setPrintPreview(generateIndividualFormHTML(res, customTemplateHtml || undefined));
                                 }
                             } catch (err) {
                                 console.error('Failed to fetch print details:', err);
@@ -738,15 +775,14 @@ export default function IndividualDetails({
                 </div>
             )}
 
-            {printPreview && printRecord && (
+            {printPreview && (
                 <PrintPreviewModal 
                     isOpen={true} 
                     onClose={() => {
                         setPrintPreview(null);
-                        setPrintRecord(null);
                     }} 
                     title="Print Registration Card"
-                    htmlContent={generateIndividualFormHTML(printRecord, metadata?.print_template)}
+                    htmlContent={printPreview}
                 />
             )}
 

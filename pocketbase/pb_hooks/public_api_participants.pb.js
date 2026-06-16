@@ -109,11 +109,12 @@ routerAdd("GET", "/api/public/track-individual", (e) => {
             guardian_name: record.get("guardian_name"),
             guardian_phone: record.get("guardian_phone"),
             requires_accommodation: record.get("requires_accommodation"),
+            address: record.get("address") || "",
             status: record.get("status"),
             is_locked: record.get("is_locked"),
             rejection_reason: record.get("rejection_reason"),
             allocated_venue: record.get("allocated_venue"),
-            allocated_slot: record.get("allocated_slot"),
+            allocated_order: record.get("allocated_order"),
             aadhaar_front: record.get("aadhaar_front"),
             birthcertificate_photo: record.get("birthcertificate_photo"),
             candidate_photo: record.get("candidate_photo"),
@@ -260,7 +261,7 @@ routerAdd("POST", "/api/public/update-individual", (e) => {
             "full_name", "father_name", "father_number", "aadhaar_number", 
             "dob", "gender", "category", "juz_options", "selected_juz", 
             "whatsapp_number", "email", "guardian_name", "guardian_phone", 
-            "requires_accommodation", "status", "approved_by", "rejection_reason"
+            "requires_accommodation", "address", "status", "approved_by", "rejection_reason"
         ];
 
         fields.forEach(field => {
@@ -305,6 +306,7 @@ routerAdd("POST", "/api/public/update-individual", (e) => {
             guardian_name: record.get("guardian_name"),
             guardian_phone: record.get("guardian_phone"),
             requires_accommodation: record.get("requires_accommodation"),
+            address: record.get("address") || "",
             status: record.get("status"),
             is_locked: record.get("is_locked"),
             rejection_reason: record.get("rejection_reason"),
@@ -322,100 +324,6 @@ routerAdd("POST", "/api/public/update-individual", (e) => {
     }
 });
 
-// ── 3. Secure public print application details ──────────────────────────────
-routerAdd("GET", "/api/public/print-form", (e) => {
-    const info = e.requestInfo();
-    const id = (info.query.id || "").trim();
-    const dob = (info.query.dob || "").trim();
-
-    if (!id || !dob) {
-        return e.json(400, { error: "Missing required parameters: id and dob" });
-    }
-
-    try {
-        const record = $app.findRecordById("participants_application", id);
-        if (!record) {
-            return e.json(404, { error: "Record not found" });
-        }
-
-        // Verify DOB match
-        if ((record.get("dob") + "").indexOf(dob) !== 0) {
-            return e.json(403, { error: "Unauthorized. Date of birth mismatch." });
-        }
-
-        if (record.get("status") !== "approved") {
-            return e.json(400, { error: "Application is not approved." });
-        }
-
-        // Expand approved_by
-        let expandedApprover = null;
-        const approvedBy = record.get("approved_by");
-        if (approvedBy) {
-            try {
-                expandedApprover = $app.findRecordById("users", approvedBy);
-            } catch (_) {
-                try {
-                    expandedApprover = $app.findRecordById("_superusers", approvedBy);
-                } catch (__) {}
-            }
-        }
-
-        // Expand institution_ref
-        let expandedInst = null;
-        const instRef = record.get("institution_ref");
-        if (instRef) {
-            try {
-                expandedInst = $app.findRecordById("institutions", instRef);
-            } catch (_) {}
-        }
-
-        const data = {
-            collectionId: record.collection().id,
-            collectionName: record.collection().name,
-            id: record.get("id"),
-            participant_id: record.get("participant_id"),
-            full_name: record.get("full_name"),
-            father_name: record.get("father_name"),
-            father_number: record.get("father_number"),
-            aadhaar_number: record.get("aadhaar_number"),
-            dob: record.get("dob"),
-            gender: record.get("gender"),
-            category: record.get("category"),
-            juz_options: record.get("juzz_options"),
-            selected_juz: record.get("selected_juz"),
-            whatsapp_number: record.get("whatsapp_number"),
-            email: record.get("email"),
-            guardian_name: record.get("guardian_name"),
-            guardian_phone: record.get("guardian_phone"),
-            requires_accommodation: record.get("requires_accommodation"),
-            status: record.get("status"),
-            registration_type: record.get("registration_type") || "individual",
-            allocated_venue: record.get("allocated_venue"),
-            allocated_slot: record.get("allocated_slot"),
-            candidate_photo: record.get("candidate_photo"),
-            created: record.get("created"),
-            expand: {
-                approved_by: expandedApprover ? {
-                    name: expandedApprover.get("name") || expandedApprover.get("username") || "Organising Committee",
-                    mobile: expandedApprover.get("mobile") || "Official Support",
-                    email: expandedApprover.get("email") || "support@competition.com"
-                } : null,
-                institution_ref: expandedInst ? {
-                    name: expandedInst.get("name"),
-                    institution_id: expandedInst.get("institution_id"),
-                    email: expandedInst.get("email"),
-                    phone_number: expandedInst.get("phone_number") || expandedInst.get("whatsapp_number") || "N/A",
-                    address: expandedInst.get("address")
-                } : null
-            }
-        };
-
-        return e.json(200, data);
-
-    } catch (err) {
-        return e.json(500, { error: "Failed to retrieve print details: " + err });
-    }
-});
 
 // ── 4. Secure check Aadhaar registration ─────────────────────────────────────
 routerAdd("GET", "/api/public/check-aadhaar", (e) => {
@@ -457,6 +365,7 @@ routerAdd("POST", "/api/public/submit-application", (e) => {
         guardian_name: "",
         guardian_phone: "",
         requires_accommodation: "",
+        address: "",
         selected_juz: "",
         juz_options: ""
     });
@@ -621,6 +530,7 @@ routerAdd("POST", "/api/public/submit-application", (e) => {
         record.set("guardian_name", guardianName);
         record.set("guardian_phone", guardianPhone);
         record.set("requires_accommodation", body.requires_accommodation === "true" || body.requires_accommodation === true);
+        record.set("address", (body.address || "").trim());
         record.set("selected_juz", (body.selected_juz || "").trim());
         record.set("juzz_options", (body.juz_options || "").trim());
         record.set("status", "pending");

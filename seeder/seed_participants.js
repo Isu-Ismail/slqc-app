@@ -172,6 +172,7 @@ async function run() {
         formData.append('guardian_name', `Guardian of Candidate ${i}`);
         formData.append('guardian_phone', '9876543212');
         formData.append('requires_accommodation', i % 3 === 0 ? 'true' : 'false');
+        formData.append('address', `No. ${i}, Mahrut Street, Kayalpatnam, Tamil Nadu - 628204`);
         formData.append('status', 'pending');
         formData.append('is_locked', 'false');
 

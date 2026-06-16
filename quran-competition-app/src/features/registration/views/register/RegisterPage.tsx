@@ -31,6 +31,7 @@ export interface RegistrationFormData {
     guardian_name: string;
     guardian_phone: string;
     requires_accommodation: boolean;
+    address: string;
     aadhaar_front: File | null;
     birthcertificate_photo: File | null;
     candidate_photo: File | null;
@@ -74,6 +75,7 @@ const getInitialFormData = (): RegistrationFormData => {
         guardian_name: '',
         guardian_phone: '',
         requires_accommodation: false,
+        address: '',
         aadhaar_front: null,
         birthcertificate_photo: null,
         candidate_photo: null,
@@ -257,6 +259,7 @@ export default function RegisterPage() {
                 guardian_name: '',
                 guardian_phone: '',
                 requires_accommodation: false,
+                address: '',
                 aadhaar_front: null,
                 birthcertificate_photo: null,
                 candidate_photo: null,

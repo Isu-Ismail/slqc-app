@@ -692,11 +692,13 @@ export default function TrackPage() {
                         loading={loading}
                         getStatusClass={getStatusClass}
                         onViewIndividual={(app) => {
-                            setIndividualRecord(app);
-                            initializeEditData(app);
+                            const cleanQuery = app.participant_id || app.id;
+                            setIndividualQuery(cleanQuery);
+                            localStorage.setItem('admin_track_individual_query', cleanQuery);
                             setIsEditMode(false);
                             setActiveTab('individual');
                             localStorage.setItem('admin_track_tab', 'individual');
+                            handleSearchIndividual(app.id);
                         }}
                         onDeleteIndividual={handleDeleteIndividual}
                         onRefresh={() => handleSearchInstitution(institutionQuery, true)}

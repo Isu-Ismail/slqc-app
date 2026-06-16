@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
-import { Lock, Edit, Printer, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { Lock, Edit, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import { pb } from '../../../../../api/db';
 import type { ParticipantsApplicationResponse, InstitutionsResponse } from '../../../../../api/types';
 import styles from '../TrackPage.module.css';
 import printStyles from './PrintPreviewModal.module.css';
-import PrintPreviewModal, { generateAttendanceSheetHTML, generateAllFormsHTML } from './PrintPreviewModal';
+import PrintPreviewModal, { generateAllFormsHTML } from './PrintPreviewModal';
 import { useRegistrationStatus } from '../../../../../shared/context/StatusContext';
 
 interface InstitutionDetailsProps {
@@ -424,24 +424,47 @@ export default function InstitutionDetails({
                             <button
                                 className={printStyles.downloadBtn}
                                 style={{ padding: '6px 12px', fontSize: '12px' }}
-                                onClick={() => {
+                                onClick={async () => {
                                     if (!institutionData.institution) return;
-                                    setPrintPreview({
-                                        title: 'Attendance Sheet Preview',
-                                        html: generateAttendanceSheetHTML(institutionData.institution, institutionData.applications)
-                                    });
-                                }}
-                            >
-                                <Printer size={13} /> Print Attendance Sheet
-                            </button>
-                            <button
-                                className={printStyles.downloadBtn}
-                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                                onClick={() => {
-                                    setPrintPreview({
-                                        title: 'All Application Forms',
-                                        html: generateAllFormsHTML(institutionData.applications, metadata.print_template)
-                                    });
+                                    try {
+                                        const res = await pb.send<any>(`/api/public/print-institution-students`, {
+                                            method: 'GET',
+                                            query: { id: institutionData.institution.id }
+                                        });
+
+                                        const tplRecord = metadata?._application_print_template_record;
+                                        let customTemplateHtml = '';
+                                        if (tplRecord && tplRecord.document) {
+                                            try {
+                                                const tplUrl = pb.files.getURL(tplRecord, tplRecord.document);
+                                                const tplRes = await fetch(tplUrl);
+                                                if (tplRes.ok) {
+                                                    customTemplateHtml = await tplRes.text();
+                                                }
+                                            } catch (e) {
+                                                console.error('Failed to load custom application template:', e);
+                                            }
+                                        }
+
+                                        if (!customTemplateHtml) {
+                                            try {
+                                                const fallbackRes = await fetch('/default_templates/application_template.html');
+                                                if (fallbackRes.ok) {
+                                                    customTemplateHtml = await fallbackRes.text();
+                                                }
+                                            } catch (err) {
+                                                console.error('Failed to fetch local default template:', err);
+                                            }
+                                        }
+
+                                        setPrintPreview({
+                                            title: 'All Application Forms',
+                                            html: generateAllFormsHTML(res.applications, customTemplateHtml || undefined)
+                                        });
+                                    } catch (err) {
+                                        console.error('Failed to prepare application forms:', err);
+                                        alert('Failed to load print data. Please try again.');
+                                    }
                                 }}
                             >
                                 <FileText size={13} /> Print All Application Forms

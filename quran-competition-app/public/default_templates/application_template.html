@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ta">
+
+<head>
+    <meta charset="UTF-8">
+    <title>application_{{participant_id}}</title>
+
+    <script>
+        // ==========================================
+        // CONFIGURABLE HEADINGS & LABELS (EDIT HERE)
+        // ==========================================
+        const CONFIG = {
+            // Arabic & Tamil Headers (Kept compact to save vertical space)
+            bismillah: "بِسْمِ اللهِ الرَّحْمَنِ الرَّحِيمِ",
+            organizationTamil: "அல் ஜாமிஉல் அஸ்ஹர் ஜும்ஆ மஸ்ஜித், காயல்பட்டினம்.",
+            madrasaTamil: "மத்ரஸத்துல் அஸ்ஹர் லி தஹ்ஃபீலில் குர்ஆனில் கரீம்",
+            madrasaEnglish: "Madarasathul Azhar Li Thahfeezil Qur'anil Kareem",
+            eventTamil: "மாநிலம் தழுவிய திருக்குர்ஆன் மனன திறனாய்வுப் போட்டி - 2026",
+            eventEnglish: "QURAN HIFZ COMPETITION 2026",
+            formTitle: "Candidate Application Form / விண்ணப்பப் படிவம்",
+
+            // Section Headers
+            secPersonal: "1. Personal Details / தனிப்பட்ட விபரங்கள்",
+            secJuz: "2. Category Details / பிரிவு விபரங்கள்",
+            secInstitution: "3. Madrasa Details / மத்ரஸா விபரங்கள்",
+
+            // Field Labels
+            lblParticipantId: "Participant ID",
+            lblName: "Full Name / பெயர்",
+            lblFather: "Father's Name / தந்தை பெயர்",
+            lblDob: "Date of Birth / பிறந்த தேதி",
+            lblAddress: "Address / முகவரி",
+            lblWhatsapp: "WhatsApp Number / வாட்ஸப் எண்",
+            lblCategory: "Selected Category / பிரிவு",
+            lblOption: "Chosen Option / தேர்ந்தெடுக்கப்பட்ட பகுதி",
+            lblInstName: "Madrasa Name / மத்ரஸா பெயர்",
+            lblInstId: "Institution ID",
+            lblInstWhatsapp: "Madrasa WhatsApp / Phone",
+            lblInstAddress: "Madrasa Address / முகவரி",
+            lblInstIncharge: "Madrasa In-Charge / பொறுப்பாளர் பெயர்",
+
+            // Condensed Declaration Box Text
+            consentText: "Declaration & Consent: I hereby declare that all information provided is true and accurate. I have read, understood, and solemnly agree to abide by all the rules and guidelines laid down by the Organising Committee.",
+
+            // Signature Labels
+            sigParticipant: "Participant's Signature",
+            sigParent: "Guardian's Signature",
+            sigPrincipal: "Principal Signature & Seal"
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            Object.keys(CONFIG).forEach(key => {
+                const elements = document.querySelectorAll(`[data-config="${key}"]`);
+                elements.forEach(el => el.textContent = CONFIG[key]);
+            });
+        });
+
+        function handleImageLoad(imgElement) {
+            const textElement = imgElement.nextElementSibling;
+            if (textElement) {
+                textElement.style.display = 'none';
+            }
+        }
+    </script>
+
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 6mm;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            overflow: auto;
+        }
+
+        body {
+            font-family: 'Amiri', 'Geeza Pro', 'Noto Sans Tamil', 'Segoe UI', Arial, sans-serif;
+            color: #000;
+            line-height: 1.4;
+            font-size: 15px;
+        }
+
+        .page-border {
+            border: 4px double #000;
+            padding: 24px;
+            height: calc(297mm - 12mm - 4px);
+            /* Exact A4 height minus margin and safe border */
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            page-break-inside: avoid;
+        }
+
+        /* Large, Clear Top Title Header */
+        .main-header {
+            text-align: center;
+            margin-bottom: 8px;
+            border-bottom: 1.5px solid #000;
+            padding-bottom: 6px;
+        }
+
+        .arabic-txt {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 2px;
+            font-family: 'Amiri', serif;
+            line-height: 1.1;
+        }
+
+        .tamil-header {
+            font-size: 15px;
+            margin: 2px 0;
+            font-weight: bold;
+            line-height: 1.1;
+        }
+
+        .english-header {
+            font-size: 15px;
+            font-weight: bold;
+            letter-spacing: 0.1px;
+            margin: 2px 0;
+            line-height: 1.1;
+        }
+
+        .form-badge {
+            display: inline-block;
+            padding: 4px 18px;
+            font-weight: bold;
+            font-size: 14px;
+            margin-top: 4px;
+            border: 1.5px solid #000;
+        }
+
+        .id-banner {
+            display: flex;
+            justify-content: space-between;
+            border: 1.5px solid #000;
+            padding: 6px 12px;
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        /* Core Section Elements - Titles are neat, values are LARGER */
+        .section-title {
+            padding: 4px 8px;
+            font-weight: bold;
+            font-size: 14px;
+            border: 1.5px solid #000;
+            background-color: #f0f0f0;
+            margin-top: 14px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            column-gap: 32px;
+            row-gap: 14px;
+        }
+
+        .full-width {
+            grid-column: span 2;
+        }
+
+        .info-box {
+            display: flex;
+            flex-direction: column;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 4px;
+        }
+
+        .label {
+            font-size: 13px;
+            color: #000;
+            font-weight: bold;
+            margin-bottom: 3px;
+        }
+
+        .value {
+            font-size: 19px;
+            font-weight: bold;
+        }
+
+        .personal-row {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        .fields-flex {
+            flex: 1;
+        }
+
+        /* Compact Candidate Photo Box */
+        .photo-slot {
+            width: 135px;
+            height: 165px;
+            border: 1.5px dashed #000;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            box-sizing: border-box;
+            background: #fff;
+            overflow: hidden;
+        }
+
+        .photo-slot img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
+        }
+
+        .photo-placeholder-text {
+            font-size: 10px;
+            font-weight: bold;
+            color: #000;
+            padding: 6px;
+            z-index: 1;
+        }
+
+        /* Compact Declaration Box Layout */
+        .consent-section {
+            margin-top: 12px;
+            font-size: 11px;
+            text-align: justify;
+            line-height: 1.35;
+            border: 1.5px solid #000;
+            padding: 6px 10px;
+        }
+
+        /* Clean Signatures Spacing */
+        .signature-row {
+            margin-top: 65px;
+            display: flex;
+            justify-content: space-between;
+            padding-bottom: 2px;
+        }
+
+        .sig-space {
+            width: 28%;
+            border-top: 1.5px solid #000;
+            text-align: center;
+            padding-top: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        @media print {
+
+            html,
+            body {
+                height: 100%;
+                overflow: hidden;
+            }
+
+            .page-border {
+                height: 100% !important;
+                border: 4px double #000 !important;
+            }
+
+            * {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="page-border">
+        <!-- Main Form Fields Container -->
+        <div>
+            <!-- Compact Title Area -->
+            <div class="main-header">
+                <div class="arabic-txt" data-config="bismillah"></div>
+                <div class="tamil-header" data-config="organizationTamil"></div>
+                <div class="tamil-header" data-config="madrasaTamil"></div>
+                <div class="english-header" data-config="madrasaEnglish"></div>
+                <div class="tamil-header" style="margin-top:2px;" data-config="eventTamil"></div>
+                <div class="english-header" data-config="eventEnglish"></div>
+                <div class="form-badge" data-config="formTitle"></div>
+            </div>
+
+            <!-- Meta info banner block -->
+            <div class="id-banner">
+                <div><span data-config="lblParticipantId"></span>: {{participant_id}}</div>
+                <div>Status: APPROVED</div>
+            </div>
+
+            <!-- SECTION 1: Personal Details -->
+            <div class="section-title" data-config="secPersonal"></div>
+            <div class="personal-row">
+                <div class="fields-flex">
+                    <div class="info-grid">
+                        <div class="info-box"><span class="label" data-config="lblName"></span><span
+                                class="value">{{full_name}}</span></div>
+                        <div class="info-box"><span class="label" data-config="lblFather"></span><span
+                                class="value">{{father_name}}</span></div>
+                        <div class="info-box"><span class="label" data-config="lblDob"></span><span
+                                class="value">{{dob}}</span></div>
+                        <div class="info-box"><span class="label" data-config="lblWhatsapp"></span><span
+                                class="value">{{whatsapp_number}}</span></div>
+                        <!-- Participant's Home Address -->
+                        <div class="info-box full-width"><span class="label" data-config="lblAddress"></span><span
+                                class="value">{{address}}</span></div>
+                    </div>
+                </div>
+
+                <!-- Photo Slot Render Container Component -->
+                <div class="photo-slot">
+                    <img src="{{candidate_photo}}" alt="" onload="handleImageLoad(this);"
+                        onerror="this.style.display='none';">
+                    <div class="photo-placeholder-text">
+                        PASSPORT PHOTO<br>
+                        <span style="font-weight:normal; font-size:9px;">(3.5cm x 4.5cm)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 2: Juz / Category Details (Stacked Full Width Lines) -->
+            <div class="section-title" data-config="secJuz"></div>
+            <div class="info-grid">
+                <div class="info-box full-width">
+                    <span class="label" data-config="lblCategory"></span>
+                    <span class="value">{{category}}</span>
+                </div>
+                <div class="info-box full-width">
+                    <span class="label" data-config="lblOption"></span>
+                    <span class="value">{{selected_juz}}</span>
+                </div>
+            </div>
+
+            <!-- SECTION 3: Madrasa & Guardian Details -->
+            <div class="section-title" data-config="secInstitution"></div>
+            <div class="info-grid">
+                <div class="info-box"><span class="label" data-config="lblInstName"></span><span
+                        class="value">{{institution_name}}</span></div>
+                <div class="info-box"><span class="label" data-config="lblInstId"></span><span
+                        class="value">{{institution_id}}</span></div>
+                <div class="info-box"><span class="label" data-config="lblInstIncharge"></span><span
+                        class="value">{{institution_incharge}}</span></div>
+                <div class="info-box"><span class="label" data-config="lblInstWhatsapp"></span><span
+                        class="value">{{institution_phone}}</span></div>
+                <div class="info-box full-width"><span class="label" data-config="lblInstAddress"></span><span
+                        class="value">{{institution_address}}</span></div>
+            </div>
+        </div>
+
+        <!-- Fixed Bottom Actions Elements Container Wrap -->
+        <div>
+            <div class="consent-section" data-config="consentText"></div>
+
+            <div class="signature-row">
+                <div class="sig-space" data-config="sigParticipant"></div>
+                <div class="sig-space" data-config="sigParent"></div>
+                <div class="sig-space" data-config="sigPrincipal"></div>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>
