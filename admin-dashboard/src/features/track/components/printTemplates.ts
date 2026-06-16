@@ -40,22 +40,6 @@ function formatDate(dateStr: string): string {
     } catch { return dateStr; }
 }
 
-function getCompactJuz(record: ParticipantsApplicationResponse): string {
-    const code = record.juz_options || '';
-    if (code === '0030') return '1-30';
-    if (code === '0115') return '1-15';
-    if (code === '1530') return '16-30';
-    if (code === '01102630') return '1-10 & 26-30';
-    if (code === '2630') return '26-30';
-    if (code === '0105') return '1-5';
-    
-    const raw = record.selected_juz || '';
-    if (!raw) return 'N/A';
-    const match = raw.match(/Juz\s+([\d&\-\s]+)/i);
-    if (match) return match[1].trim();
-    return raw;
-}
-
 function getPrintPhotoUrl(record: any, filename: string): string {
     if (!filename) return '';
     let url = pb.files.getURL(record, filename);
@@ -67,6 +51,10 @@ function getPrintPhotoUrl(record: any, filename: string): string {
         return url.replace(/^(https?:\/\/)[^\/]+/, window.location.origin + '/pb1');
     }
     return url;
+}
+function cleanJuzLabelForPrint(label: string): string {
+    if (!label) return '';
+    return label.replace(/^Juz\s+[\d\-&,\s]+:\s*/i, '');
 }
 
 function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: boolean): string {
@@ -82,7 +70,8 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
     const approverContact = approver?.mobile || (record.status === 'approved' ? "Official Support" : "N/A");
     const approverEmail = approver?.email || (record.status === 'approved' ? "support@competition.com" : "");
 
-    const juzDisplay = record.juz_options ? getJuzLabel(record.juz_options) : (record.selected_juz || 'N/A');
+    const rawJuz = record.juz_options ? getJuzLabel(record.juz_options) : (record.selected_juz || 'N/A');
+    const juzDisplay = cleanJuzLabelForPrint(rawJuz);
     const arrivalText = record.arrival_status === 'present' ? 'ARRIVED / PRESENT' : (record.arrival_status === 'absent' ? 'NOT ARRIVED / ABSENT' : 'NOT CHECKED-IN / NONE');
 
     return `
@@ -118,8 +107,8 @@ function singleFormHTML(record: ParticipantsApplicationResponse, pageBreak: bool
             <div class="top-right">
                 <div class="photo-box">
                     ${photoUrl
-                ? `<img src="${photoUrl}" alt="Photo" />`
-                : '<span>Passport<br/>Size<br/>Photo</span>'}
+            ? `<img src="${photoUrl}" alt="Photo" />`
+            : '<span>Passport<br/>Size<br/>Photo</span>'}
                 </div>
             </div>
         </div>
@@ -334,7 +323,7 @@ export function replaceIndividualPlaceholders(html: string, record: Participants
         '{{dob}}': dob,
         '{{gender}}': record.gender || '',
         '{{category}}': getCategoryLabel(record.category),
-        '{{selected_juz}}': record.juz_options ? getJuzLabel(record.juz_options) : (record.selected_juz || ''),
+        '{{selected_juz}}': cleanJuzLabelForPrint(record.juz_options ? getJuzLabel(record.juz_options) : (record.selected_juz || '')),
         '{{whatsapp_number}}': record.whatsapp_number || '',
         '{{email}}': record.email || '',
         '{{address}}': record.address || '',
@@ -396,9 +385,62 @@ export function generateAllFormsHTML(applications: ParticipantsApplicationRespon
     }
 
     if (customTemplate) {
-        return customTemplate.includes('page-break-after') 
-            ? approvedApps.map(app => replaceIndividualPlaceholders(customTemplate, app)).join('\n')
-            : approvedApps.map(app => `<div style="page-break-after:always;">${replaceIndividualPlaceholders(customTemplate, app)}</div>`).join('\n');
+        const hasHtmlOrBody = customTemplate.toLowerCase().includes('<html') || customTemplate.toLowerCase().includes('<body');
+        if (hasHtmlOrBody) {
+            // Extract the style tags
+            const styleMatch = customTemplate.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+            const styleContent = styleMatch ? styleMatch[0] : '';
+
+            // Extract the script tags
+            const scriptMatch = customTemplate.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
+            const scriptContent = scriptMatch ? scriptMatch[0] : '';
+
+            // Extract contents inside body
+            let bodyContent = customTemplate;
+            const bodyMatch = customTemplate.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+            if (bodyMatch) {
+                bodyContent = bodyMatch[1];
+            } else {
+                const headCloseIndex = customTemplate.toLowerCase().indexOf('</head>');
+                if (headCloseIndex !== -1) {
+                    bodyContent = customTemplate.substring(headCloseIndex + 7);
+                }
+            }
+
+            // Map each student form, replacing placeholders
+            const pagesMarkup = approvedApps.map((app) => {
+                const replaced = replaceIndividualPlaceholders(bodyContent, app);
+                return `<div class="print-page-wrapper" style="page-break-after: always; break-after: page; box-sizing: border-box;">${replaced}</div>`;
+            }).join('\n');
+
+            return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>All Application Forms</title>
+    ${styleContent}
+    ${scriptContent}
+    <style>
+        @media print {
+            .print-page-wrapper {
+                page-break-inside: avoid !important;
+            }
+            .print-page-wrapper:last-child {
+                page-break-after: avoid !important;
+                break-after: avoid !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    ${pagesMarkup}
+</body>
+</html>`;
+        } else {
+            return customTemplate.includes('page-break-after')
+                ? approvedApps.map(app => replaceIndividualPlaceholders(customTemplate, app)).join('\n')
+                : approvedApps.map(app => `<div style="page-break-after:always;">${replaceIndividualPlaceholders(customTemplate, app)}</div>`).join('\n');
+        }
     }
 
     const sorted = [...approvedApps].sort((a, b) => a.category.localeCompare(b.category));
@@ -424,83 +466,423 @@ export function generateAttendanceSheetHTML(
             </body></html>`;
     }
 
-    const categories = ['30_juz', '15_juz', '5_juz'] as const;
-    const labels: Record<string, string> = { '30_juz': '30 Juz', '15_juz': '15 Juz', '5_juz': '5 Juz' };
+    const categories = ['5_juz', '15_juz', '30_juz'] as const;
+    const labels: Record<string, string> = { '30_juz': '30 Juzz', '15_juz': '15 Juzz', '5_juz': '5 Juzz' };
 
-    let rows = '';
-    let globalIndex = 1;
-
-    categories.forEach((cat) => {
+    const categoryTables = categories.map(cat => {
         const apps = approvedApps.filter(a => a.category === cat);
-        if (apps.length === 0) return;
+        if (apps.length === 0) return '';
 
-        rows += `<tr style="background:#f1f5f9; font-weight:bold;">
-            <td colspan="8" style="padding: 8px 10px; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; border-bottom: 2px solid #000;">
-                ${labels[cat]} Category (Total: ${apps.length})
-            </td>
-        </tr>`;
-
-        apps.forEach((app) => {
-            const compJuz = getCompactJuz(app);
-            rows += `<tr>
-                <td style="text-align:center;">${globalIndex++}</td>
-                <td style="font-weight:bold;">${app.full_name}</td>
-                <td>${app.father_name || '—'}</td>
-                <td style="font-family:monospace;font-size:12px;text-align:center;">${app.participant_id || app.id}</td>
-                <td style="text-align:center;">${compJuz}</td>
-                <td>${app.allocated_venue ? `${app.allocated_venue} - ${app.allocated_order || 0}` : '—'}</td>
-                <td style="height:38px;"></td>
+        const rowsHtml = apps.map((app, idx) => {
+            const venueOrder = app.allocated_venue ? `${app.allocated_venue} - ${app.allocated_order || ''}` : '—';
+            return `<tr>
+                <td style="text-align: center;">${idx + 1}</td>
+                <td style="text-align: center; font-family: monospace;">${app.participant_id || app.id}</td>
+                <td style="text-align: center;">${venueOrder}</td>
+                <td style="font-weight: bold;">${app.full_name}</td>
+                <td></td>
             </tr>`;
-        });
-    });
+        }).join('\n');
 
-    const sheets = `
-        <div class="sheet">
-            <div class="header" style="text-align: center; margin-bottom: 15px; border-bottom: 2px solid #000; padding-bottom: 8px;">
-                <div style="font-size: 14px; font-weight: bold; line-height: 1.3;">அல் ஜாமிஉல் அஸ்ஹர் ஜும்ஆ மஸ்ஜித், காயல்பட்டினம்.</div>
-                <div style="font-size: 14px; font-weight: bold; line-height: 1.3;">மத்ரஸத்துல் அஸ்ஹர் லி தஹ்ஃபீலில் குர்ஆனில் கரீம்</div>
-                <div style="font-size: 13px; font-weight: bold; font-family: sans-serif; line-height: 1.3; color: #444;">Madarasathul Azhar Li Thahfeezil Qur'anil Kareem</div>
-                <div style="font-size: 15px; font-weight: bold; margin-top: 4px; line-height: 1.3;">மாநிலம் தழுவிய திருக்குர்ஆன் மனன திறனாய்வுப் போட்டி - 2026</div>
-                <h1 style="font-size: 20px; font-weight: bold; text-transform: uppercase; margin-top: 2px; letter-spacing: 0.5px;">QURAN HIFZ COMPETITION 2026</h1>
-                <h2 style="font-size: 16px; font-weight: bold; margin-top: 4px; border: 1px solid #000; display: inline-block; padding: 2px 12px; background: #f1f5f9;">Attendance Sheet</h2>
+        return `
+        <div class="category-block" style="margin-bottom: 15px;">
+            <div class="category-header" style="font-size: 13px; font-weight: bold; text-align: center; margin-bottom: 5px; text-transform: uppercase;">${labels[cat]}</div>
+            <table class="student-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th style="width: 8%; border: 2px solid #000; padding: 5px; background-color: #f2f2f2; font-weight: bold; text-align: center; font-size: 11px;">S.No</th>
+                        <th style="width: 20%; border: 2px solid #000; padding: 5px; background-color: #f2f2f2; font-weight: bold; text-align: center; font-size: 11px;">Reg No</th>
+                        <th style="width: 15%; border: 2px solid #000; padding: 5px; background-color: #f2f2f2; font-weight: bold; text-align: center; font-size: 11px;">Stage</th>
+                        <th style="width: 42%; border: 2px solid #000; padding: 5px; background-color: #f2f2f2; font-weight: bold; text-align: center; font-size: 11px;">Name</th>
+                        <th style="width: 15%; border: 2px solid #000; padding: 5px; background-color: #f2f2f2; font-weight: bold; text-align: center; font-size: 11px;">Sign</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+            </table>
+        </div>`;
+    }).join('\n');
+
+    const serialNum = institution.institution_id || 'INST-01';
+    const muallimName = institution.contact_person || '—';
+    const muallimPhone = institution.phone_number || institution.whatsapp_number || '—';
+    const inchargeName = institution.incharge || '—';
+    const inchargePhone = institution.incharge_number || '—';
+
+    const renderPage = (copyType: 'Office Copy' | 'Madrasa Copy') => `
+        <div class="page-break attendance-page">
+            <div class="copy-label">${copyType}</div>
+            
+            <div class="main-border-box">
+                <div class="org-title">AL JAMIUL AZHAR JUM'AH MASJID</div>
+                <div class="event-title">STATE LEVEL HIFZ COMPETITION - 2026</div>
+                <div class="reg-form-title">REGISTRATION FORM</div>
+                
+                <div class="inst-row">
+                    <div class="inst-serial">${serialNum}</div>
+                    <div class="inst-details">
+                        <div class="inst-name">${institution.name}</div>
+                        <div class="inst-address">${institution.address || '—'}</div>
+                    </div>
+                </div>
+                
+                <div class="info-grid">
+                    <div class="info-row">
+                        <div class="info-cell">DATE: <span class="dynamic-date">—</span></div>
+                        <div class="info-cell">TIME: <span class="dynamic-time">—</span></div>
+                        <div class="info-cell">NO OF STUDENTS: ${approvedApps.length}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-cell colspan-3">MUALLIM NAME: ${muallimName}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-cell colspan-3">MUALLIM PH NO: ${muallimPhone}</div>
+                    </div>
+                </div>
             </div>
             
-            <div class="inst-info" style="display: flex; justify-content: space-between; gap: 20px; margin-bottom: 20px; font-size: 13px; text-align: left; border: 1px solid #000; padding: 10px 15px; background-color: #fafafa;">
-                <div class="inst-info-col" style="flex: 1.2;">
-                    <p style="margin-bottom: 4px; font-size: 14px;"><strong>Madrasa / School:</strong> <span style="font-size: 15px; font-weight: bold;">${institution.name}</span></p>
-                    <p style="margin-bottom: 4px;"><strong>Institution ID:</strong> ${institution.institution_id || 'N/A'}</p>
-                    <p style="margin-bottom: 4px;"><strong>Address:</strong> ${institution.address || 'N/A'}</p>
+            ${categoryTables}
+            
+            <div class="bottom-container">
+                <div class="sig-section">
+                    <div class="sig-block">Muallim Sign</div>
+                    <div class="sig-block">Authorized Sign</div>
                 </div>
-                <div class="inst-info-col" style="flex: 0.8; border-left: 1px dashed #ccc; padding-left: 20px;">
-                    <p style="margin-bottom: 4px;"><strong>In-Charge:</strong> ${institution.contact_person}</p>
-                    <p style="margin-bottom: 4px;"><strong>Phone / Whatsapp:</strong> ${institution.phone_number || institution.whatsapp_number || 'N/A'}</p>
-                    <p style="margin-bottom: 4px;"><strong>Email:</strong> ${institution.email || 'N/A'}</p>
-                    <p style="margin-bottom: 4px;"><strong>Total Candidates:</strong> <strong style="font-size: 14px;">${approvedApps.length}</strong></p>
+                
+                <div class="incharge-footer">
+                    <div>INCHARGE NAME: ${inchargeName}</div>
+                    <div>MOBILE: ${inchargePhone}</div>
                 </div>
             </div>
+        </div>
+    `;
 
-            <table>
-                <thead><tr>
-                    <th style="width:40px;">S.No</th>
-                    <th>Applicant Name</th>
-                    <th>Father's Name</th>
-                    <th style="width:70px; text-align:center;">ID</th>
-                    <th style="width:90px; text-align:center;">Juz Option</th>
-                    <th style="width:150px;">Venue - Order</th>
-                    <th style="width:100px;">Signature</th>
-                </tr></thead>
-                <tbody>${rows}</tbody>
-            </table>
-            <div class="sheet-footer">
-                <div class="sig-block"><div class="sig-line">Coordinator's Signature &amp; Stamp</div></div>
-                <div class="sig-block"><div class="sig-line">Date</div></div>
+    const voucherPage = `
+        <div class="page-break ta-voucher-page">
+            <div class="main-border-box" style="margin-top: 20px;">
+                <div class="org-title" style="font-size: 20px; padding: 6px 2px;">AL JAMIUL AZHAR JUM'AH MASJID</div>
+                <div class="event-title" style="font-size: 15px; padding: 4px 2px;">STATE LEVEL HIFZ COMPETITION - 2026</div>
+                <div class="reg-form-title" style="font-size: 15px; padding: 4px 2px;">TA VOUCHER</div>
+                
+                <div class="inst-row">
+                    <div class="inst-serial">${serialNum}</div>
+                    <div class="inst-details">
+                        <div class="inst-name" style="font-size: 16px;">${institution.name}</div>
+                    </div>
+                </div>
+                
+                <div class="info-grid">
+                    <div class="info-row">
+                        <div class="info-cell" style="padding: 12px; font-size: 14px;">No of STUDENTS: </div>
+                        <div class="info-cell" style="padding: 12px; font-size: 14px;">No of GUESTS: </div>
+                    </div>
+                </div>
             </div>
-        </div>`;
+            
+            <table class="voucher-table" style="margin-top: 25px;">
+                <thead>
+                    <tr>
+                        <th>TRAVEL</th>
+                        <th>NO</th>
+                        <th>AMOUNT / PER</th>
+                        <th>TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="font-weight: bold; padding: 12px 10px;">1 - WAY</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; padding: 12px 10px;">2 - WAY</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; text-align: right; padding: 12px 10px;">TOTAL</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <table class="denomination-table" style="width: 50%; margin-top: 30px; margin-left: auto; margin-right: auto;">
+                <tbody>
+                    <tr>
+                        <td style="font-weight: bold; text-align: center; padding: 6px;">500</td>
+                        <td style="text-align: center; padding: 6px;">x</td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; text-align: center; padding: 6px;">200</td>
+                        <td style="text-align: center; padding: 6px;">x</td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; text-align: center; padding: 6px;">100</td>
+                        <td style="text-align: center; padding: 6px;">x</td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; text-align: center; padding: 6px;">50</td>
+                        <td style="text-align: center; padding: 6px;">x</td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; text-align: center; padding: 6px;">20</td>
+                        <td style="text-align: center; padding: 6px;">x</td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; text-align: center; padding: 6px;">10</td>
+                        <td style="text-align: center; padding: 6px;">x</td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; text-align: center; padding: 6px;">TOTAL</td>
+                        <td colspan="2"></td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="bottom-container">
+                <div style="display: flex; justify-content: space-between; padding: 0 40px; margin-bottom: 20px;">
+                    <div style="font-weight: bold; font-size: 14px; text-align: center; border-top: 2px solid #000; padding-top: 8px; width: 200px;">Authorized By</div>
+                    <div style="font-weight: bold; font-size: 14px; text-align: center; border-top: 2px solid #000; padding-top: 8px; width: 200px;">Received By</div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const sheets = `
+        ${renderPage('Office Copy')}
+        ${renderPage('Madrasa Copy')}
+        ${voucherPage}
+    `;
+
+    const scriptAndStyles = `
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Times New Roman', Times, serif; 
+            color: #000; 
+            background: #fff; 
+            -webkit-print-color-adjust: exact; 
+            print-color-adjust: exact; 
+        }
+        @page { size: A4 portrait; margin: 10mm; }
+        @media print { 
+            .page-break { 
+                page-break-after: always; 
+                break-after: page; 
+                display: block; 
+                clear: both; 
+                height: 270mm;
+            }
+            .page-break:last-child { 
+                page-break-after: avoid; 
+                break-after: avoid; 
+            }
+        }
+        .attendance-page, .ta-voucher-page {
+            width: 100%;
+            height: 270mm;
+            box-sizing: border-box;
+            position: relative;
+            padding: 5px;
+        }
+        .bottom-container {
+            position: absolute;
+            bottom: 10px;
+            left: 5px;
+            right: 5px;
+        }
+        .copy-label {
+            text-align: right;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+        .main-border-box {
+            border: 2px solid #000;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+        .org-title {
+            font-size: 22px;
+            font-weight: bold;
+            text-align: center;
+            padding: 8px 2px;
+            border-bottom: 2px solid #000;
+        }
+        .event-title {
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            padding: 5px 2px;
+            border-bottom: 2px solid #000;
+        }
+        .reg-form-title {
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            padding: 5px 2px;
+            background-color: #f2f2f2;
+            border-bottom: 2px solid #000;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .inst-row {
+            display: flex;
+            border-bottom: 2px solid #000;
+            align-items: stretch;
+        }
+        .inst-serial {
+            width: 33.33%;
+            font-size: 22px;
+            font-weight: bold;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-right: 2px solid #000;
+            background-color: #f2f2f2;
+            padding: 10px;
+            white-space: nowrap;
+        }
+        .inst-details {
+            width: 66.67%;
+            padding: 8px 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .inst-name {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .inst-address {
+            font-size: 13px;
+            color: #000;
+            margin-top: 3px;
+        }
+        .info-grid {
+            display: flex;
+            flex-direction: column;
+        }
+        .info-row {
+            display: flex;
+            border-bottom: 2px solid #000;
+        }
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        .info-cell {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 14px;
+            font-weight: bold;
+            border-right: 2px solid #000;
+        }
+        .info-cell:last-child {
+            border-right: none;
+        }
+        .info-cell.colspan-3 {
+            flex: 3;
+            border-right: none;
+        }
+        .category-block {
+            margin-bottom: 15px;
+        }
+        .category-header {
+            font-size: 13px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+        .student-table, .voucher-table, .denomination-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .student-table th, .student-table td,
+        .voucher-table th, .voucher-table td,
+        .denomination-table td {
+            border: 2px solid #000;
+            padding: 8px 10px;
+            font-size: 14px;
+            text-align: left;
+            color: #000;
+        }
+        .student-table th, .voucher-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            text-align: center;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+        .sig-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 25px;
+            padding: 0 30px;
+        }
+        .sig-block {
+            font-weight: bold;
+            font-size: 14px;
+            text-align: center;
+            border-top: 2px solid #000;
+            padding-top: 8px;
+            width: 200px;
+        }
+        .incharge-footer {
+            border: 2px solid #000;
+            padding: 10px;
+            font-size: 14px;
+            font-weight: bold;
+            background-color: #f2f2f2;
+            line-height: 1.6;
+        }
+    </style>
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            const now = new Date();
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = now.getFullYear();
+            const formattedDate = day + '/' + month + '/' + year;
+
+            let hours = now.getHours();
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            const formattedTime = hours + ':' + minutes + ' ' + ampm;
+
+            document.querySelectorAll('.dynamic-date').forEach(el => el.textContent = formattedDate);
+            document.querySelectorAll('.dynamic-time').forEach(el => el.textContent = formattedTime);
+        });
+    </script>
+    `;
 
     if (customTemplate) {
         const map: Record<string, string> = {
-            '{{sheets}}': sheets,
-            '{{content}}': sheets,
+            '{{sheets}}': sheets + scriptAndStyles,
+            '{{content}}': sheets + scriptAndStyles,
             '{{institution_name}}': institution.name || '',
             '{{institution_id}}': institution.institution_id || 'N/A',
             '{{contact_person}}': institution.contact_person || '',
@@ -517,23 +899,8 @@ export function generateAttendanceSheetHTML(
     }
 
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Attendance Sheet</title>
-<style>
-${PRINT_BASE_STYLES}
-/* Force Landscape for Attendance Sheets */
-@page { size: A4 landscape; margin: 15mm; }
-.sheet { padding: 20px; max-width: 297mm; margin: 0 auto; }
-
-/* Flex layout for header information */
-.inst-info { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 20px; font-size: 13px; text-align: left; }
-.inst-info-col { flex: 1; }
-.inst-info-col p { margin-bottom: 5px; }
-
-table { width: 100%; border-collapse: collapse; }
-th, td { border: 1px solid #000; padding: 6px 10px; font-size: 13px; text-align: left; }
-th { background: #eee; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
-.sheet-footer { margin-top: 40px; display: flex; justify-content: space-between; padding: 0 20px; }
-.sig-block { text-align: center; }
-.sig-line { width: 240px; border-top: 1px solid #000; margin-top: 44px; padding-top: 6px; font-size: 12px; font-weight: bold; }
-</style></head><body>${sheets}</body></html>`;
+    ${scriptAndStyles}
+    </head><body>${sheets}</body></html>`;
 }
+
 

@@ -335,3 +335,152 @@ routerAdd("POST", "/api/admin/unallocate-venues", (e) => {
         return e.json(500, { error: "Unallocation failed: " + err });
     }
 });
+
+// ── 3. Update Single Candidate Allocation ──────────────────────────────────────
+routerAdd("POST", "/api/admin/update-candidate-allocation", (e) => {
+    const authRecord = e.auth;
+    const isSuperuser = authRecord && authRecord.collection().name === "_superusers";
+    const isAdmin = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "admin";
+
+    if (!isSuperuser && !isAdmin) {
+        return e.json(403, { error: "Unauthorized. Admin access required." });
+    }
+
+    try {
+        let participantId = "";
+        let venue = "";
+        let order = 0;
+
+        try {
+            const info = e.requestInfo();
+            const data = info.data || {};
+            participantId = data.participantId || "";
+            venue = data.allocated_venue || "";
+            order = parseInt(data.allocated_order, 10) || 0;
+
+            if (!participantId) {
+                const body = new DynamicModel({
+                    participantId: "",
+                    allocated_venue: "",
+                    allocated_order: 0
+                });
+                e.bindBody(body);
+                participantId = body.participantId;
+                venue = body.allocated_venue;
+                order = parseInt(body.allocated_order, 10) || 0;
+            }
+        } catch (_) {}
+
+        if (!participantId) {
+            return e.json(400, { error: "Missing participantId parameter." });
+        }
+
+        const cand = $app.findRecordById("participants_application", participantId);
+        const oldVenue = cand.get("allocated_venue") || "";
+        const oldOrder = parseInt(cand.get("allocated_order"), 10) || 0;
+        const newVenue = venue;
+        let newOrder = order;
+
+        if (oldVenue !== newVenue) {
+            // Stage/Venue changed!
+            // Put the candidate to the last in the destination stage
+            if (newVenue !== "") {
+                const destCands = $app.findRecordsByFilter(
+                    "participants_application",
+                    "status = 'approved' && allocated_venue = {:venue}",
+                    "allocated_order",
+                    999999,
+                    0,
+                    { venue: newVenue }
+                );
+                // Last order is count + 1
+                newOrder = destCands.length + 1;
+            } else {
+                newOrder = 0;
+            }
+
+            // Save candidate's new venue and order first
+            cand.set("allocated_venue", newVenue);
+            cand.set("allocated_order", newOrder);
+            $app.save(cand);
+
+            // Re-order remaining candidates in the old venue to remove the gap
+            if (oldVenue !== "") {
+                const srcCands = $app.findRecordsByFilter(
+                    "participants_application",
+                    "status = 'approved' && allocated_venue = {:venue} && id != {:candId}",
+                    "allocated_order",
+                    999999,
+                    0,
+                    { venue: oldVenue, candId: participantId }
+                );
+                srcCands.forEach((c, idx) => {
+                    c.set("allocated_order", idx + 1);
+                    $app.save(c);
+                });
+            }
+        } else {
+            // Same venue, but order changed!
+            if (newVenue !== "" && oldOrder !== newOrder) {
+                // Fetch all other candidates in this venue
+                const cands = $app.findRecordsByFilter(
+                    "participants_application",
+                    "status = 'approved' && allocated_venue = {:venue} && id != {:candId}",
+                    "allocated_order",
+                    999999,
+                    0,
+                    { venue: newVenue, candId: participantId }
+                );
+
+                // Reconstruct the sorted list including the modified candidate at the new target position
+                cands.sort((a, b) => (parseInt(a.get("allocated_order"), 10) || 0) - (parseInt(b.get("allocated_order"), 10) || 0));
+
+                const newList = [];
+                let inserted = false;
+                
+                // Insert at newOrder (1-based index)
+                cands.forEach((c, idx) => {
+                    const currentPos = idx + 1;
+                    if (currentPos === newOrder) {
+                        newList.push(cand);
+                        inserted = true;
+                    }
+                    newList.push(c);
+                });
+
+                if (!inserted) {
+                    newList.push(cand);
+                }
+
+                // Re-save all candidates in the list with sequential orders
+                newList.forEach((c, idx) => {
+                    c.set("allocated_order", idx + 1);
+                    $app.save(c);
+                });
+            } else {
+                // Just save it
+                cand.set("allocated_venue", newVenue);
+                cand.set("allocated_order", newOrder);
+                $app.save(cand);
+            }
+        }
+
+        // Update trigger manually for real-time tracking
+        try {
+            const triggerCol = $app.findCollectionByNameOrId("trigger_collection");
+            if (triggerCol) {
+                const tr = $app.findFirstRecordByData("trigger_collection", "column_name", "participants_application");
+                tr.set("random_value", $security.randomString(10));
+                $app.save(tr);
+            }
+        } catch (_) {}
+
+        return e.json(200, {
+            success: true,
+            message: "Allocation updated successfully."
+        });
+
+    } catch (err) {
+        return e.json(500, { error: "Failed to update allocation: " + err });
+    }
+});

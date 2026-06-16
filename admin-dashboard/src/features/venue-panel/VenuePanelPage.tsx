@@ -49,12 +49,63 @@ export default function VenuePanelPage() {
     const [cache, setCache] = useState<Record<string, Participant[]>>({});
     const [loadingCandidates, setLoadingCandidates] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-
     // Print Modal States
     const [printPreview, setPrintPreview] = useState<string | null>(null);
     const [printTitle, setPrintTitle] = useState<string>('Print Preview');
     const [printing, setPrinting] = useState(false);
 
+    // Inline allocation modification states
+    const [editAllocations, setEditAllocations] = useState<Record<string, { venue: string; order: number }>>({});
+    const [isVenueEditMode, setIsVenueEditMode] = useState(false);
+
+    const handleFieldChange = (participantId: string, field: 'venue' | 'order', value: any) => {
+        setEditAllocations(prev => {
+            const list = cache[activeTab] || [];
+            const candidate = list.find(x => x.id === participantId);
+            const current = prev[participantId] || {
+                venue: candidate?.allocated_venue || '',
+                order: candidate?.allocated_order || 0
+            };
+            return {
+                ...prev,
+                [participantId]: {
+                    ...current,
+                    [field]: value
+                }
+            };
+        });
+    };
+
+    const handleSaveInlineAllocation = async (participantId: string) => {
+        const editInfo = editAllocations[participantId];
+        if (!editInfo) return;
+
+        setLoadingCandidates(true);
+        try {
+            await pb.send('/api/admin/update-candidate-allocation', {
+                method: 'POST',
+                body: {
+                    participantId,
+                    allocated_venue: editInfo.venue,
+                    allocated_order: Number(editInfo.order)
+                }
+            });
+            
+            setEditAllocations(prev => {
+                const next = { ...prev };
+                delete next[participantId];
+                return next;
+            });
+
+            alert('Allocation updated successfully!');
+            await loadVenues();
+            await loadCandidatesForVenue(activeTab, true);
+        } catch (e: any) {
+            alert(e.message || 'Failed to update allocation.');
+        } finally {
+            setLoadingCandidates(false);
+        }
+    };
     const handlePrintList = async () => {
         setPrinting(true);
         try {
@@ -203,11 +254,21 @@ export default function VenuePanelPage() {
         setLoadingCandidates(true);
         try {
             await Promise.all([
-                pb.collection('participants_application').update(candidateA.id, {
-                    allocated_order: nextOrder
+                pb.send('/api/admin/update-candidate-allocation', {
+                    method: 'POST',
+                    body: {
+                        participantId: candidateA.id,
+                        allocated_venue: candidateA.allocated_venue || activeTab,
+                        allocated_order: nextOrder
+                    }
                 }),
-                pb.collection('participants_application').update(candidateB.id, {
-                    allocated_order: tempOrder
+                pb.send('/api/admin/update-candidate-allocation', {
+                    method: 'POST',
+                    body: {
+                        participantId: candidateB.id,
+                        allocated_venue: candidateB.allocated_venue || activeTab,
+                        allocated_order: tempOrder
+                    }
                 })
             ]);
             await loadCandidatesForVenue(activeTab, true);
@@ -459,6 +520,29 @@ export default function VenuePanelPage() {
                                     >
                                         <RefreshCw size={14} style={{ animation: loadingCandidates ? 'spin 1s linear infinite' : 'none' }} /> Reload
                                     </button>
+                                    {user?.designation === 'admin' && (
+                                        <button
+                                            onClick={() => setIsVenueEditMode(!isVenueEditMode)}
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                padding: '6px 12px',
+                                                backgroundColor: isVenueEditMode ? '#0f766e' : '#ffffff',
+                                                border: '1px solid ' + (isVenueEditMode ? '#0f766e' : '#cbd5e1'),
+                                                borderRadius: '6px',
+                                                fontSize: '13px',
+                                                cursor: 'pointer',
+                                                color: isVenueEditMode ? '#ffffff' : '#475569',
+                                                fontWeight: '600',
+                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                                outline: 'none',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {isVenueEditMode ? 'Done Editing' : 'Edit Allocation'}
+                                        </button>
+                                    )}
                                 </div>
                                 <div style={{ position: 'relative', width: '280px' }} className="search-box">
                                     <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
@@ -500,68 +584,129 @@ export default function VenuePanelPage() {
                                                 <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Sequence Order</th>
                                                 <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Category</th>
                                                 <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Juz Option</th>
+                                                {user?.designation === 'admin' && isVenueEditMode && (
+                                                    <>
+                                                        <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Allocated Venue</th>
+                                                        <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Actions</th>
+                                                    </>
+                                                )}
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {filteredCandidates.map((c, index) => (
-                                                <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background-color 0.2s' }}>
-                                                    <td style={{ padding: '14px 20px', fontWeight: 'bold', color: '#1e293b' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            {user?.designation === 'admin' && (
-                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginRight: '6px' }}>
-                                                                    <button 
-                                                                        type="button" 
-                                                                        onClick={() => handleMoveOrder(index, 'up')}
-                                                                        disabled={index === 0 || loadingCandidates}
-                                                                        style={{ padding: '2px 4px', fontSize: '8px', cursor: 'pointer', background: '#e2e8f0', border: 'none', borderRadius: '3px' }}
-                                                                        title="Move Up"
-                                                                    >
-                                                                        ▲
-                                                                    </button>
-                                                                    <button 
-                                                                        type="button" 
-                                                                        onClick={() => handleMoveOrder(index, 'down')}
-                                                                        disabled={index === filteredCandidates.length - 1 || loadingCandidates}
-                                                                        style={{ padding: '2px 4px', fontSize: '8px', cursor: 'pointer', background: '#e2e8f0', border: 'none', borderRadius: '3px' }}
-                                                                        title="Move Down"
-                                                                    >
-                                                                        ▼
-                                                                    </button>
-                                                                </div>
+                                            {filteredCandidates.map((c, index) => {
+                                                const isModified = editAllocations[c.id] && (
+                                                    editAllocations[c.id].venue !== (c.allocated_venue || '') ||
+                                                    editAllocations[c.id].order !== (c.allocated_order || 0)
+                                                );
+                                                const currentVenueVal = editAllocations[c.id]?.venue ?? (c.allocated_venue || '');
+                                                const currentOrderVal = editAllocations[c.id]?.order ?? (c.allocated_order || 0);
+
+                                                return (
+                                                    <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background-color 0.2s' }}>
+                                                        <td style={{ padding: '14px 20px', fontWeight: 'bold', color: '#1e293b' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                {isVenueEditMode && user?.designation === 'admin' && (
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginRight: '6px' }}>
+                                                                        <button 
+                                                                            type="button" 
+                                                                            onClick={() => handleMoveOrder(index, 'up')}
+                                                                            disabled={index === 0 || loadingCandidates}
+                                                                            style={{ padding: '2px 4px', fontSize: '8px', cursor: 'pointer', background: '#e2e8f0', border: 'none', borderRadius: '3px' }}
+                                                                            title="Move Up"
+                                                                        >
+                                                                            ▲
+                                                                        </button>
+                                                                        <button 
+                                                                            type="button" 
+                                                                            onClick={() => handleMoveOrder(index, 'down')}
+                                                                            disabled={index === filteredCandidates.length - 1 || loadingCandidates}
+                                                                            style={{ padding: '2px 4px', fontSize: '8px', cursor: 'pointer', background: '#e2e8f0', border: 'none', borderRadius: '3px' }}
+                                                                            title="Move Down"
+                                                                        >
+                                                                            ▼
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                                <span style={{ minWidth: '24px', textAlign: 'center', color: '#64748b' }}>{c.allocated_order || index + 1}.</span>
+                                                                <span>{c.full_name}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '14px 20px' }}>
+                                                            <span style={{ fontFamily: 'monospace', padding: '2px 6px', backgroundColor: '#f1f5f9', borderRadius: '4px', fontSize: '12px' }}>
+                                                                {c.participant_id || c.id}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '14px 20px', color: '#475569' }}>
+                                                            {c.expand?.institution_ref?.name || <span style={{ color: '#94a3b8' }}>—</span>}
+                                                        </td>
+                                                        <td style={{ padding: '14px 20px', color: '#0f766e', fontWeight: 'bold' }}>
+                                                            {isVenueEditMode && user?.designation === 'admin' ? (
+                                                                <input
+                                                                    type="number"
+                                                                    value={currentOrderVal}
+                                                                    onChange={(e) => handleFieldChange(c.id, 'order', Number(e.target.value))}
+                                                                    style={{ width: '70px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                                                                    min={0}
+                                                                />
+                                                            ) : (
+                                                                c.allocated_order || index + 1
                                                             )}
-                                                            <span style={{ minWidth: '24px', textAlign: 'center', color: '#64748b' }}>{c.allocated_order || index + 1}.</span>
-                                                            <span>{c.full_name}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td style={{ padding: '14px 20px' }}>
-                                                        <span style={{ fontFamily: 'monospace', padding: '2px 6px', backgroundColor: '#f1f5f9', borderRadius: '4px', fontSize: '12px' }}>
-                                                            {c.participant_id || c.id}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ padding: '14px 20px', color: '#475569' }}>
-                                                        {c.expand?.institution_ref?.name || <span style={{ color: '#94a3b8' }}>—</span>}
-                                                    </td>
-                                                    <td style={{ padding: '14px 20px', color: '#0f766e', fontWeight: 'bold' }}>
-                                                        {c.allocated_order || index + 1}
-                                                    </td>
-                                                    <td style={{ padding: '14px 20px' }}>
-                                                        <span style={{
-                                                            display: 'inline-block',
-                                                            padding: '2px 8px',
-                                                            borderRadius: '12px',
-                                                            fontSize: '12px',
-                                                            fontWeight: 500,
-                                                            backgroundColor: '#e0f2fe',
-                                                            color: '#0369a1'
-                                                        }}>
-                                                            {c.category === '5_juz' ? '5 Juz' : c.category === '15_juz' ? '15 Juz' : '30 Juz'}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ padding: '14px 20px', color: '#475569' }}>
-                                                        {c.juzz_options ? getCompactJuzLabel(c.juzz_options) : (c.selected_juz || <span style={{ color: '#94a3b8' }}>—</span>)}
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                                        </td>
+                                                        <td style={{ padding: '14px 20px' }}>
+                                                            <span style={{
+                                                                display: 'inline-block',
+                                                                padding: '2px 8px',
+                                                                borderRadius: '12px',
+                                                                fontSize: '12px',
+                                                                fontWeight: 500,
+                                                                backgroundColor: '#e0f2fe',
+                                                                color: '#0369a1'
+                                                            }}>
+                                                                {c.category === '5_juz' ? '5 Juz' : c.category === '15_juz' ? '15 Juz' : '30 Juz'}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '14px 20px', color: '#475569' }}>
+                                                            {c.juzz_options ? getCompactJuzLabel(c.juzz_options) : (c.selected_juz || <span style={{ color: '#94a3b8' }}>—</span>)}
+                                                        </td>
+                                                        {user?.designation === 'admin' && isVenueEditMode && (
+                                                            <>
+                                                                <td style={{ padding: '14px 20px' }}>
+                                                                    <select
+                                                                        value={currentVenueVal}
+                                                                        onChange={(e) => handleFieldChange(c.id, 'venue', e.target.value)}
+                                                                        style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '100%', maxWidth: '180px' }}
+                                                                    >
+                                                                        <option value="">No Venue / Unallocated</option>
+                                                                        {venues.filter(v => v.category === c.category).map(v => (
+                                                                            <option key={v.id} value={v.name}>{v.name}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                </td>
+                                                                <td style={{ padding: '14px 20px' }}>
+                                                                    {isModified && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleSaveInlineAllocation(c.id)}
+                                                                            style={{
+                                                                                padding: '4px 10px',
+                                                                                backgroundColor: '#0d9488',
+                                                                                color: '#fff',
+                                                                                border: 'none',
+                                                                                borderRadius: '4px',
+                                                                                fontSize: '12px',
+                                                                                cursor: 'pointer',
+                                                                                fontWeight: 'bold'
+                                                                            }}
+                                                                        >
+                                                                            Save
+                                                                        </button>
+                                                                    )}
+                                                                </td>
+                                                            </>
+                                                        )}
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>

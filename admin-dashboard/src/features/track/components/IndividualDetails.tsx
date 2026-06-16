@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import { pb } from '../../../api/db';
 import { Lock, Edit, Printer, CheckCircle, XCircle, Unlock } from 'lucide-react';
 import { adminTrackApi } from '../../../api/track';
@@ -81,44 +81,7 @@ export default function IndividualDetails({
     const [rejectReason, setRejectReason] = useState('');
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
-    // Allocation override states
-    const [availableVenues, setAvailableVenues] = useState<any[]>([]);
-    const [selectedVenue, setSelectedVenue] = useState(individualRecord.allocated_venue || '');
-    const [selectedOrder, setSelectedOrder] = useState(individualRecord.allocated_order || 0);
-    const [isSavingAllocation, setIsSavingAllocation] = useState(false);
 
-    useEffect(() => {
-        setSelectedVenue(individualRecord.allocated_venue || '');
-        setSelectedOrder(individualRecord.allocated_order || 0);
-    }, [individualRecord.allocated_venue, individualRecord.allocated_order]);
-
-    useEffect(() => {
-        if (individualRecord.category) {
-            pb.collection('venue_detail').getList(1, 100, {
-                filter: `category = "${individualRecord.category}"`
-            }).then(res => {
-                setAvailableVenues(res.items);
-            }).catch(err => {
-                console.error('Failed to load venues:', err);
-            });
-        }
-    }, [individualRecord.category]);
-
-    const handleSaveAllocation = async () => {
-        setIsSavingAllocation(true);
-        try {
-            await pb.collection('participants_application').update(individualRecord.id, {
-                allocated_venue: selectedVenue,
-                allocated_order: Number(selectedOrder)
-            });
-            alert('Allocation updated successfully!');
-            if (onRefresh) await onRefresh();
-        } catch (e: any) {
-            alert(e.message || 'Failed to update allocation.');
-        } finally {
-            setIsSavingAllocation(false);
-        }
-    };
 
     const submitAction = async () => {
         if (!modalState.type) return;
@@ -169,94 +132,7 @@ export default function IndividualDetails({
 
     return (
         <>
-            {individualRecord.status === 'approved' && (
-                <div className={styles.detailsCard} 
-                     style={{ 
-                          marginBottom: '20px', 
-                          borderLeft: individualRecord.arrival_status === 'present' 
-                              ? '4px solid #10b981' 
-                              : individualRecord.arrival_status === 'absent' 
-                                  ? '4px solid #ef4444' 
-                                  : '4px solid #3b82f6' 
-                      }}>
-                    <div className={styles.detailsHeader} style={{ marginBottom: '12px', paddingBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h3 style={{ 
-                            color: individualRecord.arrival_status === 'present' 
-                                ? '#047857' 
-                                : individualRecord.arrival_status === 'absent' 
-                                    ? '#b91c1c' 
-                                    : '#1d4ed8', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '8px',
-                            margin: 0 
-                        }}>
-                            <span style={{ 
-                                display: 'inline-block', 
-                                width: '8px', 
-                                height: '8px', 
-                                borderRadius: '50%', 
-                                backgroundColor: individualRecord.arrival_status === 'present' 
-                                    ? '#10b981' 
-                                    : individualRecord.arrival_status === 'absent' 
-                                        ? '#ef4444' 
-                                        : '#3b82f6' 
-                            }}></span>
-                            Venue & Sequence Allocation
-                        </h3>
-                        {individualRecord.arrival_status && individualRecord.arrival_status !== 'none' && (
-                            <span style={{ 
-                                fontSize: '11px', 
-                                fontWeight: 700, 
-                                color: individualRecord.arrival_status === 'present' ? '#047857' : '#b91c1c', 
-                                backgroundColor: individualRecord.arrival_status === 'present' ? '#d1fae5' : '#fee2e2', 
-                                padding: '2px 8px', 
-                                borderRadius: '99px', 
-                                textTransform: 'uppercase' 
-                            }}>
-                                {individualRecord.arrival_status}
-                            </span>
-                        )}
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                        <div>
-                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Allocated Venue</span>
-                            <select
-                                className={styles.formSelect}
-                                style={{ marginTop: '4px', width: '100%', padding: '6px' }}
-                                value={selectedVenue}
-                                onChange={(e) => setSelectedVenue(e.target.value)}
-                            >
-                                <option value="">No Venue / Unallocated</option>
-                                {availableVenues.map(v => (
-                                    <option key={v.id} value={v.name}>{v.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Sequence Order</span>
-                            <input
-                                type="number"
-                                className={styles.formInput}
-                                style={{ marginTop: '4px', width: '100%', padding: '6px' }}
-                                value={selectedOrder}
-                                onChange={(e) => setSelectedOrder(Number(e.target.value))}
-                                min={0}
-                            />
-                        </div>
-                    </div>
-                    <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
-                        <button
-                            className={styles.btnPrimary}
-                            style={{ padding: '6px 12px', fontSize: '13px' }}
-                            onClick={handleSaveAllocation}
-                            disabled={isSavingAllocation || (selectedVenue === (individualRecord.allocated_venue || '') && selectedOrder === (individualRecord.allocated_order || 0))}
-                        >
-                            {isSavingAllocation ? 'Saving...' : 'Save Allocation'}
-                        </button>
-                    </div>
-                </div>
-            )}
+
 
             <div className={styles.detailsCard}>
                 <div className={styles.detailsHeader}>
@@ -317,9 +193,7 @@ export default function IndividualDetails({
                 <div className={styles.editBanner}>
                     <Edit size={16} className={styles.bannerIcon} /> This application is open. You can edit details and save updates below.
                 </div>
-            )}
-
-            <div className={styles.detailsFormGrid}>
+            )}            <div className={styles.detailsFormGrid}>
                 <div className={styles.formGroup}>
                     <label className={styles.formLabel}>Application ID</label>
                     <input
@@ -329,7 +203,6 @@ export default function IndividualDetails({
                         disabled={true}
                     />
                 </div>
-
                 {individualRecord.status === 'approved' && individualRecord.participant_id && (
                     <div className={styles.formGroup}>
                         <label className={styles.formLabel}>Participant ID</label>
@@ -341,6 +214,29 @@ export default function IndividualDetails({
                             style={{ color: 'var(--success)', fontWeight: 600 }}
                         />
                     </div>
+                )}
+
+                {individualRecord.status === 'approved' && (
+                    <>
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel}>Allocated Venue</label>
+                            <input
+                                type="text"
+                                className={styles.formInput}
+                                value={individualRecord.allocated_venue || 'No Venue / Unallocated'}
+                                disabled={true}
+                            />
+                        </div>
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel}>Sequence Order</label>
+                            <input
+                                type="text"
+                                className={styles.formInput}
+                                value={individualRecord.allocated_order || '—'}
+                                disabled={true}
+                            />
+                        </div>
+                    </>
                 )}
 
                 {individualRecord.status === 'approved' && (

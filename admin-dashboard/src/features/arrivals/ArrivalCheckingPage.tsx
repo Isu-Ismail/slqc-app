@@ -3,7 +3,7 @@ import { pb } from '../../api/db';
 import { Search, ChevronLeft, Check, X, ShieldAlert, CheckSquare, Printer } from 'lucide-react';
 import type { ParticipantsApplicationResponse, InstitutionsResponse } from '../../api/track';
 import PrintPreviewModal from '../track/components/PrintPreviewModal';
-import { generateAttendanceSheetHTML } from '../track/components/printTemplates';
+import { generateAttendanceSheetHTML, generateAllFormsHTML } from '../track/components/printTemplates';
 import { metadataApi } from '../../api/metadata';
 import styles from './ArrivalCheckingPage.module.css';
 
@@ -144,17 +144,24 @@ export default function ArrivalCheckingPage() {
         if (!selectedInst) return;
         setUpdatingIncharge(true);
         try {
-            const updated = await pb.collection('institutions').update<InstitutionsResponse>(selectedInst.id, {
-                incharge: inchargeName.trim(),
-                incharge_number: inchargePhone.trim()
+            const response = await pb.send<{ success: boolean; institution: InstitutionsResponse }>('/api/admin/assign-incharge', {
+                method: 'POST',
+                body: {
+                    institutionId: selectedInst.id,
+                    incharge: inchargeName.trim(),
+                    incharge_number: inchargePhone.trim()
+                }
             });
-            setSelectedInst(updated);
-            setInstitutions(prev => prev.map(inst => inst.id === updated.id ? updated : inst));
-            setIsAssignModalOpen(false);
-            setMessage({ type: 'success', text: 'In-Charge details updated successfully.' });
+            if (response.institution) {
+                const updated = response.institution;
+                setSelectedInst(updated);
+                setInstitutions(prev => prev.map(inst => inst.id === updated.id ? updated : inst));
+                setIsAssignModalOpen(false);
+                setMessage({ type: 'success', text: 'In-Charge details updated successfully.' });
+            }
         } catch (err: any) {
             console.error("Failed to update incharge:", err);
-            setMessage({ type: 'error', text: err.message || "Failed to update In-Charge details." });
+            setMessage({ type: 'error', text: err.data?.error || err.message || "Failed to update In-Charge details." });
         } finally {
             setUpdatingIncharge(false);
         }
@@ -188,6 +195,50 @@ export default function ArrivalCheckingPage() {
         }
     };
 
+    const handlePrintAllApplications = async () => {
+        if (!selectedInst) return;
+        try {
+            const res = await pb.send<any>(`/api/admin/print-institution-students`, {
+                method: 'GET',
+                query: { id: selectedInst.id }
+            });
+
+            const allMeta = await metadataApi.getAllMetadata(true);
+            const tplRecord = allMeta.find(r => r.key === 'application_print_template');
+            let customTemplateHtml = '';
+            if (tplRecord && tplRecord.document) {
+                try {
+                    const tplUrl = pb.files.getURL(tplRecord, tplRecord.document);
+                    const tplRes = await fetch(tplUrl);
+                    if (tplRes.ok) {
+                        customTemplateHtml = await tplRes.text();
+                    }
+                } catch (e) {
+                    console.error('Failed to load custom application template:', e);
+                }
+            }
+
+            if (!customTemplateHtml) {
+                try {
+                    const fallbackRes = await fetch('/default_templates/application_template.html');
+                    if (fallbackRes.ok) {
+                        customTemplateHtml = await fallbackRes.text();
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch local default template:', err);
+                }
+            }
+
+            setPrintPreview({
+                title: 'All Application Forms',
+                html: generateAllFormsHTML(res.applications, customTemplateHtml || undefined)
+            });
+        } catch (err) {
+            console.error('Failed to prepare application forms:', err);
+            alert('Failed to load print data. Please try again.');
+        }
+    };
+
 
     // Filter institutions locally
     const filteredInstitutions = institutions.filter(inst =>
@@ -209,7 +260,7 @@ export default function ArrivalCheckingPage() {
                 <div className={styles.card}>
                     <div className={styles.header}>
                         <div>
-                            <h1 className={styles.title}>Arrival Checking</h1>
+                            <h1 className={styles.title}>Inst Admin</h1>
                             <p className={styles.subtitle}>Select an institution to verify student arrival status</p>
                         </div>
                     </div>
@@ -238,14 +289,23 @@ export default function ArrivalCheckingPage() {
                                     className={styles.instCard}
                                 >
                                     <div className={styles.instName}>{inst.name}</div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                                         <div className={styles.instId}>{inst.institution_id || inst.id}</div>
                                     </div>
                                     <div className={styles.inchargeInfo}>
+                                        <strong>Contact Person:</strong> {inst.contact_person || <span style={{ color: '#94a3b8' }}>—</span>}
+                                    </div>
+                                    <div className={styles.inchargeInfo}>
+                                        <strong>Contact Mobile:</strong> {inst.phone_number || <span style={{ color: '#94a3b8' }}>—</span>}
+                                    </div>
+                                    <div className={styles.inchargeInfo}>
+                                        <strong>WhatsApp Mobile:</strong> {inst.whatsapp_number || <span style={{ color: '#94a3b8' }}>—</span>}
+                                    </div>
+                                    <div className={styles.inchargeInfo} style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '4px', marginTop: '4px' }}>
                                         <strong>In-Charge:</strong> {inst.incharge || <span style={{ color: '#94a3b8' }}>None</span>}
                                     </div>
                                     <div className={styles.inchargeInfo}>
-                                        <strong>Number:</strong> {inst.incharge_number || <span style={{ color: '#94a3b8' }}>—</span>}
+                                        <strong>In-Charge Number:</strong> {inst.incharge_number || <span style={{ color: '#94a3b8' }}>—</span>}
                                     </div>
                                 </div>
                             ))}
@@ -263,9 +323,19 @@ export default function ArrivalCheckingPage() {
                             <div>
                                 <h2 className={styles.title}>{selectedInst.name}</h2>
                                 <p className={styles.subtitle}>Institution ID: {selectedInst.institution_id}</p>
-                                <div style={{ marginTop: '8px', fontSize: '13px', color: '#475569', display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-                                    <span><strong>In-Charge Name:</strong> {selectedInst.incharge || <span style={{ color: '#94a3b8' }}>Not Assigned</span>}</span>
-                                    <span><strong>In-Charge Number:</strong> {selectedInst.incharge_number || <span style={{ color: '#94a3b8' }}>—</span>}</span>
+                                <div style={{ marginTop: '8px', fontSize: '13px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                                        <span><strong>Contact Person:</strong> {selectedInst.contact_person || <span style={{ color: '#94a3b8' }}>—</span>}</span>
+                                        <span><strong>Contact Mobile:</strong> {selectedInst.phone_number || <span style={{ color: '#94a3b8' }}>—</span>}</span>
+                                        <span><strong>WhatsApp Mobile:</strong> {selectedInst.whatsapp_number || <span style={{ color: '#94a3b8' }}>—</span>}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                                        <span><strong>In-Charge Name:</strong> {selectedInst.incharge || <span style={{ color: '#94a3b8' }}>Not Assigned</span>}</span>
+                                        <span><strong>In-Charge Number:</strong> {selectedInst.incharge_number || <span style={{ color: '#94a3b8' }}>—</span>}</span>
+                                    </div>
+                                    <div>
+                                        <span><strong>Address:</strong> {selectedInst.address || <span style={{ color: '#94a3b8' }}>—</span>}</span>
+                                    </div>
                                 </div>
                             </div>
                             <button
@@ -317,6 +387,7 @@ export default function ArrivalCheckingPage() {
                                                         <tr>
                                                             <th>Name</th>
                                                             <th>Participant ID</th>
+                                                            <th>Venue &amp; Order</th>
                                                             <th style={{ textAlign: 'center' }}>Status</th>
                                                         </tr>
                                                     </thead>
@@ -327,6 +398,9 @@ export default function ArrivalCheckingPage() {
                                                                 <tr key={student.id} className={styles.tableRow}>
                                                                     <td className={styles.studentName}>{student.full_name}</td>
                                                                     <td className={styles.studentId}>{student.participant_id || student.id}</td>
+                                                                    <td className={styles.studentId} style={{ fontWeight: '500', color: '#0f766e' }}>
+                                                                        {student.allocated_venue ? `${student.allocated_venue} - ${student.allocated_order || ''}` : <span style={{ color: '#94a3b8' }}>—</span>}
+                                                                    </td>
                                                                     <td>
                                                                         <div className={styles.radioGroup}>
                                                                             <button
@@ -357,13 +431,23 @@ export default function ArrivalCheckingPage() {
                             </div>
 
                             <div className={styles.actionsBar} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
-                                <button
-                                    type="button"
-                                    onClick={handlePrintInstitutionList}
-                                    className={styles.printBtn}
-                                >
-                                    <Printer size={16} /> Print Institution List
-                                </button>
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                    <button
+                                        type="button"
+                                        onClick={handlePrintInstitutionList}
+                                        className={styles.printBtn}
+                                    >
+                                        <Printer size={16} /> Print Institution List
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handlePrintAllApplications}
+                                        className={styles.printBtn}
+                                        style={{ backgroundColor: '#4f46e5', borderColor: '#4338ca' }}
+                                    >
+                                        <Printer size={16} /> Print All Applications
+                                    </button>
+                                </div>
                                 <button
                                     onClick={handleSubmit}
                                     disabled={submitting}

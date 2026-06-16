@@ -1414,6 +1414,15 @@
         "type": "bool"
       },
       {
+        "hidden": false,
+        "id": "bool_is_finalist",
+        "name": "is_finalist",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "bool"
+      },
+      {
         "autogeneratePattern": "",
         "hidden": false,
         "id": "text304958671",
