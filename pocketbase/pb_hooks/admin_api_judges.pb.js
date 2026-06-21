@@ -21,6 +21,8 @@ routerAdd("GET", "/api/admin/judges", (e) => {
                 institution: j.get("institution"),
                 place_of_stay: j.get("place_of_stay"),
                 pickup_incharge: j.get("pickup_incharge"),
+                contact_person_mobile: j.get("contact_person_mobile"),
+                final_judge: j.get("final_judge") === true,
                 allocated_venue: j.get("allocated_venue"),
                 created: j.get("created"),
                 updated: j.get("updated")
@@ -48,7 +50,9 @@ routerAdd("POST", "/api/admin/judges/create", (e) => {
             phone_number: "",
             institution: "",
             place_of_stay: "",
-            pickup_incharge: ""
+            pickup_incharge: "",
+            contact_person_mobile: "",
+            final_judge: false
         });
         e.bindBody(body);
 
@@ -63,6 +67,8 @@ routerAdd("POST", "/api/admin/judges/create", (e) => {
         record.set("institution", body.institution || "");
         record.set("place_of_stay", body.place_of_stay || "");
         record.set("pickup_incharge", body.pickup_incharge || "");
+        record.set("contact_person_mobile", body.contact_person_mobile || "");
+        record.set("final_judge", body.final_judge === true);
         record.set("allocated_venue", ""); // Default unallocated
 
         $app.save(record);
@@ -74,6 +80,8 @@ routerAdd("POST", "/api/admin/judges/create", (e) => {
             institution: record.get("institution"),
             place_of_stay: record.get("place_of_stay"),
             pickup_incharge: record.get("pickup_incharge"),
+            contact_person_mobile: record.get("contact_person_mobile"),
+            final_judge: record.get("final_judge") === true,
             allocated_venue: record.get("allocated_venue"),
             created: record.get("created"),
             updated: record.get("updated")
@@ -101,6 +109,8 @@ routerAdd("POST", "/api/admin/judges/update", (e) => {
             institution: "",
             place_of_stay: "",
             pickup_incharge: "",
+            contact_person_mobile: "",
+            final_judge: false,
             allocated_venue: ""
         });
         e.bindBody(body);
@@ -115,6 +125,8 @@ routerAdd("POST", "/api/admin/judges/update", (e) => {
         if (body.institution !== undefined && body.institution !== null) record.set("institution", body.institution);
         if (body.place_of_stay !== undefined && body.place_of_stay !== null) record.set("place_of_stay", body.place_of_stay);
         if (body.pickup_incharge !== undefined && body.pickup_incharge !== null) record.set("pickup_incharge", body.pickup_incharge);
+        if (body.contact_person_mobile !== undefined && body.contact_person_mobile !== null) record.set("contact_person_mobile", body.contact_person_mobile);
+        if (body.final_judge !== undefined && body.final_judge !== null) record.set("final_judge", body.final_judge === true);
         if (body.allocated_venue !== undefined && body.allocated_venue !== null) record.set("allocated_venue", body.allocated_venue);
 
         $app.save(record);
@@ -126,6 +138,8 @@ routerAdd("POST", "/api/admin/judges/update", (e) => {
             institution: record.get("institution"),
             place_of_stay: record.get("place_of_stay"),
             pickup_incharge: record.get("pickup_incharge"),
+            contact_person_mobile: record.get("contact_person_mobile"),
+            final_judge: record.get("final_judge") === true,
             allocated_venue: record.get("allocated_venue"),
             created: record.get("created"),
             updated: record.get("updated")

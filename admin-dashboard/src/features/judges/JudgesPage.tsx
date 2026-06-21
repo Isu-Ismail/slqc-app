@@ -11,6 +11,8 @@ interface Judge {
     institution: string;
     place_of_stay: string;
     pickup_incharge: string;
+    contact_person_mobile?: string;
+    final_judge?: boolean;
     allocated_venue?: string;
     created: string;
     updated: string;
@@ -50,6 +52,8 @@ export default function JudgesPage() {
     const [institution, setInstitution] = useState('');
     const [placeOfStay, setPlaceOfStay] = useState('');
     const [pickupIncharge, setPickupIncharge] = useState('');
+    const [contactPersonMobile, setContactPersonMobile] = useState('');
+    const [finalJudge, setFinalJudge] = useState(false);
 
     const loadData = async () => {
         setLoading(true);
@@ -109,6 +113,8 @@ export default function JudgesPage() {
         setInstitution('');
         setPlaceOfStay('');
         setPickupIncharge('');
+        setContactPersonMobile('');
+        setFinalJudge(false);
         setIsModalOpen(true);
     };
 
@@ -119,6 +125,8 @@ export default function JudgesPage() {
         setInstitution(judge.institution || '');
         setPlaceOfStay(judge.place_of_stay || '');
         setPickupIncharge(judge.pickup_incharge || '');
+        setContactPersonMobile(judge.contact_person_mobile || '');
+        setFinalJudge(judge.final_judge || false);
         setIsModalOpen(true);
     };
 
@@ -141,7 +149,9 @@ export default function JudgesPage() {
                 phone_number: phoneNumber.trim(),
                 institution: institution.trim(),
                 place_of_stay: placeOfStay.trim(),
-                pickup_incharge: pickupIncharge.trim()
+                pickup_incharge: pickupIncharge.trim(),
+                contact_person_mobile: contactPersonMobile.trim(),
+                final_judge: finalJudge
             };
 
             if (editingJudge) {
@@ -192,11 +202,13 @@ export default function JudgesPage() {
             if (!v.judges) return false;
             let judgeIds: string[] = [];
             if (Array.isArray(v.judges)) {
-                judgeIds = v.judges;
+                judgeIds = v.judges.map((j: any) => (j && typeof j === 'object' ? j.id : j));
             } else if (typeof v.judges === 'string') {
                 try {
                     const parsed = JSON.parse(v.judges);
-                    if (Array.isArray(parsed)) judgeIds = parsed;
+                    if (Array.isArray(parsed)) {
+                        judgeIds = parsed.map((j: any) => (j && typeof j === 'object' ? j.id : j));
+                    }
                 } catch (_) {
                     judgeIds = v.judges ? [v.judges] : [];
                 }
@@ -209,10 +221,11 @@ export default function JudgesPage() {
     const filteredJudges = judges.filter(j => {
         const q = searchQuery.toLowerCase();
         const assignedVenue = getAssignedVenueName(j) || '';
+        const instName = institutions.find(i => i.id === j.institution)?.name || j.institution || '';
         return (
             j.name.toLowerCase().includes(q) ||
             (j.phone_number || '').toLowerCase().includes(q) ||
-            (j.institution || '').toLowerCase().includes(q) ||
+            instName.toLowerCase().includes(q) ||
             assignedVenue.toLowerCase().includes(q)
         );
     });
@@ -272,19 +285,49 @@ export default function JudgesPage() {
                                     const venueName = getAssignedVenueName(j);
                                     return (
                                         <tr key={j.id}>
-                                            <td className={styles.judgeName}>{j.name}</td>
+                                            <td className={styles.judgeName}>
+                                                {j.name}
+                                                {j.final_judge && (
+                                                    <span style={{
+                                                        marginLeft: '8px',
+                                                        fontSize: '10px',
+                                                        backgroundColor: '#e0f2fe',
+                                                        color: '#0369a1',
+                                                        padding: '2px 6px',
+                                                        borderRadius: '4px',
+                                                        fontWeight: 'bold',
+                                                        display: 'inline-block',
+                                                        verticalAlign: 'middle'
+                                                    }}>
+                                                        Final Judge
+                                                    </span>
+                                                )}
+                                            </td>
                                             <td className={styles.phoneNum}>{j.phone_number}</td>
                                             <td>
-                                                {j.institution ? (
-                                                    <Link to={`/track?type=institution&query=${encodeURIComponent(j.institution)}`} className={styles.instLink}>
-                                                        {j.institution}
-                                                    </Link>
-                                                ) : (
+                                                {j.institution ? (() => {
+                                                    const instName = institutions.find(i => i.id === j.institution)?.name || j.institution;
+                                                    return (
+                                                        <Link to={`/track?type=institution&query=${encodeURIComponent(instName)}`} className={styles.instLink}>
+                                                            {instName}
+                                                        </Link>
+                                                    );
+                                                })() : (
                                                     <span style={{ color: '#94a3b8' }}>—</span>
                                                 )}
                                             </td>
                                             <td>{j.place_of_stay || <span style={{ color: '#94a3b8' }}>—</span>}</td>
-                                            <td>{j.pickup_incharge || <span style={{ color: '#94a3b8' }}>—</span>}</td>
+                                            <td>
+                                                {j.pickup_incharge ? (
+                                                    j.contact_person_mobile ? (
+                                                        <span>{j.pickup_incharge} <span style={{ color: '#64748b', fontSize: '11px', fontFamily: 'monospace' }}>({j.contact_person_mobile})</span></span>
+                                                    ) : (
+                                                        j.pickup_incharge
+                                                    )
+                                                ) : (
+                                                    <span style={{ color: '#94a3b8' }}>—</span>
+                                                )}
+                                            </td>
                                             <td>
                                                 {venueName ? (
                                                     <span className={styles.badgeVenue}>{venueName}</span>
@@ -352,7 +395,7 @@ export default function JudgesPage() {
                                              className={styles.selectTrigger} 
                                              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                                          >
-                                             {institution || 'Select an Institution / Madrassa'}
+                                             {institutions.find(i => i.id === institution)?.name || institution || 'Select an Institution / Madrassa'}
                                          </div>
                                          {isDropdownOpen && (
                                              <div className={styles.selectDropdown}>
@@ -382,9 +425,9 @@ export default function JudgesPage() {
                                                      {filteredInstitutions.map((inst) => (
                                                          <div 
                                                              key={inst.id} 
-                                                             className={`${styles.dropdownOption} ${institution === inst.name ? styles.optionSelected : ''}`}
+                                                             className={`${styles.dropdownOption} ${institution === inst.id ? styles.optionSelected : ''}`}
                                                              onClick={() => {
-                                                                 setInstitution(inst.name);
+                                                                 setInstitution(inst.id);
                                                                  setIsDropdownOpen(false);
                                                                  setInstSearchQuery('');
                                                              }}
@@ -429,6 +472,28 @@ export default function JudgesPage() {
                                             value={pickupIncharge}
                                             onChange={(e) => setPickupIncharge(e.target.value)}
                                         />
+                                    </div>
+                                </div>
+                                <div className={styles.formRow}>
+                                    <div className={styles.formGroup}>
+                                        <label htmlFor="judge-contact-mobile">Contact Person Mobile</label>
+                                        <input
+                                            type="text"
+                                            id="judge-contact-mobile"
+                                            placeholder="Contact person phone number"
+                                            value={contactPersonMobile}
+                                            onChange={(e) => setContactPersonMobile(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className={styles.formGroup} style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '28px' }}>
+                                        <input
+                                            type="checkbox"
+                                            id="judge-final"
+                                            checked={finalJudge}
+                                            onChange={(e) => setFinalJudge(e.target.checked)}
+                                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                        />
+                                        <label htmlFor="judge-final" style={{ cursor: 'pointer', margin: 0, fontWeight: '600', userSelect: 'none' }}>Final Judge?</label>
                                     </div>
                                 </div>
                             </div>

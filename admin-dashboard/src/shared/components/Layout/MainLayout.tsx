@@ -85,6 +85,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                         <span className={styles.brandTitle}>SLQC Admin Portal</span>
                         <span className={styles.brandSubtitle}>SLQC 2026</span>
                     </div>
+
                 </Link>
 
                 <nav className={styles.nav}>
@@ -93,6 +94,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                         to="/"
                         className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
                         onClick={closeMobileMenu}
+                        preventScrollReset={true}
                         end
                     >
                         <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -108,6 +110,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                         to="/stats"
                         className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
                         onClick={closeMobileMenu}
+                        preventScrollReset={true}
                     >
                         <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <line x1="18" y1="20" x2="18" y2="10"></line>
@@ -118,27 +121,17 @@ export default function MainLayout({ children }: MainLayoutProps) {
                     </NavLink>
 
                     <NavLink
-                        to="/track"
+                        to="/marksheet-upload"
                         className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
                         onClick={closeMobileMenu}
+                        preventScrollReset={true}
                     >
                         <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                            <polyline points="21 15 16 10 5 21"/>
                         </svg>
-                        Track Application
-                    </NavLink>
-
-                    <NavLink
-                        to="/arrival-checking"
-                        className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
-                        onClick={closeMobileMenu}
-                    >
-                        <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="9 11 12 14 22 4"></polyline>
-                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-                        </svg>
-                        Inst Admin
+                        Marksheet Upload
                     </NavLink>
 
                     <div className={styles.navSectionTitle}>Registration & Approvals</div>
@@ -146,6 +139,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                         to="/applications"
                         className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
                         onClick={closeMobileMenu}
+                        preventScrollReset={true}
                     >
                         <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -160,6 +154,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                         to="/approvals"
                         className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
                         onClick={closeMobileMenu}
+                        preventScrollReset={true}
                     >
                         <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -171,14 +166,80 @@ export default function MainLayout({ children }: MainLayoutProps) {
                         Approval Panel
                     </NavLink>
 
+                    <NavLink
+                        to="/arrival-checking"
+                        className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
+                        onClick={closeMobileMenu}
+                        preventScrollReset={true}
+                    >
+                        <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="9 11 12 14 22 4"></polyline>
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                        </svg>
+                        Inst Admin
+                    </NavLink>
+
+                    <NavLink
+                        to="/track"
+                        className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
+                        onClick={closeMobileMenu}
+                        preventScrollReset={true}
+                    >
+                        <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        Track Application
+                    </NavLink>
+
                     {(user?.designation === 'admin' || user?.designation === 'coordinators') && (
                         <>
+                            <div className={styles.navSectionTitle}>Competition Admin</div>
+                            <NavLink
+                                to="/venue-panel"
+                                className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
+                                onClick={closeMobileMenu}
+                                preventScrollReset={true}
+                            >
+                                <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                                    <circle cx="12" cy="10" r="3" />
+                                </svg>
+                                Venue Prelim
+                            </NavLink>
+
+                            <NavLink
+                                to="/venue-final"
+                                className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
+                                onClick={closeMobileMenu}
+                                preventScrollReset={true}
+                            >
+                                <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                                </svg>
+                                Venue Final
+                            </NavLink>
+
+                            <NavLink
+                                to="/mark-entry"
+                                className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
+                                onClick={closeMobileMenu}
+                                preventScrollReset={true}
+                            >
+                                <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="2" y="4" width="20" height="14" rx="2" ry="2" />
+                                    <line x1="2" y1="10" x2="22" y2="10" />
+                                </svg>
+                                Mark Entry
+                            </NavLink>
+
                             <div className={styles.navSectionTitle}>Setup & Administration</div>
                             {user?.designation === 'admin' && (
                                 <NavLink
                                     to="/organisers"
                                     className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
                                     onClick={closeMobileMenu}
+                                    preventScrollReset={true}
                                 >
                                     <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -190,24 +251,13 @@ export default function MainLayout({ children }: MainLayoutProps) {
                                 </NavLink>
                             )}
 
-                            <NavLink
-                                to="/venue-panel"
-                                className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
-                                onClick={closeMobileMenu}
-                            >
-                                <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                                    <circle cx="12" cy="10" r="3" />
-                                </svg>
-                                Venue Panel
-                            </NavLink>
-
                             {user?.designation === 'admin' && (
                                 <>
                                     <NavLink
                                         to="/judges"
                                         className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
                                         onClick={closeMobileMenu}
+                                        preventScrollReset={true}
                                     >
                                         <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                             <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -221,6 +271,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                                         to="/control-panel"
                                         className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
                                         onClick={closeMobileMenu}
+                                        preventScrollReset={true}
                                     >
                                         <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                             <circle cx="12" cy="12" r="3" />
@@ -234,11 +285,12 @@ export default function MainLayout({ children }: MainLayoutProps) {
                     )}
                 </nav>
 
+                {/* Translation UI Wrapper */}
                 <div className={styles.sidebarTranslate}>
                     <div className={styles.customTranslateWrapper}>
-                        <button 
+                        <button
                             type="button"
-                            className={styles.translateBtn} 
+                            className={styles.translateBtn}
                             onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
                             aria-label="Select Language"
                         >
@@ -252,7 +304,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                                 <polyline points="6 9 12 15 18 9" />
                             </svg>
                         </button>
-                        
+
                         {isLangMenuOpen && (
                             <>
                                 <div className={styles.translateMenuBackdrop} onClick={() => setIsLangMenuOpen(false)} />
@@ -277,7 +329,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                             </>
                         )}
                     </div>
-                    
+
                     <button
                         type="button"
                         onClick={triggerTranslation}

@@ -9,6 +9,7 @@ interface Venue {
     name: string;
     description: string;
     category: string;
+    round: string;
     capacity: number;
     slots?: any;
     allocatedCount?: number;
@@ -20,48 +21,6 @@ interface VenueSettingsFormProps {
     onAllocationComplete?: () => void;
 }
 
-interface Slot {
-    name: string;
-    startTime: string;
-    endTime: string;
-    capacity: number;
-}
-
-const format12Hour = (time24: string) => {
-    if (!time24) return '';
-    const [hoursStr, minutesStr] = time24.split(':');
-    let hours = parseInt(hoursStr, 10);
-    const minutes = minutesStr;
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12; // the hour '0' should be '12'
-    const strHours = hours < 10 ? '0' + hours : hours;
-    return `${strHours}:${minutes} ${ampm}`;
-};
-
-const parse12HourTo24Hour = (time12: string) => {
-    if (!time12) return '09:00';
-    const clean = time12.trim().toUpperCase();
-    const match = clean.match(/^(\d+):(\d+)\s*(AM|PM)$/);
-    if (!match) return '09:00';
-    let hours = parseInt(match[1], 10);
-    const minutes = match[2];
-    const ampm = match[3];
-    if (ampm === 'PM' && hours < 12) hours += 12;
-    if (ampm === 'AM' && hours === 12) hours = 0;
-    const strHours = hours < 10 ? '0' + hours : hours;
-    return `${strHours}:${minutes}`;
-};
-
-const parseTimeRange = (timeRangeStr: string) => {
-    if (!timeRangeStr) return { startTime: '09:00', endTime: '12:00' };
-    const parts = timeRangeStr.split('-');
-    if (parts.length < 2) return { startTime: '09:00', endTime: '12:00' };
-    return {
-        startTime: parse12HourTo24Hour(parts[0]),
-        endTime: parse12HourTo24Hour(parts[1])
-    };
-};
 
 export default function VenueSettingsForm({ onAllocationComplete }: VenueSettingsFormProps) {
     const [venues, setVenues] = useState<Venue[]>([]);
@@ -73,42 +32,59 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
     const [allJudges, setAllJudges] = useState<any[]>([]);
     const [selectedJudges, setSelectedJudges] = useState<string[]>([]);
 
-    const parseJudgesField = (judgesVal: any): string[] => {
+    const parseJudgesObjects = (judgesVal: any, judgesList: any[] = allJudges): any[] => {
         if (!judgesVal) return [];
-        if (Array.isArray(judgesVal)) return judgesVal;
-        if (typeof judgesVal === 'string') {
+        let rawList: any[] = [];
+        if (Array.isArray(judgesVal)) {
+            rawList = judgesVal;
+        } else if (typeof judgesVal === 'string') {
             try {
                 const parsed = JSON.parse(judgesVal);
-                if (Array.isArray(parsed)) return parsed;
-            } catch (_) {}
-            return judgesVal ? [judgesVal] : [];
+                if (Array.isArray(parsed)) rawList = parsed;
+                else rawList = judgesVal ? [judgesVal] : [];
+            } catch (_) {
+                rawList = judgesVal ? [judgesVal] : [];
+            }
         }
-        return [];
+        return rawList.map((j: any) => {
+            if (j && typeof j === 'object') return j;
+            const found = judgesList.find(aj => aj.id === j);
+            if (found) {
+                return {
+                    id: found.id,
+                    name: found.name,
+                    phone_number: found.phone_number,
+                    institution: found.institution
+                };
+            }
+            return { id: j, name: j, phone_number: '', institution: '' };
+        });
+    };
+
+    const parseJudgesField = (judgesVal: any, judgesList: any[] = allJudges): string[] => {
+        const objects = parseJudgesObjects(judgesVal, judgesList);
+        return objects.map(o => o.id);
     };
 
     const isJudgeAssignedElsewhere = (judgeId: string) => {
-        return venues.some(v => 
-            v.id !== editingVenue?.id && 
-            parseJudgesField(v.judges).includes(judgeId)
-        );
+        return venues.some(v => {
+            if (v.id === editingVenue?.id) return false;
+            const vJudges = Array.isArray(v.judges) ? v.judges : [];
+            return vJudges.some((j: any) => (j && typeof j === 'object' ? j.id : j) === judgeId);
+        });
     };
 
     const getAssignedVenueNameForJudge = (judgeId: string) => {
-        const assigned = venues.find(v => 
-            v.id !== editingVenue?.id && 
-            parseJudgesField(v.judges).includes(judgeId)
-        );
+        const assigned = venues.find(v => {
+            if (v.id === editingVenue?.id) return false;
+            const vJudges = Array.isArray(v.judges) ? v.judges : [];
+            return vJudges.some((j: any) => (j && typeof j === 'object' ? j.id : j) === judgeId);
+        });
         return assigned ? assigned.name : null;
     };
 
     const getVenueJudgesDisplay = (venue: Venue) => {
-        let list: any[] = [];
-        const venueJudges = parseJudgesField(venue.judges);
-        if (venue.expand?.judges) {
-            list = Array.isArray(venue.expand.judges) ? venue.expand.judges : [venue.expand.judges];
-        } else if (venueJudges.length > 0) {
-            list = venueJudges.map(jId => allJudges.find(aj => aj.id === jId)).filter(Boolean);
-        }
+        const list = Array.isArray(venue.judges) ? venue.judges : [];
         if (list.length === 0) return <span style={{ color: '#94a3b8' }}>No Judges Assigned</span>;
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -171,7 +147,8 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
     const [venueName, setVenueName] = useState('');
     const [venueDesc, setVenueDesc] = useState('');
     const [venueCategory, setVenueCategory] = useState('5_juz');
-    const [slots, setSlots] = useState<Slot[]>([]);
+    const [venueRound, setVenueRound] = useState('preliminary');
+    const [venueCapacityField, setVenueCapacityField] = useState<string>('18');
 
     const loadVenuesAndAllocations = async () => {
         setLoading(true);
@@ -206,10 +183,11 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                 name: v.name,
                 description: v.description,
                 category: v.category,
+                round: v.round || 'preliminary',
                 capacity: v.capacity,
                 slots: v.slots,
                 allocatedCount: counts[v.name] || 0,
-                judges: parseJudgesField(v.judges),
+                judges: parseJudgesObjects(v.judges, judgesRecords),
                 expand: v.expand
             }));
 
@@ -230,7 +208,8 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
         setVenueName('');
         setVenueDesc('');
         setVenueCategory('5_juz');
-        setSlots([{ name: 'Slot 1', startTime: '09:00', endTime: '12:00', capacity: 18 }]);
+        setVenueRound('preliminary');
+        setVenueCapacityField('18');
         setSelectedJudges([]);
         setShowModal(true);
     };
@@ -240,54 +219,10 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
         setVenueName(v.name);
         setVenueDesc(v.description);
         setVenueCategory(v.category);
+        setVenueRound(v.round || 'preliminary');
         setSelectedJudges(parseJudgesField(v.judges));
-        
-        let loadedSlots = [];
-        try {
-            if (v.slots) {
-                loadedSlots = typeof v.slots === 'string' ? JSON.parse(v.slots) : v.slots;
-            }
-        } catch (_) {}
-        
-        if (!Array.isArray(loadedSlots) || loadedSlots.length === 0) {
-            loadedSlots = [{ name: 'Slot 1', startTime: '09:00', endTime: '12:00', capacity: v.capacity || 18 }];
-        } else {
-            // Map slots to make sure startTime and endTime are populated
-            loadedSlots = loadedSlots.map((s, idx) => {
-                if (s.startTime && s.endTime) {
-                    return {
-                        ...s,
-                        name: s.name || `Slot ${idx + 1}`
-                    };
-                }
-                const parsed = parseTimeRange(s.time);
-                return {
-                    name: s.name || `Slot ${idx + 1}`,
-                    startTime: parsed.startTime,
-                    endTime: parsed.endTime,
-                    capacity: s.capacity
-                };
-            });
-        }
-        
-        setSlots(loadedSlots);
+        setVenueCapacityField(String(v.capacity || 18));
         setShowModal(true);
-    };
-
-    const handleAddSlot = () => {
-        setSlots(prev => [...prev, { name: `Slot ${prev.length + 1}`, startTime: '09:00', endTime: '12:00', capacity: 18 }]);
-    };
-
-    const handleUpdateSlot = (idx: number, field: keyof Slot, val: any) => {
-        setSlots(prev => prev.map((s, i) => i === idx ? { ...s, [field]: val } : s));
-    };
-
-    const handleRemoveSlot = (idx: number) => {
-        if (slots.length <= 1) {
-            showDialog('alert', 'Action Prevented', 'A venue must have at least one slot.');
-            return;
-        }
-        setSlots(prev => prev.filter((_, i) => i !== idx));
     };
 
     const syncJudgesAllocatedVenueFrontend = async () => {
@@ -325,24 +260,26 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
 
         setLoading(true);
         try {
-            const totalCapacity = slots.reduce((sum, s) => sum + (parseInt(String(s.capacity), 10) || 0), 0);
-            
-            // Format time range for backwards compatibility
-            const slotsWithFormattedTime = slots.map((s, idx) => ({
-                name: s.name || `Slot ${idx + 1}`,
-                startTime: s.startTime,
-                endTime: s.endTime,
-                time: `${format12Hour(s.startTime)} - ${format12Hour(s.endTime)}`,
-                capacity: parseInt(String(s.capacity), 10) || 0
-            }));
+            const totalCapacity = parseInt(venueCapacityField, 10) || 18;
+
+            const judgesDetails = selectedJudges.map(jId => {
+                const j = allJudges.find(aj => aj.id === jId);
+                return {
+                    id: jId,
+                    name: j?.name || '',
+                    phone_number: j?.phone_number || '',
+                    institution: j?.institution || ''
+                };
+            });
 
             const data = {
                 name: venueName.trim(),
                 description: venueDesc.trim(),
                 category: venueCategory,
+                round: venueRound,
                 capacity: totalCapacity,
-                slots: slotsWithFormattedTime,
-                judges: selectedJudges
+                slots: [],
+                judges: judgesDetails
             };
 
             let savedVenue;
@@ -396,7 +333,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
             showDialog('alert', 'Cannot Delete Venue', `Cannot delete "${v.name}" because it currently has ${v.allocatedCount} students allocated to it. Please run allocation reset first.`);
             return;
         }
-        
+
         showDialog('confirm', 'Confirm Delete', `Are you sure you want to delete venue "${v.name}"?`, async () => {
             closeDialog();
             setLoading(true);
@@ -432,23 +369,23 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
             const metaList = await metadataApi.getAllMetadata(true); // Force refresh
             const participantStatusRec = metaList.find(r => r.key === 'participant_application_status');
             const madrasaStatusRec = metaList.find(r => r.key === 'madrasa_application_status');
-            
+
             let participantClosed = false;
             let madrasaClosed = false;
-            
+
             try {
                 if (participantStatusRec) {
                     const val = typeof participantStatusRec.value === 'string' ? JSON.parse(participantStatusRec.value) : participantStatusRec.value;
                     participantClosed = val?.status === 'closed';
                 }
-            } catch (_) {}
-            
+            } catch (_) { }
+
             try {
                 if (madrasaStatusRec) {
                     const val = typeof madrasaStatusRec.value === 'string' ? JSON.parse(madrasaStatusRec.value) : madrasaStatusRec.value;
                     madrasaClosed = val?.status === 'closed';
                 }
-            } catch (_) {}
+            } catch (_) { }
 
             if (!participantClosed || !madrasaClosed) {
                 // Do NOT show checkboxes. Show error dialog directly!
@@ -488,14 +425,14 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
         setShowAllocateSelectModal(false);
         setAllocating(true);
         setAllocationSummary(null);
-        
+
         let combinedSummary: Record<string, any> = {};
 
         try {
             for (let i = 0; i < selectedCats.length; i++) {
                 const cat = selectedCats[i];
                 const catLabel = getCategoryBadge(cat);
-                
+
                 // Calculate progress values per step
                 const baseProgress = Math.floor((i / selectedCats.length) * 100);
                 const stepProgress = Math.floor(100 / selectedCats.length);
@@ -787,7 +724,10 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                         borderRadius: '12px',
                         width: '100%',
                         maxWidth: '500px',
+                        maxHeight: '90vh',
                         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+                        display: 'flex',
+                        flexDirection: 'column',
                         overflow: 'hidden'
                     }}>
                         <div style={{
@@ -795,7 +735,8 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                             borderBottom: '1px solid #f1f5f9',
                             display: 'flex',
                             justifyContent: 'space-between',
-                            alignItems: 'center'
+                            alignItems: 'center',
+                            flexShrink: 0
                         }}>
                             <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>
                                 {editingVenue ? 'Edit Venue' : 'Add New Venue'}
@@ -808,7 +749,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                                 &times;
                             </button>
                         </div>
-                        <form onSubmit={handleSaveVenue} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <form onSubmit={handleSaveVenue} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto', flex: 1 }}>
                             <div>
                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>Venue Name *</label>
                                 <input
@@ -830,25 +771,23 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                                     style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }}
                                 />
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>Category *</label>
-                                    <select
-                                        value={venueCategory}
-                                        onChange={(e) => setVenueCategory(e.target.value)}
-                                        style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', backgroundColor: '#fff' }}
-                                        required
-                                    >
-                                        <option value="5_juz">5 Juz</option>
-                                        <option value="15_juz">15 Juz</option>
-                                        <option value="30_juz">30 Juz</option>
-                                    </select>
-                                </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>Category *</label>
+                                <select
+                                    value={venueCategory}
+                                    onChange={(e) => setVenueCategory(e.target.value)}
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', backgroundColor: '#fff' }}
+                                    required
+                                >
+                                    <option value="5_juz">5 Juz</option>
+                                    <option value="15_juz">15 Juz</option>
+                                    <option value="30_juz">30 Juz</option>
+                                </select>
                             </div>
 
                             <div>
                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>Assign Judges (can select multiple)</label>
-                                
+
                                 {/* Selected Judges Badges / Tickets */}
                                 {selectedJudges.length > 0 && (
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
@@ -909,12 +848,11 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                                         <div style={{ color: '#94a3b8', fontSize: '13px', fontStyle: 'italic' }}>No judges registered in the system.</div>
                                     ) : (
                                         allJudges
-                                            .filter(j => !selectedJudges.includes(j.id))
                                             .map(j => {
                                                 const assignedElsewhere = isJudgeAssignedElsewhere(j.id);
                                                 const assignedVenueName = getAssignedVenueNameForJudge(j.id);
                                                 const isChecked = selectedJudges.includes(j.id);
-                                                
+
                                                 return (
                                                     <label key={j.id} style={{
                                                         display: 'flex',
@@ -952,74 +890,18 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                                 </div>
                             </div>
 
-                            {/* Slots Section */}
+                            {/* Capacity Section */}
                             <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                                    <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#475569' }}>Venue Slots ({slots.reduce((sum, s) => sum + (parseInt(String(s.capacity), 10) || 0), 0)} Total Capacity)</label>
-                                    <button
-                                        type="button"
-                                        onClick={handleAddSlot}
-                                        style={{
-                                            fontSize: '12px',
-                                            padding: '4px 8px',
-                                            backgroundColor: '#e2e8f0',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                            cursor: 'pointer',
-                                            fontWeight: 'bold',
-                                            color: '#475569'
-                                        }}
-                                    >
-                                        + Add Slot
-                                    </button>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
-                                    {slots.map((slot, idx) => (
-                                        <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2.2fr 3.5fr 1.3fr auto', gap: '8px', alignItems: 'center' }}>
-                                            <input
-                                                type="text"
-                                                placeholder="e.g. Slot 1"
-                                                value={slot.name}
-                                                onChange={(e) => handleUpdateSlot(idx, 'name', e.target.value)}
-                                                style={{ padding: '8px 10px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px', width: '100%', boxSizing: 'border-box', outline: 'none', height: '38px' }}
-                                                required
-                                            />
-                                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                                <input
-                                                    type="time"
-                                                    value={slot.startTime || '09:00'}
-                                                    onChange={(e) => handleUpdateSlot(idx, 'startTime', e.target.value)}
-                                                    style={{ padding: '8px 8px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px', width: '100%', boxSizing: 'border-box', outline: 'none', height: '38px' }}
-                                                    required
-                                                />
-                                                <span style={{ fontSize: '12px', color: '#64748b' }}>-</span>
-                                                <input
-                                                    type="time"
-                                                    value={slot.endTime || '12:00'}
-                                                    onChange={(e) => handleUpdateSlot(idx, 'endTime', e.target.value)}
-                                                    style={{ padding: '8px 8px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px', width: '100%', boxSizing: 'border-box', outline: 'none', height: '38px' }}
-                                                    required
-                                                />
-                                            </div>
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                placeholder="Cap"
-                                                value={slot.capacity}
-                                                onChange={(e) => handleUpdateSlot(idx, 'capacity', parseInt(e.target.value, 10) || '')}
-                                                style={{ padding: '8px 10px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px', width: '100%', boxSizing: 'border-box', outline: 'none', height: '38px' }}
-                                                required
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => handleRemoveSlot(idx)}
-                                                style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', padding: '6px 4px', fontSize: '20px', lineHeight: '1' }}
-                                            >
-                                                &times;
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>Venue Capacity (Max Students) *</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    placeholder="e.g. 18"
+                                    value={venueCapacityField}
+                                    onChange={(e) => setVenueCapacityField(e.target.value)}
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }}
+                                    required
+                                />
                             </div>
 
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '12px' }}>
@@ -1082,7 +964,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                             <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>
                                 Select the categories you want to allocate. This will automatically assign approved candidates in the selected categories.
                             </p>
-                            
+
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px' }}>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 500, fontSize: '14px' }}>
                                     <input
@@ -1180,7 +1062,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                             <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>
                                 Select the categories you want to unallocate. This will clear the venue and slot allocations for all students in the selected categories.
                             </p>
-                            
+
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: '#fdf2f2', padding: '16px', borderRadius: '8px' }}>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 500, fontSize: '14px' }}>
                                     <input
@@ -1277,7 +1159,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                             <p style={{ fontSize: '14px', color: '#475569', margin: 0, lineHeight: '1.5' }}>
                                 {dialogConfig.message}
                             </p>
-                            
+
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
                                 {dialogConfig.type === 'confirm' ? (
                                     <>

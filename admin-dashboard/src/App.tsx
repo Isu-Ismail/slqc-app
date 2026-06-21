@@ -5,6 +5,7 @@ import AdminDashboardPage from './features/dashboard/AdminDashboardPage';
 import ControlPanelPage from './features/control-panel/ControlPanelPage';
 import OrganisersPage from './features/organisers/OrganisersPage';
 import VenuePanelPage from './features/venue-panel/VenuePanelPage';
+import VenueFinalPage from './features/venue-final/VenueFinalPage'; // <-- Imported
 import TrackPage from './features/track/TrackPage';
 import ApprovalsListPage from './features/approvals/ApprovalsListPage';
 import ApprovalReviewPage from './features/approvals/ApprovalReviewPage';
@@ -13,11 +14,10 @@ import JudgesPage from './features/judges/JudgesPage';
 import ArrivalCheckingPage from './features/arrivals/ArrivalCheckingPage';
 import StatsDashboardPage from './features/stats/StatsDashboardPage';
 import MainLayout from './shared/components/Layout/MainLayout';
-
-// 1. IMPORTANT: Import pb at the top so the router can use it!
+import MarkEntryPage from './features/mark-entry/MarkEntryPage';
+import MarksheetUploadPage from './features/mark-entry/MarksheetUploadPage';
 import { pb } from './api/db';
 
-// 2. Updated RequireAuth to use PocketBase directly
 function RequireAuth({ children }: { children: React.ReactNode }) {
     if (!pb.authStore.isValid) {
         return <Navigate to="/login" replace />;
@@ -25,25 +25,18 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
     return children;
 }
 
-// 3. Updated RequireAdmin to use PocketBase directly
 function RequireAdmin({ children }: { children: React.ReactNode }) {
     if (!pb.authStore.isValid) {
         return <Navigate to="/login" replace />;
     }
-
     const user = pb.authStore.model;
-
-    // Check if they are an app admin OR a PocketBase superuser (superusers have no collectionId)
     const isAdmin = user?.designation === 'admin' || !user?.collectionId;
-
     if (!isAdmin) {
         return <Navigate to="/" replace />;
     }
-
     return children;
 }
 
-// 4. Router
 function App() {
     return (
         <BrowserRouter basename="/slqc-admin">
@@ -87,6 +80,16 @@ function App() {
                         <RequireAuth>
                             <MainLayout>
                                 <VenuePanelPage />
+                            </MainLayout>
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/venue-final"
+                    element={
+                        <RequireAuth>
+                            <MainLayout>
+                                <VenueFinalPage />
                             </MainLayout>
                         </RequireAuth>
                     }
@@ -157,6 +160,26 @@ function App() {
                         <RequireAuth>
                             <MainLayout>
                                 <ArrivalCheckingPage />
+                            </MainLayout>
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/mark-entry"
+                    element={
+                        <RequireAuth>
+                            <MainLayout>
+                                <MarkEntryPage />
+                            </MainLayout>
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/marksheet-upload"
+                    element={
+                        <RequireAuth>
+                            <MainLayout>
+                                <MarksheetUploadPage />
                             </MainLayout>
                         </RequireAuth>
                     }

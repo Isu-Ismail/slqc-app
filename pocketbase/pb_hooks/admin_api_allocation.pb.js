@@ -72,6 +72,29 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
             return e.json(400, { error: "No venues configured for category " + category.replace("_", " ") + ". Please create venues first." });
         }
 
+        // Check A: Ensure all venues configured for this category have at least one judge allocated
+        for (let i = 0; i < venues.length; i++) {
+            const v = venues[i];
+            const rawJudges = v.getString("judges");
+            let venueJudges = [];
+            if (rawJudges) {
+                try {
+                    venueJudges = JSON.parse(rawJudges);
+                } catch (_) {}
+            }
+            if (!Array.isArray(venueJudges) || venueJudges.length === 0) {
+                return e.json(400, { error: "Cannot run allocation: Venue '" + v.get("name") + "' does not have any judges allocated. Please allocate judges first." });
+            }
+        }
+
+        // Check B: Ensure no judges registered in the system are unassigned (not allocated to any venue)
+        const unallocatedJudges = $app.findRecordsByFilter("judges", "allocated_venue = ''", "", 9999, 0);
+        if (unallocatedJudges && unallocatedJudges.length > 0) {
+            const names = [];
+            unallocatedJudges.forEach(j => names.push(j.get("name")));
+            return e.json(400, { error: "Cannot run allocation: The following judges are not allocated to any venue: " + names.join(", ") });
+        }
+
         // 3. Fetch all approved participants for the specified category
         const approvedCandidates = $app.findRecordsByFilter(
             "participants_application",
@@ -173,17 +196,59 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
         });
         const shuffledIndividuals = shuffle(individualCands);
 
-        // Sort institutions by size descending
-        const sortedInsts = Object.keys(instGroups).sort((a, b) => instGroups[b].length - instGroups[a].length);
+        const hasConflict = (venueObj, studentInstId) => {
+            if (!studentInstId) return false;
+            let studentInstName = "";
+            try {
+                const instRec = $app.findRecordById("institutions", studentInstId);
+                studentInstName = instRec.get("name");
+            } catch (_) {}
+
+            const norm = (s) => String(s || "").toLowerCase().trim().replace(/\s+/g, " ");
+            const sNameNorm = norm(studentInstName);
+            const sIdNorm = norm(studentInstId);
+
+            if (!sNameNorm && !sIdNorm) return false;
+
+            const rawJudges = venueObj.record.getString("judges");
+            if (rawJudges) {
+                try {
+                    const parsed = JSON.parse(rawJudges);
+                    if (Array.isArray(parsed)) {
+                        for (let i = 0; i < parsed.length; i++) {
+                            const j = parsed[i];
+                            if (j && typeof j === "object" && j.institution) {
+                                const jInstNorm = norm(j.institution);
+                                if (jInstNorm) {
+                                    // Match exact or fuzzy/partial institution name
+                                    if (jInstNorm === sIdNorm || 
+                                        jInstNorm === sNameNorm || 
+                                        sNameNorm.indexOf(jInstNorm) !== -1 || 
+                                        jInstNorm.indexOf(sNameNorm) !== -1) {
+                                        return true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (_) {}
+            }
+            return false;
+        };
 
         const allocateCandidate = (cand, instId) => {
             const availableTargets = venuesList.filter(v => v.allocatedCount < v.capacity);
             if (availableTargets.length === 0) return false;
 
+            let nonConflictingTargets = availableTargets.filter(t => !hasConflict(t, instId));
+            if (nonConflictingTargets.length === 0) {
+                nonConflictingTargets = availableTargets;
+            }
+
             let selectedTarget = null;
             let minInstCount = Infinity;
 
-            availableTargets.forEach(t => {
+            nonConflictingTargets.forEach(t => {
                 const instCount = t.instCounts[instId] || 0;
                 if (instCount < minInstCount) {
                     minInstCount = instCount;
@@ -214,7 +279,8 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
             return false;
         };
 
-        // Process larger institutions first
+        const sortedInsts = Object.keys(instGroups).sort((a, b) => instGroups[b].length - instGroups[a].length);
+
         sortedInsts.forEach(instRef => {
             const list = instGroups[instRef];
             list.forEach(cand => {
@@ -227,10 +293,66 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
             allocateCandidate(cand, "");
         });
 
-        // Shuffle within each stage and write sequential allocated_order to DB
+        // Spacing algorithm to keep candidates of the same institution apart
+        const arrangeCandidates = (cands) => {
+            if (cands.length <= 1) return cands;
+            
+            const groups = {};
+            cands.forEach(c => {
+                const inst = c.get("institution_ref") || "individual_" + c.get("id");
+                if (!groups[inst]) groups[inst] = [];
+                groups[inst].push(c);
+            });
+            
+            const result = [];
+            const lastPlacedInsts = [];
+            
+            const groupList = [];
+            Object.keys(groups).forEach(inst => {
+                groupList.push({
+                    inst: inst,
+                    list: groups[inst]
+                });
+            });
+            
+            const totalCount = cands.length;
+            for (let step = 0; step < totalCount; step++) {
+                const activeGroups = groupList.filter(g => g.list.length > 0);
+                if (activeGroups.length === 0) break;
+                
+                activeGroups.sort((a, b) => b.list.length - a.list.length);
+                
+                let chosenGroup = null;
+                for (let spacing = 3; spacing >= 0; spacing--) {
+                    const disallowedInsts = lastPlacedInsts.slice(-spacing);
+                    const candidateGroups = activeGroups.filter(g => !disallowedInsts.includes(g.inst));
+                    if (candidateGroups.length > 0) {
+                        chosenGroup = candidateGroups[0];
+                        break;
+                    }
+                }
+                
+                if (!chosenGroup) {
+                    chosenGroup = activeGroups[0];
+                }
+                
+                const cand = chosenGroup.list.pop();
+                result.push(cand);
+                lastPlacedInsts.push(chosenGroup.inst);
+                
+                if (lastPlacedInsts.length > 10) {
+                    lastPlacedInsts.shift();
+                }
+            }
+            
+            return result;
+        };
+
+        // Shuffle and arrange within each stage, then write sequential allocated_order to DB
         venuesList.forEach(venue => {
             const shuffledCands = shuffle(venue.allocatedCandidates);
-            shuffledCands.forEach((cand, idx) => {
+            const arrangedCands = arrangeCandidates(shuffledCands);
+            arrangedCands.forEach((cand, idx) => {
                 cand.set("allocated_venue", venue.name);
                 cand.set("allocated_order", idx + 1);
                 $app.save(cand);

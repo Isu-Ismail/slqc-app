@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>15 Juz Final Marksheet</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            color: #000;
+            background: #fff;
+        }
+        .marksheet-card {
+            width: 100%;
+            height: 135mm;
+            padding: 12mm 10mm;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: 100%;
+        }
+        .meta-box {
+            border: 2px solid #000;
+            padding: 4px 10px;
+            text-align: center;
+            min-width: 70px;
+        }
+        .meta-box-title {
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            border-bottom: 1px solid #000;
+            padding-bottom: 2px;
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+        }
+        .meta-box-value {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .header-text {
+            text-align: center;
+            flex-grow: 1;
+            padding: 0 10px;
+        }
+        .bismillah {
+            font-family: "Times New Roman", serif;
+            font-size: 12px;
+            margin-bottom: 4px;
+            font-style: italic;
+        }
+        .comp-title {
+            font-size: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .comp-subtitle {
+            font-size: 13px;
+            font-weight: bold;
+            margin-top: 2px;
+            letter-spacing: 0.3px;
+            color: #b91c1c;
+        }
+        .category-badge {
+            background-color: #fef08a;
+            border: 1.5px solid #000;
+            font-weight: bold;
+            font-size: 13px;
+            padding: 3px 15px;
+            display: inline-block;
+            margin-top: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .marks-table-container {
+            margin-top: 15px;
+            width: 100%;
+        }
+        table.marks-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            direction: rtl;
+        }
+        table.marks-table th, table.marks-table td {
+            border: 1.5px solid #000;
+            font-family: inherit;
+        }
+        table.marks-table th {
+            font-size: 13px;
+            font-weight: bold;
+            padding: 6px 4px;
+        }
+        table.marks-table td {
+            height: 38px;
+            font-size: 13px;
+        }
+        .sub-header-row th {
+            font-size: 11px;
+            padding: 3px;
+        }
+        .candidate-cell {
+            background-color: #dbeafe;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .footer-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: 10px;
+            width: 100%;
+            padding-top: 5px;
+        }
+        .judge-sign {
+            font-size: 13px;
+            font-weight: bold;
+            border-top: 1px dashed #000;
+            width: 150px;
+            text-align: center;
+            padding-top: 5px;
+            margin-top: 15px;
+        }
+        .round-indicator {
+            font-size: 12px;
+            font-weight: bold;
+            color: #b91c1c;
+        }
+    </style>
+</head>
+<body>
+    <div class="marksheet-card">
+        <div class="card-header">
+            <!-- Left balanced box for Judge identification -->
+            <div class="meta-box">
+                <div class="meta-box-title">Judge</div>
+                <div class="meta-box-value">{{judge_label}}</div>
+            </div>
+            
+            <div class="header-text">
+                <div class="bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
+                <div class="comp-title">{{competition_title}}</div>
+                <div class="comp-subtitle">FINAL ROUND</div>
+                <div class="category-badge">15 - JUZ MARK SHEET</div>
+            </div>
+            
+            <!-- Right box for Stage/Venue -->
+            <div class="meta-box">
+                <div class="meta-box-title">Stage</div>
+                <div class="meta-box-value">{{venue_name}}</div>
+            </div>
+        </div>
+
+        <div class="marks-table-container">
+            <table class="marks-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2" style="width: 12%;">المجموع</th>
+                        <th colspan="3" style="width: 28%;">متشابهات</th>
+                        <th colspan="2" style="width: 18%;">إسم السورة والجزء</th>
+                        <th colspan="2" style="width: 18%;">تجويد</th>
+                        <th colspan="2" style="width: 18%;">حفظ</th>
+                        <th rowspan="2" style="width: 6%;">س</th>
+                    </tr>
+                    <tr class="sub-header-row">
+                        <th>10</th>
+                        <th>10</th>
+                        <th>10</th>
+                        <th>5</th>
+                        <th>5</th>
+                        <th>10</th>
+                        <th>10</th>
+                        <th>20</th>
+                        <th>20</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Empty grading row for judges to write marks -->
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td rowspan="2" class="candidate-cell">{{candidate_id}}</td>
+                    </tr>
+                    <!-- Total score reference values -->
+                    <tr style="height: 25px; font-weight: bold; background-color: #f9fafb;">
+                        <td>100</td>
+                        <td colspan="3">30</td>
+                        <td colspan="2">10</td>
+                        <td colspan="2">20</td>
+                        <td colspan="2">40</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="footer-section">
+            <div class="round-indicator">Final Evaluation</div>
+            <div class="judge-sign">Judge Signature</div>
+        </div>
+    </div>
+</body>
+</html>
