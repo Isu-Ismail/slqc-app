@@ -12,17 +12,42 @@ export const venuesApi = {
         });
     },
 
-    printVenueList: async (venue: string) => {
-        return pb.send<any[]>('/api/admin/print-venue-list', {
-            method: 'GET',
-            query: { venue }
+    updateFinalCandidateAllocation: async (participantId: string, finalVenue: string, finalOrder: number) => {
+        return pb.send('/api/admin/update-final-candidate-allocation', {
+            method: 'POST',
+            body: {
+                participantId,
+                final_venue: finalVenue,
+                final_order: finalOrder
+            }
         });
     },
 
-    generateIds: async (venue: string) => {
+    allocateFinalVenues: async (category: string) => {
+        return pb.send('/api/admin/allocate-final-venues', {
+            method: 'POST',
+            body: { category }
+        });
+    },
+
+    unallocateFinalVenues: async (category: string) => {
+        return pb.send('/api/admin/unallocate-final-venues', {
+            method: 'POST',
+            body: { category }
+        });
+    },
+
+    printVenueList: async (venue: string, round: string = 'preliminary') => {
+        return pb.send<any[]>('/api/admin/print-venue-list', {
+            method: 'GET',
+            query: { venue, round }
+        });
+    },
+
+    generateIds: async (venue: string, round: string = 'preliminary') => {
         return pb.send<any[]>('/api/admin/generate-ids', {
             method: 'GET',
-            query: { venue }
+            query: { venue, round }
         });
     }
 };

@@ -78,54 +78,72 @@ export default function StudentSidebar({
                         pendingStudents.length === 0 ? (
                             <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '13px', padding: '20px' }}>All students graded! Ready for final round validation.</p>
                         ) : (
-                            pendingStudents.map(student => (
-                                <div
-                                    key={student.participant_id}
-                                    onClick={() => onSelectStudent(student)}
-                                    className={`${styles.studentCard} ${selectedStudent?.participant_id === student.participant_id ? styles.activeStudentCard : ''}`}
-                                >
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div style={{ fontWeight: '700', fontSize: '13px', color: '#1e293b' }}>{student.full_name}</div>
-                                        {hasCachedMarks(student.participant_id) && (
-                                            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 6px', backgroundColor: '#fef3c7', color: '#d97706', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>
-                                                Editing
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-                                        <span>ID: {student.register_id}</span>
-                                        <span>Cat: {student.category}</span>
-                                    </div>
-                                </div>
-                            ))
-                        )
-                    ) : (
-                        completedStudents.length === 0 ? (
-                            <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '13px', padding: '20px' }}>No students completed yet.</p>
-                        ) : (
-                            completedStudents.map(student => (
-                                <div
-                                    key={student.participant_id}
-                                    onClick={() => onSelectStudent(student)}
-                                    className={`${styles.studentCard} ${selectedStudent?.participant_id === student.participant_id ? styles.activeStudentCard : ''}`}
-                                >
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontWeight: '700', fontSize: '13px', color: '#1e293b' }}>{student.full_name}</span>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            [...pendingStudents]
+                                .sort((a, b) => (b.has_marksheet ? 1 : 0) - (a.has_marksheet ? 1 : 0))
+                                .map(student => (
+                                    <div
+                                        key={student.participant_id}
+                                        onClick={() => onSelectStudent(student)}
+                                        className={`${styles.studentCard} ${selectedStudent?.participant_id === student.participant_id ? styles.activeStudentCard : ''}`}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ fontWeight: '700', fontSize: '13px', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                <span>{student.full_name}</span>
+                                                {student.has_marksheet && (
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', padding: '2px 6px', backgroundColor: '#d1fae5', color: '#065f46', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>
+                                                        ✓ Marksheet
+                                                    </span>
+                                                )}
+                                            </div>
                                             {hasCachedMarks(student.participant_id) && (
                                                 <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 6px', backgroundColor: '#fef3c7', color: '#d97706', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>
                                                     Editing
                                                 </span>
                                             )}
-                                            <Check size={14} style={{ color: '#059669' }} />
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                                            <span>ID: {student.register_id}</span>
+                                            <span>Cat: {student.category}</span>
                                         </div>
                                     </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-                                        <span>ID: {student.register_id}</span>
-                                        <span>Score: {student.values?.totals?.grandAverage || 0}</span>
+                                ))
+                        )
+                    ) : (
+                        completedStudents.length === 0 ? (
+                            <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '13px', padding: '20px' }}>No students completed yet.</p>
+                        ) : (
+                            [...completedStudents]
+                                .sort((a, b) => (b.has_marksheet ? 1 : 0) - (a.has_marksheet ? 1 : 0))
+                                .map(student => (
+                                    <div
+                                        key={student.participant_id}
+                                        onClick={() => onSelectStudent(student)}
+                                        className={`${styles.studentCard} ${selectedStudent?.participant_id === student.participant_id ? styles.activeStudentCard : ''}`}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ fontWeight: '700', fontSize: '13px', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                <span>{student.full_name}</span>
+                                                {student.has_marksheet && (
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', padding: '2px 6px', backgroundColor: '#d1fae5', color: '#065f46', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>
+                                                        ✓ Marksheet
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                {hasCachedMarks(student.participant_id) && (
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 6px', backgroundColor: '#fef3c7', color: '#d97706', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>
+                                                        Editing
+                                                    </span>
+                                                )}
+                                                <Check size={14} style={{ color: '#059669' }} />
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                                            <span>ID: {student.register_id}</span>
+                                            <span>Score: {student.values?.totals?.grandAverage || 0}</span>
+                                        </div>
                                     </div>
-                                </div>
-                            ))
+                                ))
                         )
                     )}
                 </div>

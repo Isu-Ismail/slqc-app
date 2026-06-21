@@ -9,6 +9,19 @@
 
 // ── BOOTSTRAP on serve ───────────────────────────────────────────────────────
 $app.onServe().bindFunc((e) => {
+    // Sync schema on start
+    try {
+        const schemaPath = "/pb_hooks/schema.json";
+        const schemaBytes = $os.readFile(schemaPath);
+        if (schemaBytes && schemaBytes.length > 0) {
+            const schemaJson = String.fromCharCode.apply(null, schemaBytes);
+            $app.importCollectionsByMarshaledJSON(schemaJson, false);
+            console.log("Database schema successfully synced with schema.json");
+        }
+    } catch (err) {
+        console.log("Note: Database schema sync skipped: " + err);
+    }
+
     const keys = [
         "total_applicant",
         "today_count",

@@ -51,6 +51,22 @@ export default function GradingWorkspace({
         return criteria.reduce((sum, c) => sum + (c.numQuestions * (c.outOf || 0)), 0);
     };
 
+    const getCategoryAccumulation = (criterionKey: string) => {
+        let total = 0;
+        Object.keys(scoringValues || {}).forEach((judgeId) => {
+            const judgeMarks = scoringValues[judgeId]?.[criterionKey];
+            if (judgeMarks) {
+                Object.values(judgeMarks).forEach((val: any) => {
+                    const score = parseFloat(val);
+                    if (!isNaN(score)) {
+                        total += score;
+                    }
+                });
+            }
+        });
+        return total;
+    };
+
     const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
     const [showPasswordPrompt, setShowPasswordPrompt] = useState<boolean>(false);
     const [passwordInput, setPasswordInput] = useState<string>('');
@@ -239,7 +255,7 @@ export default function GradingWorkspace({
                             <div style={{ display: 'flex', gap: '16px', fontSize: '13px', color: '#64748b', marginTop: '6px' }}>
                                 <span><strong>Reg ID:</strong> {selectedStudent.register_id}</span>
                                 <span><strong>Category:</strong> {selectedStudent.category}</span>
-                                <span><strong>Venue:</strong> {selectedVenue}</span>
+                                <span><strong>Venue:</strong> {selectedStudent.allocated_venue || 'Unassigned'}</span>
                             </div>
                         </div>
 
@@ -405,15 +421,41 @@ export default function GradingWorkspace({
 
                             {/* Grand Summary Board */}
                             <div id="grand-summary-board" style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-                                <div>
-                                    <h4 style={{ margin: 0, fontSize: '14px', color: '#166534', fontWeight: '700' }}>COMPUTED GRAND SUMMARY</h4>
-                                    <div style={{ display: 'flex', gap: '24px', marginTop: '6px' }}>
-                                        <span style={{ fontSize: '13px', color: '#166534' }}>
-                                            <strong>Total Accumulation:</strong> {totals.grandTotal} Score
-                                        </span>
-                                        <span style={{ fontSize: '13px', color: '#166534' }}>
-                                            <strong>Average Score:</strong> {totals.grandAverage} Score
-                                        </span>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, marginRight: '24px' }}>
+                                    <div>
+                                        <h4 style={{ margin: 0, fontSize: '14px', color: '#166534', fontWeight: '700' }}>COMPUTED GRAND SUMMARY</h4>
+                                        <div style={{ display: 'flex', gap: '24px', marginTop: '6px' }}>
+                                            <span style={{ fontSize: '13px', color: '#166534' }}>
+                                                <strong>Total Accumulation:</strong> {totals.grandTotal} Score
+                                            </span>
+                                            <span style={{ fontSize: '13px', color: '#166534' }}>
+                                                <strong>Average Score:</strong> {totals.grandAverage} Score
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Criteria Accumulations */}
+                                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', borderTop: '1px dashed #bbf7d0', paddingTop: '10px' }}>
+                                        {criteria.map((c) => {
+                                            const total = getCategoryAccumulation(c.key);
+                                            const maxScore = (judges?.length || 0) * c.numQuestions * (c.outOf || 0);
+                                            return (
+                                                <span 
+                                                    key={c.key} 
+                                                    style={{ 
+                                                        fontSize: '12px', 
+                                                        color: '#166534', 
+                                                        backgroundColor: '#dcfce7', 
+                                                        padding: '4px 10px', 
+                                                        borderRadius: '6px',
+                                                        border: '1px solid #bbf7d0',
+                                                        fontWeight: '600'
+                                                    }}
+                                                >
+                                                    <strong>{c.label}:</strong> {total} / {maxScore}
+                                                </span>
+                                            );
+                                        })}
                                     </div>
                                 </div>
 

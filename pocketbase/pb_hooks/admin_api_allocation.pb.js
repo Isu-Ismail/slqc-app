@@ -11,6 +11,20 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
     }
 
     try {
+        // Validation Check: Ensure no marks are entered or finalists chosen
+        try {
+            const prelimCountRes = $app.findRecordsByFilter("preliminary_marks", "id != ''", "", 1, 0);
+            const finalCountRes = $app.findRecordsByFilter("final_marks", "id != ''", "", 1, 0);
+            if (prelimCountRes.length > 0 || finalCountRes.length > 0) {
+                return e.json(400, { error: "Action blocked: Marks have already been entered/submitted for participants." });
+            }
+
+            const finalistCountRes = $app.findRecordsByFilter("participants_application", "is_finalist = true", "", 1, 0);
+            if (finalistCountRes.length > 0) {
+                return e.json(400, { error: "Action blocked: Finalists have already been chosen." });
+            }
+        } catch (_) {}
+
         let category = "";
         try {
             const info = e.requestInfo();
@@ -400,6 +414,20 @@ routerAdd("POST", "/api/admin/unallocate-venues", (e) => {
     }
 
     try {
+        // Validation Check: Ensure no marks are entered or finalists chosen
+        try {
+            const prelimCountRes = $app.findRecordsByFilter("preliminary_marks", "id != ''", "", 1, 0);
+            const finalCountRes = $app.findRecordsByFilter("final_marks", "id != ''", "", 1, 0);
+            if (prelimCountRes.length > 0 || finalCountRes.length > 0) {
+                return e.json(400, { error: "Action blocked: Marks have already been entered/submitted for participants." });
+            }
+
+            const finalistCountRes = $app.findRecordsByFilter("participants_application", "is_finalist = true", "", 1, 0);
+            if (finalistCountRes.length > 0) {
+                return e.json(400, { error: "Action blocked: Finalists have already been chosen." });
+            }
+        } catch (_) {}
+
         let category = "";
         try {
             const info = e.requestInfo();
@@ -583,6 +611,382 @@ routerAdd("POST", "/api/admin/update-candidate-allocation", (e) => {
                 // Just save it
                 cand.set("allocated_venue", newVenue);
                 cand.set("allocated_order", newOrder);
+                $app.save(cand);
+            }
+        }
+
+        // Update trigger manually for real-time tracking
+        try {
+            const triggerCol = $app.findCollectionByNameOrId("trigger_collection");
+            if (triggerCol) {
+                const tr = $app.findFirstRecordByData("trigger_collection", "column_name", "participants_application");
+                tr.set("random_value", $security.randomString(10));
+                $app.save(tr);
+            }
+        } catch (_) {}
+
+        return e.json(200, {
+            success: true,
+            message: "Allocation updated successfully."
+        });
+
+    } catch (err) {
+        return e.json(500, { error: "Failed to update allocation: " + err });
+    }
+});
+
+// ── 4. Run Automatic Final Round Venue Allocation ──────────────────────────────────
+routerAdd("POST", "/api/admin/allocate-final-venues", (e) => {
+    const authRecord = e.auth;
+    const isSuperuser = authRecord && authRecord.collection().name === "_superusers";
+    const isAdmin = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "admin";
+
+    if (!isSuperuser && !isAdmin) {
+        return e.json(403, { error: "Unauthorized. Admin access required." });
+    }
+
+    try {
+        let category = "";
+        try {
+            const info = e.requestInfo();
+            const data = info.data || {};
+            category = data.category || "";
+            
+            if (!category) {
+                const body = new DynamicModel({
+                    category: ""
+                });
+                e.bindBody(body);
+                category = body.category;
+            }
+        } catch (_) {}
+
+        if (!category) {
+            return e.json(400, { error: "Missing category parameter." });
+        }
+
+        // Fetch finalists for category
+        const finalists = $app.findRecordsByFilter(
+            "participants_application",
+            "category = {:category} && is_finalist = true && status = 'approved'",
+            "",
+            100,
+            0,
+            { category: category }
+        );
+
+        if (finalists.length === 0) {
+            return e.json(400, { error: "No promoted finalists found in the " + category.replace("_", " ") + " category. Please select/promote finalists first." });
+        }
+
+        // Find or create final venue
+        let venueName = "";
+        if (category === "5_juz") venueName = "5 Juz Finals";
+        else if (category === "15_juz") venueName = "15 Juz Finals";
+        else if (category === "30_juz") venueName = "30 Juz Finals";
+
+        let finalVenue = null;
+        try {
+            finalVenue = $app.findFirstRecordByData("venue_detail", "name", venueName);
+        } catch (_) {
+            // Create the final venue if it doesn't exist
+            const venueCol = $app.findCollectionByNameOrId("venue_detail");
+            const newVenue = new Record(venueCol);
+            newVenue.set("name", venueName);
+            newVenue.set("description", "Final Round Venue for " + category.replace("_", " "));
+            newVenue.set("category", category);
+            newVenue.set("round", "final");
+            newVenue.set("capacity", 10);
+            newVenue.set("slots", []);
+            newVenue.set("judges", []);
+            $app.save(newVenue);
+            finalVenue = newVenue;
+            console.log("Created final round venue record: " + venueName);
+        }
+
+        // Helper function to shuffle an array
+        const shuffle = (array) => {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                const temp = array[i];
+                array[i] = array[j];
+                array[j] = temp;
+            }
+            return array;
+        };
+
+        // Arrange candidates with institutional spacing
+        const arrangeFinalists = (cands) => {
+            if (cands.length <= 1) return cands;
+            
+            const groups = {};
+            cands.forEach(c => {
+                const inst = c.get("institution_ref") || "individual_" + c.get("id");
+                if (!groups[inst]) groups[inst] = [];
+                groups[inst].push(c);
+            });
+            
+            const result = [];
+            const lastPlacedInsts = [];
+            const groupList = [];
+            
+            Object.keys(groups).forEach(inst => {
+                groupList.push({
+                    inst: inst,
+                    list: groups[inst]
+                });
+            });
+            
+            const totalCount = cands.length;
+            for (let step = 0; step < totalCount; step++) {
+                const activeGroups = groupList.filter(g => g.list.length > 0);
+                if (activeGroups.length === 0) break;
+                
+                activeGroups.sort((a, b) => b.list.length - a.list.length);
+                
+                let chosenGroup = null;
+                for (let spacing = 3; spacing >= 0; spacing--) {
+                    const disallowedInsts = lastPlacedInsts.slice(-spacing);
+                    const candidateGroups = activeGroups.filter(g => !disallowedInsts.includes(g.inst));
+                    if (candidateGroups.length > 0) {
+                        chosenGroup = candidateGroups[0];
+                        break;
+                    }
+                }
+                
+                if (!chosenGroup) {
+                    chosenGroup = activeGroups[0];
+                }
+                
+                const cand = chosenGroup.list.pop();
+                result.push(cand);
+                lastPlacedInsts.push(chosenGroup.inst);
+                
+                if (lastPlacedInsts.length > 10) {
+                    lastPlacedInsts.shift();
+                }
+            }
+            return result;
+        };
+
+        // Shuffle then arrange finalists
+        const shuffled = shuffle(finalists);
+        const arranged = arrangeFinalists(shuffled);
+
+        // Update database records
+        arranged.forEach((cand, idx) => {
+            cand.set("final_venue", venueName);
+            cand.set("final_order", idx + 1);
+            $app.save(cand);
+        });
+
+        // Update trigger manually for real-time tracking
+        try {
+            const triggerCol = $app.findCollectionByNameOrId("trigger_collection");
+            if (triggerCol) {
+                const tr = $app.findFirstRecordByData("trigger_collection", "column_name", "participants_application");
+                tr.set("random_value", $security.randomString(10));
+                $app.save(tr);
+            }
+        } catch (_) {}
+
+        return e.json(200, {
+            success: true,
+            message: "Final round venue allocation completed successfully.",
+            summary: {
+                [venueName]: {
+                    category: category,
+                    capacity: 10,
+                    allocated: arranged.length
+                }
+            }
+        });
+
+    } catch (err) {
+        return e.json(500, { error: "Final allocation failed: " + err });
+    }
+});
+
+// ── 5. Clear / Reset Final Round Venue Allocation ──────────────────────────────────
+routerAdd("POST", "/api/admin/unallocate-final-venues", (e) => {
+    const authRecord = e.auth;
+    const isSuperuser = authRecord && authRecord.collection().name === "_superusers";
+    const isAdmin = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "admin";
+
+    if (!isSuperuser && !isAdmin) {
+        return e.json(403, { error: "Unauthorized. Admin access required." });
+    }
+
+    try {
+        let category = "";
+        try {
+            const info = e.requestInfo();
+            const data = info.data || {};
+            category = data.category || "";
+            
+            if (!category) {
+                const body = new DynamicModel({
+                    category: ""
+                });
+                e.bindBody(body);
+                category = body.category;
+            }
+        } catch (_) {}
+
+        if (!category) {
+            return e.json(400, { error: "Missing category parameter." });
+        }
+
+        // Fetch finalists for category
+        const finalists = $app.findRecordsByFilter(
+            "participants_application",
+            "category = {:category} && is_finalist = true",
+            "",
+            100,
+            0,
+            { category: category }
+        );
+
+        finalists.forEach(cand => {
+            cand.set("final_venue", "");
+            cand.set("final_order", 0);
+            $app.save(cand);
+        });
+
+        // Update trigger manually for real-time tracking
+        try {
+            const triggerCol = $app.findCollectionByNameOrId("trigger_collection");
+            if (triggerCol) {
+                const tr = $app.findFirstRecordByData("trigger_collection", "column_name", "participants_application");
+                tr.set("random_value", $security.randomString(10));
+                $app.save(tr);
+            }
+        } catch (_) {}
+
+        return e.json(200, {
+            success: true,
+            message: "Final round venue allocation cleared."
+        });
+
+    } catch (err) {
+        return e.json(500, { error: "Unallocation failed: " + err });
+    }
+});
+
+// ── 6. Update Single Final Candidate Allocation ───────────────────────────────────
+routerAdd("POST", "/api/admin/update-final-candidate-allocation", (e) => {
+    const authRecord = e.auth;
+    const isSuperuser = authRecord && authRecord.collection().name === "_superusers";
+    const isAdmin = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "admin";
+
+    if (!isSuperuser && !isAdmin) {
+        return e.json(403, { error: "Unauthorized. Admin access required." });
+    }
+
+    try {
+        let participantId = "";
+        let venue = "";
+        let order = 0;
+
+        try {
+            const info = e.requestInfo();
+            const data = info.data || {};
+            participantId = data.participantId || "";
+            venue = data.final_venue || "";
+            order = parseInt(data.final_order, 10) || 0;
+
+            if (!participantId) {
+                const body = new DynamicModel({
+                    participantId: "",
+                    final_venue: "",
+                    final_order: 0
+                });
+                e.bindBody(body);
+                participantId = body.participantId;
+                venue = body.final_venue;
+                order = parseInt(body.final_order, 10) || 0;
+            }
+        } catch (_) {}
+
+        if (!participantId) {
+            return e.json(400, { error: "Missing participantId parameter." });
+        }
+
+        const cand = $app.findRecordById("participants_application", participantId);
+        const oldVenue = cand.get("final_venue") || "";
+        const oldOrder = parseInt(cand.get("final_order"), 10) || 0;
+        const newVenue = venue;
+        let newOrder = order;
+
+        if (oldVenue !== newVenue) {
+            if (newVenue !== "") {
+                const destCands = $app.findRecordsByFilter(
+                    "participants_application",
+                    "status = 'approved' && is_finalist = true && final_venue = {:venue}",
+                    "final_order",
+                    100,
+                    0,
+                    { venue: newVenue }
+                );
+                newOrder = destCands.length + 1;
+            } else {
+                newOrder = 0;
+            }
+
+            cand.set("final_venue", newVenue);
+            cand.set("final_order", newOrder);
+            $app.save(cand);
+
+            if (oldVenue !== "") {
+                const srcCands = $app.findRecordsByFilter(
+                    "participants_application",
+                    "status = 'approved' && is_finalist = true && final_venue = {:venue} && id != {:candId}",
+                    "final_order",
+                    100,
+                    0,
+                    { venue: oldVenue, candId: participantId }
+                );
+                srcCands.forEach((c, idx) => {
+                    c.set("final_order", idx + 1);
+                    $app.save(c);
+                });
+            }
+        } else {
+            if (newVenue !== "" && oldOrder !== newOrder) {
+                const cands = $app.findRecordsByFilter(
+                    "participants_application",
+                    "status = 'approved' && is_finalist = true && final_venue = {:venue} && id != {:candId}",
+                    "final_order",
+                    100,
+                    0,
+                    { newVenue, candId: participantId }
+                );
+
+                cands.sort((a, b) => (parseInt(a.get("final_order"), 10) || 0) - (parseInt(b.get("final_order"), 10) || 0));
+
+                const newList = [];
+                let inserted = false;
+                
+                cands.forEach((c, idx) => {
+                    const currentPos = idx + 1;
+                    if (currentPos === newOrder) {
+                        newList.push(cand);
+                        inserted = true;
+                    }
+                    newList.push(c);
+                });
+
+                if (!inserted) {
+                    newList.push(cand);
+                }
+
+                newList.forEach((c, idx) => {
+                    c.set("final_order", idx + 1);
+                    $app.save(c);
+                });
+            } else {
+                cand.set("final_venue", newVenue);
+                cand.set("final_order", newOrder);
                 $app.save(cand);
             }
         }

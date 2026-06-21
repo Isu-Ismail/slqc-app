@@ -5,7 +5,6 @@ import AdminDashboardPage from './features/dashboard/AdminDashboardPage';
 import ControlPanelPage from './features/control-panel/ControlPanelPage';
 import OrganisersPage from './features/organisers/OrganisersPage';
 import VenuePanelPage from './features/venue-panel/VenuePanelPage';
-import VenueFinalPage from './features/venue-final/VenueFinalPage'; // <-- Imported
 import TrackPage from './features/track/TrackPage';
 import ApprovalsListPage from './features/approvals/ApprovalsListPage';
 import ApprovalReviewPage from './features/approvals/ApprovalReviewPage';
@@ -17,6 +16,7 @@ import MainLayout from './shared/components/Layout/MainLayout';
 import MarkEntryPage from './features/mark-entry/MarkEntryPage';
 import MarksheetUploadPage from './features/mark-entry/MarksheetUploadPage';
 import { pb } from './api/db';
+import FinalistsPage from './features/finalists/FinalistsPage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
     if (!pb.authStore.isValid) {
@@ -84,16 +84,7 @@ function App() {
                         </RequireAuth>
                     }
                 />
-                <Route
-                    path="/venue-final"
-                    element={
-                        <RequireAuth>
-                            <MainLayout>
-                                <VenueFinalPage />
-                            </MainLayout>
-                        </RequireAuth>
-                    }
-                />
+
                 <Route
                     path="/control-panel"
                     element={
@@ -180,6 +171,16 @@ function App() {
                         <RequireAuth>
                             <MainLayout>
                                 <MarksheetUploadPage />
+                            </MainLayout>
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/finalist-selection"
+                    element={
+                        <RequireAuth>
+                            <MainLayout>
+                                <FinalistsPage />
                             </MainLayout>
                         </RequireAuth>
                     }

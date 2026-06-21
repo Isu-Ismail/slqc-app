@@ -237,22 +237,24 @@ export default function JudgesPage() {
 
     return (
         <div className={styles.container}>
-            <div className={styles.header} style={{ justifyContent: 'flex-end', marginBottom: '16px' }}>
-                <button className={styles.btnAdd} onClick={openAddModal}>
-                    <Plus size={16} /> Add New Judge
-                </button>
-            </div>
-
-            <div className={styles.controlsRow}>
-                <div className={styles.searchWrapper}>
-                    <Search size={16} className={styles.searchIcon} />
-                    <input
-                        type="text"
-                        placeholder="Search judges by name, phone, institution..."
-                        className={styles.searchInput}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
+            <div className={styles.header}>
+                <div className={styles.headerInfo}>
+                    <h1>Judges</h1>
+                </div>
+                <div className={styles.headerActions} style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                    <div className={styles.searchWrapper} style={{ marginRight: '16px', flexGrow: 0, width: '320px' }}>
+                        <Search size={16} className={styles.searchIcon} />
+                        <input
+                            type="text"
+                            placeholder="Search judges by name, phone, institution..."
+                            className={styles.searchInput}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    <button className={styles.btnAdd} style={{ marginLeft: '24px' }} onClick={openAddModal}>
+                        <Plus size={16} /> Add New Judge
+                    </button>
                 </div>
             </div>
 

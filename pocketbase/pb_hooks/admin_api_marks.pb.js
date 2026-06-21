@@ -383,15 +383,26 @@ routerAdd("GET", "/api/admin/marks/get-students-status", (e) => {
                 } catch (_) {}
             }
 
+            let hasMarksheet = false;
+            try {
+                const marksheetFilter = "participant_ref = '" + student.get("id") + "' && round = '" + round + "'";
+                const marksheetRecs = $app.findRecordsByFilter("marksheet_uploads", marksheetFilter, "", 1, 0);
+                if (marksheetRecs.length > 0) {
+                    hasMarksheet = true;
+                }
+            } catch (_) {}
+
             const studentData = {
                 mark_record_id: markRecordId,
                 participant_id: student.get("id"),
                 register_id: student.get("participant_id"),
                 full_name: student.get("full_name"),
                 category: student.get("category"),
+                allocated_venue: student.get("allocated_venue") || "",
                 values: existingValues,
                 is_frozen: isFrozen,
-                judges: studentJudges
+                judges: studentJudges,
+                has_marksheet: hasMarksheet
             };
 
             if (isFrozen) {

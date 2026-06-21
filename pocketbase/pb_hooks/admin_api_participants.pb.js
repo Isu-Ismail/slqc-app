@@ -145,16 +145,22 @@ routerAdd("GET", "/api/admin/print-venue-list", (e) => {
 
     const info = e.requestInfo();
     const venue = (info.query.venue || "").trim();
-    const slot = (info.query.slot || "").trim();
+    const round = (info.query.round || "preliminary").trim();
 
     if (!venue) {
         return e.json(400, { error: "Missing venue parameter" });
     }
 
     try {
-        const filter = "status = 'approved' && allocated_venue = {:venue}";
+        let filter = "status = 'approved' && allocated_venue = {:venue}";
+        let sort = "allocated_order";
+        if (round === "final") {
+            filter = "status = 'approved' && final_venue = {:venue}";
+            sort = "final_order";
+        }
+        
         const params = { venue: venue };
-        const records = $app.findRecordsByFilter("participants_application", filter, "allocated_order", 2000, 0, params);
+        const records = $app.findRecordsByFilter("participants_application", filter, sort, 2000, 0, params);
         const list = [];
 
         records.forEach(record => {
@@ -175,8 +181,8 @@ routerAdd("GET", "/api/admin/print-venue-list", (e) => {
                 category: record.get("category"),
                 juzz_options: record.get("juzz_options"),
                 selected_juz: record.get("selected_juz"),
-                allocated_venue: record.get("allocated_venue"),
-                allocated_order: record.get("allocated_order"),
+                allocated_venue: round === "final" ? record.get("final_venue") : record.get("allocated_venue"),
+                allocated_order: round === "final" ? record.get("final_order") : record.get("allocated_order"),
                 whatsapp_number: record.get("whatsapp_number"),
                 guardian_phone: record.get("guardian_phone"),
                 candidate_photo: record.get("candidate_photo"),
@@ -209,16 +215,22 @@ routerAdd("GET", "/api/admin/generate-ids", (e) => {
 
     const info = e.requestInfo();
     const venue = (info.query.venue || "").trim();
-    const slot = (info.query.slot || "").trim();
+    const round = (info.query.round || "preliminary").trim();
 
     if (!venue) {
         return e.json(400, { error: "Missing venue parameter" });
     }
 
     try {
-        const filter = "status = 'approved' && allocated_venue = {:venue}";
+        let filter = "status = 'approved' && allocated_venue = {:venue}";
+        let sort = "allocated_order";
+        if (round === "final") {
+            filter = "status = 'approved' && final_venue = {:venue}";
+            sort = "final_order";
+        }
+        
         const params = { venue: venue };
-        const records = $app.findRecordsByFilter("participants_application", filter, "allocated_order", 2000, 0, params);
+        const records = $app.findRecordsByFilter("participants_application", filter, sort, 2000, 0, params);
         const list = [];
 
         records.forEach(record => {
@@ -239,8 +251,8 @@ routerAdd("GET", "/api/admin/generate-ids", (e) => {
                 category: record.get("category"),
                 juzz_options: record.get("juzz_options"),
                 selected_juz: record.get("selected_juz"),
-                allocated_venue: record.get("allocated_venue"),
-                allocated_order: record.get("allocated_order"),
+                allocated_venue: round === "final" ? record.get("final_venue") : record.get("allocated_venue"),
+                allocated_order: round === "final" ? record.get("final_order") : record.get("allocated_order"),
                 whatsapp_number: record.get("whatsapp_number"),
                 guardian_phone: record.get("guardian_phone"),
                 candidate_photo: record.get("candidate_photo"),

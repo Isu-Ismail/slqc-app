@@ -179,10 +179,20 @@ export default function MarkEntryPage() {
         }
 
         const cacheKey = `quran_scoring_cache_${selectedStudent.participant_id}`;
-        if (hasAnyMark) {
-            localStorage.setItem(cacheKey, JSON.stringify(scoringValues));
+        if (selectedStudent.is_frozen) {
+            const savedStr = JSON.stringify(selectedStudent.values?.judges || {});
+            const currentStr = JSON.stringify(scoringValues || {});
+            if (savedStr !== currentStr) {
+                localStorage.setItem(cacheKey, JSON.stringify(scoringValues));
+            } else {
+                localStorage.removeItem(cacheKey);
+            }
         } else {
-            localStorage.removeItem(cacheKey);
+            if (hasAnyMark) {
+                localStorage.setItem(cacheKey, JSON.stringify(scoringValues));
+            } else {
+                localStorage.removeItem(cacheKey);
+            }
         }
     }, [scoringValues, selectedStudent]);
 

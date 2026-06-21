@@ -31,6 +31,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
     const [allocationStep, setAllocationStep] = useState<string>('');
     const [allJudges, setAllJudges] = useState<any[]>([]);
     const [selectedJudges, setSelectedJudges] = useState<string[]>([]);
+    const [allocationRound, setAllocationRound] = useState<'preliminary' | 'final'>('preliminary');
 
     const parseJudgesObjects = (judgesVal: any, judgesList: any[] = allJudges): any[] => {
         if (!judgesVal) return [];
@@ -69,6 +70,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
     const isJudgeAssignedElsewhere = (judgeId: string) => {
         return venues.some(v => {
             if (v.id === editingVenue?.id) return false;
+            if (v.round !== venueRound) return false;
             const vJudges = Array.isArray(v.judges) ? v.judges : [];
             return vJudges.some((j: any) => (j && typeof j === 'object' ? j.id : j) === judgeId);
         });
@@ -77,6 +79,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
     const getAssignedVenueNameForJudge = (judgeId: string) => {
         const assigned = venues.find(v => {
             if (v.id === editingVenue?.id) return false;
+            if (v.round !== venueRound) return false;
             const vJudges = Array.isArray(v.judges) ? v.judges : [];
             return vJudges.some((j: any) => (j && typeof j === 'object' ? j.id : j) === judgeId);
         });
@@ -232,21 +235,41 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                 pb.collection('judges').getFullList()
             ]);
 
-            const judgeToVenueMap: Record<string, string> = {};
+            const judgeToPrelimVenueMap: Record<string, string> = {};
+            const judgeToFinalVenueMap: Record<string, string> = {};
+
             venuesList.forEach(v => {
                 const judgeIds = parseJudgesField(v.judges);
                 judgeIds.forEach(id => {
-                    judgeToVenueMap[id] = v.id;
+                    if (v.round === 'final') {
+                        judgeToFinalVenueMap[id] = v.id;
+                    } else {
+                        judgeToPrelimVenueMap[id] = v.id;
+                    }
                 });
             });
 
             for (const j of judgesList) {
-                const expectedVenue = judgeToVenueMap[j.id] || "";
-                const currentVenue = j.allocated_venue || "";
-                if (expectedVenue !== currentVenue) {
-                    await pb.collection('judges').update(j.id, {
-                        allocated_venue: expectedVenue
-                    });
+                const expectedPrelim = judgeToPrelimVenueMap[j.id] || "";
+                const currentPrelim = j.allocated_venue || "";
+                const expectedFinal = judgeToFinalVenueMap[j.id] || "";
+                const currentFinal = j.final_venue || "";
+
+                const updateData: Record<string, any> = {};
+                let needsUpdate = false;
+
+                if (expectedPrelim !== currentPrelim) {
+                    updateData.allocated_venue = expectedPrelim;
+                    needsUpdate = true;
+                }
+
+                if (expectedFinal !== currentFinal) {
+                    updateData.final_venue = expectedFinal;
+                    needsUpdate = true;
+                }
+
+                if (needsUpdate) {
+                    await pb.collection('judges').update(j.id, updateData);
                 }
             }
         } catch (err) {
@@ -291,25 +314,33 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
 
             const venueId = savedVenue.id;
 
-            // Manually update selected judges' allocated_venue to the venue ID
+            // Manually update selected judges' allocated_venue or final_venue to the venue ID
             for (const judgeId of selectedJudges) {
                 try {
-                    await pb.collection('judges').update(judgeId, {
-                        allocated_venue: venueId
-                    });
+                    const updateData: Record<string, any> = {};
+                    if (venueRound === 'final') {
+                        updateData.final_venue = venueId;
+                    } else {
+                        updateData.allocated_venue = venueId;
+                    }
+                    await pb.collection('judges').update(judgeId, updateData);
                 } catch (err) {
                     console.error(`Failed to update judge ${judgeId} to venue:`, err);
                 }
             }
 
-            // Manually clear allocated_venue for removed judges
+            // Manually clear allocated_venue or final_venue for removed judges
             const previousJudges = editingVenue ? parseJudgesField(editingVenue.judges) : [];
             const removedJudges = previousJudges.filter(id => !selectedJudges.includes(id));
             for (const judgeId of removedJudges) {
                 try {
-                    await pb.collection('judges').update(judgeId, {
-                        allocated_venue: ""
-                    });
+                    const updateData: Record<string, any> = {};
+                    if (venueRound === 'final') {
+                        updateData.final_venue = "";
+                    } else {
+                        updateData.allocated_venue = "";
+                    }
+                    await pb.collection('judges').update(judgeId, updateData);
                 } catch (err) {
                     console.error(`Failed to clear judge ${judgeId} venue allocation:`, err);
                 }
@@ -338,13 +369,17 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
             closeDialog();
             setLoading(true);
             try {
-                // Clear allocated_venue for all judges assigned to this venue before deleting
+                // Clear allocated_venue / final_venue for all judges assigned to this venue before deleting
                 const assignedJudges = parseJudgesField(v.judges);
                 for (const judgeId of assignedJudges) {
                     try {
-                        await pb.collection('judges').update(judgeId, {
-                            allocated_venue: ""
-                        });
+                        const updateData: Record<string, any> = {};
+                        if (v.round === 'final') {
+                            updateData.final_venue = "";
+                        } else {
+                            updateData.allocated_venue = "";
+                        }
+                        await pb.collection('judges').update(judgeId, updateData);
                     } catch (err) {
                         console.error(`Failed to clear judge ${judgeId} venue assignment:`, err);
                     }
@@ -363,9 +398,49 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
         }, closeDialog);
     };
 
-    const handleOpenAllocateModal = async () => {
+    const handleOpenAllocateModal = async (round: 'preliminary' | 'final') => {
+        setAllocationRound(round);
         setLoading(true);
         try {
+            const finalMarksCountRes = await pb.collection('final_marks').getList(1, 1, { fields: 'id' });
+
+            if (round === 'preliminary') {
+                const marksCountRes = await pb.collection('preliminary_marks').getList(1, 1, { fields: 'id' });
+                const finalistCountRes = await pb.collection('participants_application').getList(1, 1, {
+                    filter: 'is_finalist = true',
+                    fields: 'id'
+                });
+                if (marksCountRes.totalItems > 0 || finalMarksCountRes.totalItems > 0 || finalistCountRes.totalItems > 0) {
+                    showDialog(
+                        'error',
+                        'Cannot Run Allocation',
+                        'Cannot run preliminary allocation because grading marks have already been entered or finalists have already been selected.'
+                    );
+                    return;
+                }
+            } else {
+                if (finalMarksCountRes.totalItems > 0) {
+                    showDialog(
+                        'error',
+                        'Cannot Run Allocation',
+                        'Cannot run final allocation because final round marks have already been entered.'
+                    );
+                    return;
+                }
+                const finalistCountRes = await pb.collection('participants_application').getList(1, 1, {
+                    filter: 'is_finalist = true',
+                    fields: 'id'
+                });
+                if (finalistCountRes.totalItems === 0) {
+                    showDialog(
+                        'error',
+                        'Cannot Run Allocation',
+                        'No promoted finalists found. Please promote finalists first.'
+                    );
+                    return;
+                }
+            }
+
             const metaList = await metadataApi.getAllMetadata(true); // Force refresh
             const participantStatusRec = metaList.find(r => r.key === 'participant_application_status');
             const madrasaStatusRec = metaList.find(r => r.key === 'madrasa_application_status');
@@ -388,7 +463,6 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
             } catch (_) { }
 
             if (!participantClosed || !madrasaClosed) {
-                // Do NOT show checkboxes. Show error dialog directly!
                 showDialog('error', 'Cannot Run Allocation', 'Cannot run allocation while registration is open. Both individual and institution registration statuses must be closed first.');
                 return;
             }
@@ -406,13 +480,71 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
         }
     };
 
-    const handleOpenUnallocateModal = () => {
-        setUnallocateChecked({
-            '5_juz': false,
-            '15_juz': false,
-            '30_juz': false
-        });
-        setShowUnallocateSelectModal(true);
+    const handleOpenUnallocateModal = async (round: 'preliminary' | 'final') => {
+        setAllocationRound(round);
+        setLoading(true);
+        try {
+            const finalMarksCountRes = await pb.collection('final_marks').getList(1, 1, { fields: 'id' });
+
+            if (round === 'preliminary') {
+                const marksCountRes = await pb.collection('preliminary_marks').getList(1, 1, { fields: 'id' });
+                const finalistCountRes = await pb.collection('participants_application').getList(1, 1, {
+                    filter: 'is_finalist = true',
+                    fields: 'id'
+                });
+                if (marksCountRes.totalItems > 0 || finalMarksCountRes.totalItems > 0 || finalistCountRes.totalItems > 0) {
+                    showDialog(
+                        'error',
+                        'Cannot Cancel Allocation',
+                        'Cannot cancel or reset preliminary allocations because grading marks have already been entered or finalists have already been selected.'
+                    );
+                    return;
+                }
+            } else {
+                if (finalMarksCountRes.totalItems > 0) {
+                    showDialog(
+                        'error',
+                        'Cannot Cancel Allocation',
+                        'Cannot cancel or reset final allocations because final round marks have already been entered.'
+                    );
+                    return;
+                }
+            }
+
+            setUnallocateChecked({
+                '5_juz': false,
+                '15_juz': false,
+                '30_juz': false
+            });
+            setShowUnallocateSelectModal(true);
+        } catch (err: any) {
+            showDialog('error', 'Check Failed', err.message || 'Failed to verify database status.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const verifyAdminPassword = async (actionLabel: string): Promise<boolean> => {
+        const password = window.prompt(`Enter administrator password to authorize: ${actionLabel}`);
+        if (password === null) return false;
+        if (!password.trim()) {
+            alert('Password cannot be blank.');
+            return false;
+        }
+
+        try {
+            const user = pb.authStore.model;
+            const email = user?.email || user?.username || '';
+            if (!email) {
+                alert('No active admin session found.');
+                return false;
+            }
+            await pb.collection('users').authWithPassword(email, password);
+            return true;
+        } catch (err: any) {
+            alert('Incorrect password. Action denied.');
+            return false;
+        }
     };
 
     const handleRunAllocationSelected = async () => {
@@ -421,6 +553,10 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
             showDialog('alert', 'Selection Required', 'Please select at least one category to allocate.');
             return;
         }
+
+        const actionName = allocationRound === 'final' ? 'Run Final Venue Allocation' : 'Run Automatic Venue Allocation';
+        const verified = await verifyAdminPassword(actionName);
+        if (!verified) return;
 
         setShowAllocateSelectModal(false);
         setAllocating(true);
@@ -453,7 +589,8 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                 setAllocationStep(`[${catLabel}] Performing diversity-aware slot allocation...`);
                 await new Promise(r => setTimeout(r, 450));
 
-                const res = await pb.send<any>('/api/admin/allocate-venues', {
+                const apiPath = allocationRound === 'final' ? '/api/admin/allocate-final-venues' : '/api/admin/allocate-venues';
+                const res = await pb.send<any>(apiPath, {
                     method: 'POST',
                     body: { category: cat }
                 });
@@ -490,31 +627,32 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
             return;
         }
 
+        const actionName = allocationRound === 'final' ? 'Clear Final Venue Allocations' : 'Clear Venue Allocations';
+        const verified = await verifyAdminPassword(actionName);
+        if (!verified) return;
+
         setShowUnallocateSelectModal(false);
+        setLoading(true);
 
-        showDialog('confirm', 'Confirm Clear', `Are you sure you want to clear venue allocations for: ${selectedCats.map(c => getCategoryBadge(c)).join(', ')}? This will remove all allocated venues and slots for students in these categories.`, async () => {
-            closeDialog();
-            setLoading(true);
-
-            try {
-                for (let i = 0; i < selectedCats.length; i++) {
-                    const cat = selectedCats[i];
-                    await pb.send<any>('/api/admin/unallocate-venues', {
-                        method: 'POST',
-                        body: { category: cat }
-                    });
-                }
-
-                showDialog('success', 'Allocations Cleared', 'Venue allocations cleared successfully for all selected categories!');
-                await loadVenuesAndAllocations();
-                onAllocationComplete?.();
-            } catch (err: any) {
-                const errMsg = err.data?.error || err.message || 'Failed to unallocate venues.';
-                showDialog('error', 'Unallocation Failed', errMsg);
-            } finally {
-                setLoading(false);
+        try {
+            for (let i = 0; i < selectedCats.length; i++) {
+                const cat = selectedCats[i];
+                const apiPath = allocationRound === 'final' ? '/api/admin/unallocate-final-venues' : '/api/admin/unallocate-venues';
+                await pb.send<any>(apiPath, {
+                    method: 'POST',
+                    body: { category: cat }
+                });
             }
-        }, closeDialog);
+
+            showDialog('success', 'Allocations Cleared', 'Venue allocations cleared successfully for all selected categories!');
+            await loadVenuesAndAllocations();
+            onAllocationComplete?.();
+        } catch (err: any) {
+            const errMsg = err.data?.error || err.message || 'Failed to unallocate venues.';
+            showDialog('error', 'Unallocation Failed', errMsg);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const getCategoryBadge = (cat: string) => {
@@ -530,14 +668,6 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
         <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: '24px' }}>
             {/* Summary Banner */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-                <div>
-                    <h2 style={{ fontSize: '20px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <MapPin size={24} style={{ color: '#0d9488' }} /> Venue Detail & Allocation
-                    </h2>
-                    <p style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>
-                        Define competition venues and automatically assign approved candidates ensuring institution diversity.
-                    </p>
-                </div>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                     <button
                         type="button"
@@ -560,7 +690,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                     </button>
                     <button
                         type="button"
-                        onClick={handleOpenUnallocateModal}
+                        onClick={() => handleOpenUnallocateModal('preliminary')}
                         className={styles.btnSecondary}
                         disabled={allocating || loading}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', height: '40px', borderColor: '#ef4444', color: '#ef4444', backgroundColor: '#fff' }}
@@ -569,12 +699,30 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                     </button>
                     <button
                         type="button"
-                        onClick={handleOpenAllocateModal}
+                        onClick={() => handleOpenAllocateModal('preliminary')}
                         className={styles.btnPrimary}
                         disabled={allocating || venues.length === 0}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', height: '40px', backgroundColor: '#0d9488' }}
                     >
-                        <Play size={16} /> {allocating ? 'Allocating...' : 'Run Allocation'}
+                        <Play size={16} /> {allocating && allocationRound === 'preliminary' ? 'Allocating...' : 'Run Allocation'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleOpenUnallocateModal('final')}
+                        className={styles.btnSecondary}
+                        disabled={allocating || loading}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', height: '40px', borderColor: '#f59e0b', color: '#f59e0b', backgroundColor: '#fff' }}
+                    >
+                        <Trash2 size={16} /> Cancel Final Allocation
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleOpenAllocateModal('final')}
+                        className={styles.btnPrimary}
+                        disabled={allocating || venues.length === 0}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', height: '40px', backgroundColor: '#059669', borderColor: '#059669' }}
+                    >
+                        <Play size={16} /> {allocating && allocationRound === 'final' ? 'Allocating...' : 'Allocate Final Venue'}
                     </button>
                 </div>
             </div>
@@ -786,6 +934,19 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                             </div>
 
                             <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>Round *</label>
+                                <select
+                                    value={venueRound}
+                                    onChange={(e) => setVenueRound(e.target.value)}
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', backgroundColor: '#fff' }}
+                                    required
+                                >
+                                    <option value="preliminary">Preliminary Round</option>
+                                    <option value="final">Final Round</option>
+                                </select>
+                            </div>
+
+                            <div>
                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>Assign Judges (can select multiple)</label>
 
                                 {/* Selected Judges Badges / Tickets */}
@@ -848,6 +1009,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                                         <div style={{ color: '#94a3b8', fontSize: '13px', fontStyle: 'italic' }}>No judges registered in the system.</div>
                                     ) : (
                                         allJudges
+                                            .filter(j => venueRound === 'final' ? j.final_judge === true : j.final_judge !== true)
                                             .map(j => {
                                                 const assignedElsewhere = isJudgeAssignedElsewhere(j.id);
                                                 const assignedVenueName = getAssignedVenueNameForJudge(j.id);
