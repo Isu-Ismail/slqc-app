@@ -1,11 +1,10 @@
-import { Printer, CreditCard } from 'lucide-react';
+import { Printer } from 'lucide-react';
 
 interface VenueHeaderActionsProps {
     currentVenue: any;
     printing: boolean;
     loadingCandidates: boolean;
     onPrintList: () => void;
-    onGenerateIDs: () => void;
     onGenerateMarksheet: () => void;
 }
 
@@ -14,7 +13,6 @@ export default function VenueHeaderActions({
     printing,
     loadingCandidates,
     onPrintList,
-    onGenerateIDs,
     onGenerateMarksheet
 }: VenueHeaderActionsProps) {
     let judgesList: any[] = [];
@@ -110,26 +108,6 @@ export default function VenueHeaderActions({
                     }}
                 >
                     <Printer size={15} /> Print List
-                </button>
-                <button
-                    onClick={onGenerateIDs}
-                    disabled={printing || loadingCandidates}
-                    style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '8px 14px',
-                        backgroundColor: '#059669',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '6px',
-                        fontWeight: '500',
-                        cursor: 'pointer',
-                        fontSize: '13px',
-                        opacity: (printing || loadingCandidates) ? 0.7 : 1
-                    }}
-                >
-                    <CreditCard size={15} /> Generate IDs
                 </button>
                 <button
                     onClick={onGenerateMarksheet}

@@ -9,6 +9,8 @@ interface Participant {
     juzz_options?: string;
     allocated_venue: string;
     allocated_order: number;
+    final_venue?: string;
+    final_order?: number;
     expand?: { institution_ref?: { name: string } };
 }
 
@@ -22,6 +24,7 @@ interface ParticipantTableProps {
     handleMoveOrder: (index: number, direction: 'up' | 'down') => void;
     handleFieldChange: (id: string, field: 'venue' | 'order', value: any) => void;
     handleSaveInlineAllocation: (id: string) => void;
+    isFinalRound?: boolean;
 }
 
 export default function ParticipantTable({
@@ -33,7 +36,8 @@ export default function ParticipantTable({
     venues,
     handleMoveOrder,
     handleFieldChange,
-    handleSaveInlineAllocation
+    handleSaveInlineAllocation,
+    isFinalRound = false
 }: ParticipantTableProps) {
     return (
         <div style={{ overflowX: 'auto' }}>
@@ -55,12 +59,15 @@ export default function ParticipantTable({
                 </thead>
                 <tbody>
                     {filteredCandidates.map((c, index) => {
+                        const venueVal = isFinalRound ? (c.final_venue || '') : (c.allocated_venue || '');
+                        const orderVal = isFinalRound ? (c.final_order || 0) : (c.allocated_order || 0);
+
                         const isModified = editAllocations[c.id] && (
-                            editAllocations[c.id].venue !== (c.allocated_venue || '') ||
-                            editAllocations[c.id].order !== (c.allocated_order || 0)
+                            editAllocations[c.id].venue !== venueVal ||
+                            editAllocations[c.id].order !== orderVal
                         );
-                        const currentVenueVal = editAllocations[c.id]?.venue ?? (c.allocated_venue || '');
-                        const currentOrderVal = editAllocations[c.id]?.order ?? (c.allocated_order || 0);
+                        const currentVenueVal = editAllocations[c.id]?.venue ?? venueVal;
+                        const currentOrderVal = editAllocations[c.id]?.order ?? orderVal;
 
                         return (
                             <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -86,7 +93,7 @@ export default function ParticipantTable({
                                                 </button>
                                             </div>
                                         )}
-                                        <span style={{ minWidth: '24px', color: '#64748b' }}>{c.allocated_order || index + 1}.</span>
+                                        <span style={{ minWidth: '24px', color: '#64748b' }}>{orderVal || index + 1}.</span>
                                         <span>{c.full_name}</span>
                                     </div>
                                 </td>
@@ -103,7 +110,7 @@ export default function ParticipantTable({
                                             min={0}
                                         />
                                     ) : (
-                                        c.allocated_order || index + 1
+                                        orderVal || index + 1
                                     )}
                                 </td>
                                 <td style={{ padding: '14px 20px' }}>
@@ -131,7 +138,7 @@ export default function ParticipantTable({
                                                 style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '100%', maxWidth: '180px' }}
                                             >
                                                 <option value="">No Venue / Unallocated</option>
-                                                {venues.filter(v => v.category === c.category).map(v => (
+                                                {venues.filter(v => v.category === c.category && (isFinalRound ? v.round === 'final' : v.round !== 'final')).map(v => (
                                                     <option key={v.id} value={v.name}>{v.name}</option>
                                                 ))}
                                             </select>

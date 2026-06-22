@@ -42,12 +42,5 @@ export const venuesApi = {
             method: 'GET',
             query: { venue, round }
         });
-    },
-
-    generateIds: async (venue: string, round: string = 'preliminary') => {
-        return pb.send<any[]>('/api/admin/generate-ids', {
-            method: 'GET',
-            query: { venue, round }
-        });
     }
 };

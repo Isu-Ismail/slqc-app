@@ -14,6 +14,7 @@ interface TemplateEditorProps {
     addCriterion: () => void;
     updateCriterion: (index: number, field: string, value: any) => void;
     removeCriterion: (index: number) => void;
+    onPasteAspectNames?: (startIndex: number, names: string[]) => void;
 }
 
 export default function TemplateEditor({
@@ -28,7 +29,8 @@ export default function TemplateEditor({
     onBack,
     addCriterion,
     updateCriterion,
-    removeCriterion
+    removeCriterion,
+    onPasteAspectNames
 }: TemplateEditorProps) {
 
     // Helper to calculate total template marks
@@ -117,6 +119,14 @@ export default function TemplateEditor({
                                                 type="text"
                                                 value={c.label || ''}
                                                 onChange={(e) => updateCriterion(idx, 'label', e.target.value)}
+                                                onPaste={(e) => {
+                                                    const pastedText = e.clipboardData.getData('text');
+                                                    if (pastedText && pastedText.includes(',')) {
+                                                        e.preventDefault();
+                                                        const names = pastedText.split(',').map(p => p.trim()).filter(Boolean);
+                                                        onPasteAspectNames?.(idx, names);
+                                                    }
+                                                }}
                                                 placeholder="Aspect Name"
                                                 style={{ width: '100%', height: '36px', border: '1px solid transparent', borderRadius: '4px', padding: '0 8px', fontSize: '14px', fontWeight: '700', textAlign: 'center', backgroundColor: '#ffffff', outline: 'none', boxSizing: 'border-box' }}
                                                 onFocus={(e) => e.target.style.border = '1px solid #10b981'}
@@ -268,11 +278,22 @@ export default function TemplateEditor({
                             <p style={{ color: '#94a3b8', fontSize: '13px', textAlign: 'center' }}>Setup aspects to preview layout.</p>
                         ) : (
                             <div style={{ overflowX: 'auto', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '14px', minWidth: '600px' }}>
+                                <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', textAlign: 'center', fontSize: '14px', minWidth: '600px' }}>
+                                    <colgroup>
+                                        <col style={{ width: '80px' }} />
+                                        {tplCriteria.map((c, idx) => {
+                                            const cols = [];
+                                            const numQ = c.numQuestions || 1;
+                                            for (let i = 0; i < numQ; i++) {
+                                                cols.push(<col key={`${c.key || idx}-${i}`} />);
+                                            }
+                                            return cols;
+                                        })}
+                                    </colgroup>
                                     <thead>
                                         {/* Spanning Labels Row */}
                                         <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>
-                                            <th style={{ padding: '10px 16px', borderRight: '1px solid #cbd5e1', fontWeight: '800', color: '#1e293b', width: '80px' }} rowSpan={2}>Total</th>
+                                            <th style={{ padding: '10px 16px', borderRight: '1px solid #cbd5e1', fontWeight: '800', color: '#1e293b' }} rowSpan={2}>Total</th>
                                             {tplCriteria.map((c, idx) => (
                                                 <th key={c.key || idx} style={{ padding: '10px 16px', borderRight: '1px solid #cbd5e1', fontWeight: '800', color: '#1e293b' }} colSpan={c.numQuestions || 1}>
                                                     {c.label || 'Aspect'}
@@ -306,13 +327,8 @@ export default function TemplateEditor({
                                                 const numQ = c.numQuestions || 1;
                                                 for (let i = 0; i < numQ; i++) {
                                                     cols.push(
-                                                        <td key={`${c.key || idx}-${i}`} style={{ padding: '10px', borderRight: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
-                                                            <input
-                                                                type="text"
-                                                                disabled
-                                                                placeholder="-"
-                                                                style={{ width: '40px', padding: '4px', border: '1px solid #cbd5e1', borderRadius: '4px', textAlign: 'center', backgroundColor: '#ffffff' }}
-                                                            />
+                                                        <td key={`${c.key || idx}-${i}`} style={{ padding: '10px', borderRight: '1px solid #e2e8f0', backgroundColor: '#ffffff', height: '42px' }}>
+                                                            {/* Empty cell */}
                                                         </td>
                                                     );
                                                 }

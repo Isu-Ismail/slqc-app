@@ -25,8 +25,13 @@ export default function SanityCheckerModal({
     // Generate stats for each venue
     const generateVenueStats = () => {
         return venues.map(venue => {
-            const venueCandidates = candidates.filter(c => c.allocated_venue === venue.name)
-                .sort((a, b) => (a.allocated_order || 0) - (b.allocated_order || 0));
+            const isFinal = venue.round === 'final';
+            const venueCandidates = candidates.filter(c => isFinal ? c.final_venue === venue.name : c.allocated_venue === venue.name)
+                .sort((a, b) => {
+                    const orderA = isFinal ? (a.final_order || 0) : (a.allocated_order || 0);
+                    const orderB = isFinal ? (b.final_order || 0) : (b.allocated_order || 0);
+                    return orderA - orderB;
+                });
 
             // Parse judges
             let venueJudges: any[] = [];
@@ -42,27 +47,29 @@ export default function SanityCheckerModal({
 
             // 1. Check Judge-Student Conflicts
             const judgeConflicts: any[] = [];
-            venueJudges.forEach(j => {
-                if (!j.institution) return;
-                const jInstNorm = norm(j.institution);
+            if (venue.round !== 'final') {
+                venueJudges.forEach(j => {
+                    if (!j.institution) return;
+                    const jInstNorm = norm(j.institution);
 
-                venueCandidates.forEach(c => {
-                    const instId = c.institution_ref || '';
-                    const instName = c.expand?.institution_ref?.name || '';
-                    const sIdNorm = norm(instId);
-                    const sNameNorm = norm(instName);
+                    venueCandidates.forEach(c => {
+                        const instId = c.institution_ref || '';
+                        const instName = c.expand?.institution_ref?.name || '';
+                        const sIdNorm = norm(instId);
+                        const sNameNorm = norm(instName);
 
-                    if (jInstNorm && (jInstNorm === sIdNorm || jInstNorm === sNameNorm || sNameNorm.indexOf(jInstNorm) !== -1 || jInstNorm.indexOf(sNameNorm) !== -1)) {
-                        judgeConflicts.push({
-                            candidateName: c.full_name,
-                            registerId: c.participant_id || c.id,
-                            candidateInst: instName || 'N/A',
-                            judgeName: j.name,
-                            judgeInst: j.institution
-                        });
-                    }
+                        if (jInstNorm && (jInstNorm === sIdNorm || jInstNorm === sNameNorm || sNameNorm.indexOf(jInstNorm) !== -1 || jInstNorm.indexOf(sNameNorm) !== -1)) {
+                            judgeConflicts.push({
+                                candidateName: c.full_name,
+                                registerId: c.participant_id || c.id,
+                                candidateInst: instName || 'N/A',
+                                judgeName: j.name,
+                                judgeInst: j.institution
+                            });
+                        }
+                    });
                 });
-            });
+            }
 
             // 2. Check Consecutive Institution Placements
             let maxConsecutive = 0;

@@ -32,6 +32,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
     const [allJudges, setAllJudges] = useState<any[]>([]);
     const [selectedJudges, setSelectedJudges] = useState<string[]>([]);
     const [allocationRound, setAllocationRound] = useState<'preliminary' | 'final'>('preliminary');
+    const [adminPassword, setAdminPassword] = useState('');
 
     const parseJudgesObjects = (judgesVal: any, judgesList: any[] = allJudges): any[] => {
         if (!judgesVal) return [];
@@ -164,7 +165,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
 
             // Fetch approved student counts per venue
             const students = await pb.collection('participants_application').getFullList({
-                fields: 'allocated_venue,status',
+                fields: 'allocated_venue,final_venue,status',
                 filter: 'status = "approved"'
             });
 
@@ -172,6 +173,9 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
             students.forEach(s => {
                 if (s.allocated_venue) {
                     counts[s.allocated_venue] = (counts[s.allocated_venue] || 0) + 1;
+                }
+                if (s.final_venue) {
+                    counts[s.final_venue] = (counts[s.final_venue] || 0) + 1;
                 }
             });
 
@@ -467,6 +471,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                 return;
             }
 
+            setAdminPassword('');
             setAllocateChecked({
                 '5_juz': false,
                 '15_juz': false,
@@ -511,6 +516,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                 }
             }
 
+            setAdminPassword('');
             setUnallocateChecked({
                 '5_juz': false,
                 '15_juz': false,
@@ -524,9 +530,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
         }
     };
 
-    const verifyAdminPassword = async (actionLabel: string): Promise<boolean> => {
-        const password = window.prompt(`Enter administrator password to authorize: ${actionLabel}`);
-        if (password === null) return false;
+    const verifyAdminPassword = async (password: string): Promise<boolean> => {
         if (!password.trim()) {
             alert('Password cannot be blank.');
             return false;
@@ -554,8 +558,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
             return;
         }
 
-        const actionName = allocationRound === 'final' ? 'Run Final Venue Allocation' : 'Run Automatic Venue Allocation';
-        const verified = await verifyAdminPassword(actionName);
+        const verified = await verifyAdminPassword(adminPassword);
         if (!verified) return;
 
         setShowAllocateSelectModal(false);
@@ -627,8 +630,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
             return;
         }
 
-        const actionName = allocationRound === 'final' ? 'Clear Final Venue Allocations' : 'Clear Venue Allocations';
-        const verified = await verifyAdminPassword(actionName);
+        const verified = await verifyAdminPassword(adminPassword);
         if (!verified) return;
 
         setShowUnallocateSelectModal(false);
@@ -1162,6 +1164,20 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                                     </label>
                                 ))}
                             </div>
+                            
+                            <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>
+                                    Administrator Password *
+                                </label>
+                                <input
+                                    type="password"
+                                    placeholder="Enter admin password to authorize..."
+                                    value={adminPassword}
+                                    onChange={(e) => setAdminPassword(e.target.value)}
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' }}
+                                    required
+                                />
+                            </div>
 
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
                                 <button
@@ -1259,6 +1275,20 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                                         {getCategoryBadge(cat)} Category
                                     </label>
                                 ))}
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>
+                                    Administrator Password *
+                                </label>
+                                <input
+                                    type="password"
+                                    placeholder="Enter admin password to authorize..."
+                                    value={adminPassword}
+                                    onChange={(e) => setAdminPassword(e.target.value)}
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' }}
+                                    required
+                                />
                             </div>
 
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>

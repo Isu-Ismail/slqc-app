@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { pb } from '../../api/db';
 import { venuesApi } from '../../api/venues';
+import { marksApi } from '../../api/marks';
 import { Users, Search, RefreshCw, ShieldCheck } from 'lucide-react';
 import VenueSettingsForm from '../control-panel/components/VenueSettingsForm';
 import styles from './VenuePanelPage.module.css';
 import PrintPreviewModal from '../track/components/PrintPreviewModal';
-import { metadataApi } from '../../api/metadata';
-import { generateVenueListHTML, generateIDCardsHTML, generateVenueMarksheetHTML } from './venuePrintTemplates';
+import { generateVenueListHTML, generateVenueMarksheetHTML } from './venuePrintTemplates';
 
 // Sub-component imports
 import VenueTabs from './components/VenueTabs';
@@ -37,6 +37,8 @@ interface Participant {
     juzz_options?: string;
     allocated_venue: string;
     allocated_order: number;
+    final_venue?: string;
+    final_order?: number;
     whatsapp_number: string;
     guardian_phone: string;
     candidate_photo: string;
@@ -84,9 +86,12 @@ export default function VenuePanelPage() {
         setEditAllocations(prev => {
             const list = cache[activeTab] || [];
             const candidate = list.find(x => x.id === participantId);
+            const isFinal = currentVenue?.round === 'final';
+            const currentVenueName = isFinal ? candidate?.final_venue : candidate?.allocated_venue;
+            const currentOrderVal = isFinal ? candidate?.final_order : candidate?.allocated_order;
             const current = prev[participantId] || {
-                venue: candidate?.allocated_venue || '',
-                order: candidate?.allocated_order || 0
+                venue: currentVenueName || '',
+                order: currentOrderVal || 0
             };
             return { ...prev, [participantId]: { ...current, [field]: value } };
         });
@@ -97,7 +102,12 @@ export default function VenuePanelPage() {
         if (!editInfo) return;
         setLoadingCandidates(true);
         try {
-            await venuesApi.updateCandidateAllocation(participantId, editInfo.venue, Number(editInfo.order));
+            const isFinal = currentVenue?.round === 'final';
+            if (isFinal) {
+                await venuesApi.updateFinalCandidateAllocation(participantId, editInfo.venue, Number(editInfo.order));
+            } else {
+                await venuesApi.updateCandidateAllocation(participantId, editInfo.venue, Number(editInfo.order));
+            }
             setEditAllocations(prev => { const next = { ...prev }; delete next[participantId]; return next; });
             alert('Allocation updated successfully!');
             await loadVenues();
@@ -112,7 +122,7 @@ export default function VenuePanelPage() {
     const handlePrintList = async () => {
         setPrinting(true);
         try {
-            const res = await venuesApi.printVenueList(activeTab);
+            const res = await venuesApi.printVenueList(activeTab, currentVenue?.round || 'preliminary');
             let judgesList: any[] = [];
             if (currentVenue?.judges) {
                 if (Array.isArray(currentVenue.judges)) {
@@ -141,23 +151,14 @@ export default function VenuePanelPage() {
         } finally { setPrinting(false); }
     };
 
-    const handleGenerateIDs = async () => {
-        setPrinting(true);
-        try {
-            const res = await venuesApi.generateIds(activeTab);
-            const html = generateIDCardsHTML(activeTab, res, []);
-            setPrintTitle(`ID Cards - ${activeTab}`);
-            setPrintPreview(html);
-        } catch (err) {
-            alert('Failed to generate ID cards.');
-        } finally { setPrinting(false); }
-    };
+
 
     const handleGenerateMarksheet = async () => {
         if (!currentVenue) return;
         setPrinting(true);
         try {
-            const res = await venuesApi.printVenueList(activeTab);
+            const round = (currentVenue.round === 'final' ? 'final' : 'preliminary') as 'preliminary' | 'final';
+            const res = await venuesApi.printVenueList(activeTab, round);
             if (!res || res.length === 0) { alert('No candidates found.'); return; }
             let judgesList: any[] = [];
             if (currentVenue.judges) {
@@ -179,25 +180,29 @@ export default function VenuePanelPage() {
                 if (j && typeof j === 'object') return j;
                 return { id: j, name: j };
             });
-            const round = 'preliminary';
             const category = currentVenue.category || '30_juz';
 
-            const allMeta = await metadataApi.getAllMetadata(true);
-            const templateKeys = ['marksheet_template_5_preliminary', 'marksheet_template_15_preliminary', 'marksheet_template_30_preliminary'];
-            const templatesMap: Record<string, string> = {};
-            for (const key of templateKeys) {
-                const record = allMeta.find(r => r.key === key);
-                let html = '';
-                if (record && record.document) {
-                    try {
-                        const url = pb.files.getURL(record, record.document);
-                        const tplRes = await fetch(url);
-                        if (tplRes.ok) html = await tplRes.text();
-                    } catch { }
+            let criteriaList: any[] = [];
+            try {
+                const data = await marksApi.getTemplate(round, category);
+                const cols = Array.isArray(data.columns) 
+                    ? data.columns 
+                    : (data.columns?.criteria || []);
+                criteriaList = cols;
+                if (!criteriaList || criteriaList.length === 0) {
+                    throw new Error("Empty template criteria list returned.");
                 }
-                templatesMap[key] = html;
+            } catch (err) {
+                console.warn('Failed to load mark template from db, using defaults:', err);
+                criteriaList = [
+                    { key: 'hifz', label: 'حفظ', numQuestions: 2, outOf: 20 },
+                    { key: 'tajweed', label: 'تجويد', numQuestions: 2, outOf: 15 },
+                    { key: 'juz_name', label: 'إسم السورة والجزء', numQuestions: 2, outOf: 5 },
+                    { key: 'motashabihat', label: 'متشابهات', numQuestions: 2, outOf: 10 }
+                ];
             }
-            const html = generateVenueMarksheetHTML(activeTab, res, judgesList, round, category, templatesMap);
+
+            const html = generateVenueMarksheetHTML(activeTab, res, judgesList, round, category, criteriaList);
             setPrintTitle(`Marksheets — ${activeTab}`);
             setPrintPreview(html);
         } catch (err) {
@@ -208,9 +213,12 @@ export default function VenuePanelPage() {
     const loadVenues = async () => {
         try {
             const venueRecords = await pb.collection('venue_detail').getFullList({ sort: 'name', expand: 'judges' });
-            const students = await pb.collection('participants_application').getFullList({ fields: 'allocated_venue,status', filter: 'status = "approved"' });
+            const students = await pb.collection('participants_application').getFullList({ fields: 'allocated_venue,final_venue,status', filter: 'status = "approved"' });
             const counts: Record<string, number> = {};
-            students.forEach(s => { if (s.allocated_venue) counts[s.allocated_venue] = (counts[s.allocated_venue] || 0) + 1; });
+            students.forEach(s => { 
+                if (s.allocated_venue) counts[s.allocated_venue] = (counts[s.allocated_venue] || 0) + 1; 
+                if (s.final_venue) counts[s.final_venue] = (counts[s.final_venue] || 0) + 1; 
+            });
             const formattedVenues: Venue[] = venueRecords.map(v => ({
                 id: v.id,
                 name: v.name,
@@ -230,14 +238,24 @@ export default function VenuePanelPage() {
         } catch (err) { console.error(err); }
     };
 
-    useEffect(() => { loadVenues(); }, []);
+    const handleAllocationComplete = () => {
+        setCache({});
+        loadVenues();
+    };
+
+    useEffect(() => { loadVenues(); }, [] );
 
     const loadCandidatesForVenue = async (venueName: string, forceRefresh: boolean = false) => {
         if (!forceRefresh && cache[venueName]) return;
         setLoadingCandidates(true);
         try {
-            const filter = `status = "approved" && allocated_venue = "${venueName.replace(/"/g, '\\"')}"`;
-            const res = await pb.collection('participants_application').getFullList<Participant>({ filter, expand: 'institution_ref', sort: 'allocated_order' });
+            const targetVenue = venues.find(v => v.name === venueName);
+            const isFinal = targetVenue?.round === 'final';
+            const filter = isFinal
+                ? `status = "approved" && final_venue = "${venueName.replace(/"/g, '\\"')}"`
+                : `status = "approved" && allocated_venue = "${venueName.replace(/"/g, '\\"')}"`;
+            const sort = isFinal ? 'final_order' : 'allocated_order';
+            const res = await pb.collection('participants_application').getFullList<Participant>({ filter, expand: 'institution_ref', sort });
             setCache(prev => ({ ...prev, [venueName]: res }));
         } catch (err) { console.error(err); } finally { setLoadingCandidates(false); }
     };
@@ -255,10 +273,18 @@ export default function VenuePanelPage() {
         const candidateB = candidatesList[targetIndex];
         setLoadingCandidates(true);
         try {
-            await Promise.all([
-                venuesApi.updateCandidateAllocation(candidateA.id, candidateA.allocated_venue || activeTab, candidateB.allocated_order || (targetIndex + 1)),
-                venuesApi.updateCandidateAllocation(candidateB.id, candidateB.allocated_venue || activeTab, candidateA.allocated_order || (index + 1))
-            ]);
+            const isFinal = currentVenue?.round === 'final';
+            if (isFinal) {
+                await Promise.all([
+                    venuesApi.updateFinalCandidateAllocation(candidateA.id, candidateA.final_venue || activeTab, candidateB.final_order || (targetIndex + 1)),
+                    venuesApi.updateFinalCandidateAllocation(candidateB.id, candidateB.final_venue || activeTab, candidateA.final_order || (index + 1))
+                ]);
+            } else {
+                await Promise.all([
+                    venuesApi.updateCandidateAllocation(candidateA.id, candidateA.allocated_venue || activeTab, candidateB.allocated_order || (targetIndex + 1)),
+                    venuesApi.updateCandidateAllocation(candidateB.id, candidateB.allocated_venue || activeTab, candidateA.allocated_order || (index + 1))
+                ]);
+            }
             await loadCandidatesForVenue(activeTab, true);
         } catch (err) { alert('Failed to reorder.'); } finally { setLoadingCandidates(false); }
     };
@@ -312,7 +338,7 @@ export default function VenuePanelPage() {
 
             <div style={{ marginTop: '20px' }}>
                 {activeTab === 'settings' && user?.designation === 'admin' && (
-                    <VenueSettingsForm onAllocationComplete={loadVenues} />
+                    <VenueSettingsForm onAllocationComplete={handleAllocationComplete} />
                 )}
 
                 {activeTab !== 'settings' && currentVenue && (
@@ -322,7 +348,6 @@ export default function VenuePanelPage() {
                             printing={printing}
                             loadingCandidates={loadingCandidates}
                             onPrintList={handlePrintList}
-                            onGenerateIDs={handleGenerateIDs}
                             onGenerateMarksheet={handleGenerateMarksheet}
                         />
 
@@ -360,6 +385,7 @@ export default function VenuePanelPage() {
                                     handleMoveOrder={handleMoveOrder}
                                     handleFieldChange={handleFieldChange}
                                     handleSaveInlineAllocation={handleSaveInlineAllocation}
+                                    isFinalRound={currentVenue?.round === 'final'}
                                 />
                             )}
                         </div>

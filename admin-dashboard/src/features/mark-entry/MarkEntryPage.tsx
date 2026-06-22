@@ -20,13 +20,13 @@ export default function MarkEntryPage() {
     const [venues, setVenues] = useState<any[]>([]);
     const [judges, setJudges] = useState<any[]>([]);
     const [templateColumns, setTemplateColumns] = useState<any>([]);
-    
+
     const [pendingStudents, setPendingStudents] = useState<any[]>([]);
     const [completedStudents, setCompletedStudents] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
     const [scoringValues, setScoringValues] = useState<any>({}); // { [judgeId]: { [qId]: { [criterionKey]: val } } }
-    
+
     const [loading, setLoading] = useState<boolean>(false);
     const [isSaving, setIsSaving] = useState<boolean>(false);
     const [sidebarTab, setSidebarTab] = useState<'pending' | 'completed'>('pending');
@@ -65,7 +65,7 @@ export default function MarkEntryPage() {
             const data = await marksApi.getStudentsStatus(selectedVenue, currentRound);
             setPendingStudents(data.pending || []);
             setCompletedStudents(data.completed || []);
-            
+
             // Clear selected student if they are no longer in this context
             setSelectedStudent(null);
             setScoringValues({});
@@ -109,18 +109,22 @@ export default function MarkEntryPage() {
 
     // Handle student selection
     // Handle student selection
+    // Handle student selection
     const handleSelectStudent = async (student: any) => {
+        // FIX: Clear the scoring values synchronously FIRST. 
+        // This prevents the caching useEffect from running with the old student's marks.
+        setScoringValues({});
         setSelectedStudent(student);
         setSearchQuery('');
-        
+
         // Fetch student-specific template columns dynamically
         try {
             const data = await marksApi.getTemplate(currentRound, student.category);
-            const cols = Array.isArray(data.columns) 
-                ? data.columns 
+            const cols = Array.isArray(data.columns)
+                ? data.columns
                 : (data.columns?.criteria || []);
             setTemplateColumns(cols);
-            
+
             const currentJudges = student.judges || [];
             setJudges(currentJudges);
 
@@ -128,7 +132,7 @@ export default function MarkEntryPage() {
             const cacheKey = `quran_scoring_cache_${student.participant_id}`;
             const cachedDataStr = localStorage.getItem(cacheKey);
             let parsedScoring: any = {};
-            
+
             if (cachedDataStr) {
                 try {
                     parsedScoring = JSON.parse(cachedDataStr);
@@ -136,7 +140,7 @@ export default function MarkEntryPage() {
                     console.error("Failed to parse cached scoring data", e);
                 }
             }
-            
+
             if (Object.keys(parsedScoring).length === 0) {
                 if (student.values && student.values.judges) {
                     parsedScoring = student.values.judges;
@@ -162,7 +166,7 @@ export default function MarkEntryPage() {
     // Cache scoringValues to localStorage in real-time as values are modified
     useEffect(() => {
         if (!selectedStudent || !scoringValues || Object.keys(scoringValues).length === 0) return;
-        
+
         let hasAnyMark = false;
         for (const judgeId in scoringValues) {
             for (const cKey in scoringValues[judgeId]) {
@@ -202,8 +206,8 @@ export default function MarkEntryPage() {
         let grandTotal = 0;
         let judgeCount = 0;
 
-        const criteriaList = Array.isArray(templateColumns) 
-            ? templateColumns 
+        const criteriaList = Array.isArray(templateColumns)
+            ? templateColumns
             : (templateColumns.criteria || []);
 
         judges.forEach(j => {
@@ -239,9 +243,9 @@ export default function MarkEntryPage() {
         try {
             // Validate all inputs against their outOf limit
             let validationError = '';
-            
-            const criteriaList = Array.isArray(templateColumns) 
-                ? templateColumns 
+
+            const criteriaList = Array.isArray(templateColumns)
+                ? templateColumns
                 : (templateColumns.criteria || []);
 
             judges.forEach(j => {
@@ -290,17 +294,14 @@ export default function MarkEntryPage() {
     // --- TEMPLATE EDITOR LOGIC ---
     const loadTemplate = async () => {
         setTplLoading(true);
+        setTplCriteria([]); // Clear previous template immediately to prevent stale caching/showing
         try {
-            const localKey = `quran_tpl_criteria_${editRound}_${editCategory}`;
-            const localDraft = localStorage.getItem(localKey);
-            if (localDraft) {
-                setTplCriteria(JSON.parse(localDraft));
-            } else {
-                const data = await marksApi.getTemplate(editRound, editCategory);
-                setTplCriteria(data.columns?.criteria || []);
-            }
+            const data = await marksApi.getTemplate(editRound, editCategory);
+            console.log("[client loadTemplate] round=" + editRound + ", category=" + editCategory + ", data=", data);
+            setTplCriteria(data.columns?.criteria || []);
         } catch (err) {
-            console.error('Failed to load template:', err);
+            console.warn('[client loadTemplate] Template not found or failed to load:', err);
+            setTplCriteria([]); // Ensure it remains empty
         } finally {
             setTplLoading(false);
         }
@@ -318,9 +319,6 @@ export default function MarkEntryPage() {
             await marksApi.saveTemplate(editRound, editCategory, {
                 criteria: tplCriteria
             });
-            // Clear local storage draft upon explicit save
-            const localKey = `quran_tpl_criteria_${editRound}_${editCategory}`;
-            localStorage.removeItem(localKey);
             alert('Template saved successfully!');
         } catch (err) {
             console.error('Failed to save template:', err);
@@ -334,32 +332,39 @@ export default function MarkEntryPage() {
         const key = `c${Date.now()}`;
         const updated = [...tplCriteria, { key: key, label: 'New Aspect', numQuestions: 2, outOf: 10 }];
         setTplCriteria(updated);
-        const localKey = `quran_tpl_criteria_${editRound}_${editCategory}`;
-        localStorage.setItem(localKey, JSON.stringify(updated));
     };
 
     const updateCriterion = (index: number, field: string, value: any) => {
         const updated = [...tplCriteria];
         updated[index] = { ...updated[index], [field]: value };
         setTplCriteria(updated);
-        const localKey = `quran_tpl_criteria_${editRound}_${editCategory}`;
-        localStorage.setItem(localKey, JSON.stringify(updated));
     };
 
     const removeCriterion = (index: number) => {
         const updated = tplCriteria.filter((_, i) => i !== index);
         setTplCriteria(updated);
-        const localKey = `quran_tpl_criteria_${editRound}_${editCategory}`;
-        localStorage.setItem(localKey, JSON.stringify(updated));
+    };
+
+    const handlePasteAspectNames = (startIndex: number, names: string[]) => {
+        setTplCriteria(prev => {
+            const updated = [...prev];
+            names.forEach((name, offset) => {
+                const targetIdx = startIndex + offset;
+                if (targetIdx < updated.length) {
+                    updated[targetIdx] = { ...updated[targetIdx], label: name };
+                }
+            });
+            return updated;
+        });
     };
 
     // Filter students for search bar auto-complete
     const allStudents = [...pendingStudents, ...completedStudents];
     const filteredSearchStudents = searchQuery.trim() !== ''
-        ? allStudents.filter(s => 
-            (s.full_name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+        ? allStudents.filter(s =>
+            (s.full_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
             (s.register_id || '').toLowerCase().includes(searchQuery.toLowerCase())
-          )
+        )
         : [];
 
     if (user?.designation !== 'admin' && user?.designation !== 'coordinators') {
@@ -387,6 +392,7 @@ export default function MarkEntryPage() {
                     addCriterion={addCriterion}
                     updateCriterion={updateCriterion}
                     removeCriterion={removeCriterion}
+                    onPasteAspectNames={handlePasteAspectNames}
                 />
             ) : (
                 <div>
@@ -478,7 +484,7 @@ export default function MarkEntryPage() {
                                         ✕
                                     </button>
                                 </div>
-                                
+
                                 {/* Modal Body (renders the StudentSidebar directly) */}
                                 <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
                                     <StudentSidebar

@@ -1,4 +1,4 @@
-import { useState, KeyboardEvent, useEffect } from 'react';
+import { useState, type KeyboardEvent, useEffect } from 'react';
 import { Search, FileText, User, Shield, AlertTriangle, CheckCircle, Images } from 'lucide-react';
 import { pb } from '../../api/db';
 import styles from './MarkEntryPage.module.css';
@@ -29,7 +29,6 @@ export default function GradingWorkspace({
     filteredSearchStudents,
     selectedStudent,
     onSelectStudent,
-    selectedVenue,
     currentRound,
     templateColumns,
     judges,
@@ -357,7 +356,7 @@ export default function GradingWorkspace({
                                                                             const isEmpty = currentVal === '';
                                                                             const isExceeded = currentVal !== '' && Number(currentVal) > Number(c.outOf);
                                                                             const hasError = isEmpty || isExceeded;
-                                                                            
+
                                                                             cols.push(
                                                                                 <td key={`${c.key}-${i}`} style={{ padding: '10px', borderRight: '1px solid #e2e8f0' }}>
                                                                                     <input
@@ -391,14 +390,14 @@ export default function GradingWorkspace({
                                                                                                 }
                                                                                             }));
                                                                                         }}
-                                                                                        style={{ 
-                                                                                            width: '60px', 
-                                                                                            padding: '6px 8px', 
-                                                                                            border: hasError ? '2px solid #ef4444' : '1px solid #cbd5e1', 
-                                                                                            backgroundColor: hasError ? '#fef2f2' : '#ffffff', 
-                                                                                            borderRadius: '4px', 
-                                                                                            textAlign: 'center', 
-                                                                                            fontWeight: '700', 
+                                                                                        style={{
+                                                                                            width: '60px',
+                                                                                            padding: '6px 8px',
+                                                                                            border: hasError ? '2px solid #ef4444' : '1px solid #cbd5e1',
+                                                                                            backgroundColor: hasError ? '#fef2f2' : '#ffffff',
+                                                                                            borderRadius: '4px',
+                                                                                            textAlign: 'center',
+                                                                                            fontWeight: '700',
                                                                                             outline: 'none',
                                                                                             transition: 'all 0.2s'
                                                                                         }}
@@ -440,13 +439,13 @@ export default function GradingWorkspace({
                                             const total = getCategoryAccumulation(c.key);
                                             const maxScore = (judges?.length || 0) * c.numQuestions * (c.outOf || 0);
                                             return (
-                                                <span 
-                                                    key={c.key} 
-                                                    style={{ 
-                                                        fontSize: '12px', 
-                                                        color: '#166534', 
-                                                        backgroundColor: '#dcfce7', 
-                                                        padding: '4px 10px', 
+                                                <span
+                                                    key={c.key}
+                                                    style={{
+                                                        fontSize: '12px',
+                                                        color: '#166534',
+                                                        backgroundColor: '#dcfce7',
+                                                        padding: '4px 10px',
                                                         borderRadius: '6px',
                                                         border: '1px solid #bbf7d0',
                                                         fontWeight: '600'
@@ -480,19 +479,19 @@ export default function GradingWorkspace({
                                             <button
                                                 onClick={onSaveMarks}
                                                 disabled={disableSave}
-                                                style={{ 
-                                                    display: 'inline-flex', 
-                                                    alignItems: 'center', 
-                                                    gap: '8px', 
-                                                    padding: '12px 28px', 
-                                                    backgroundColor: disableSave ? '#a7f3d0' : '#059669', 
-                                                    border: 'none', 
-                                                    borderRadius: '10px', 
-                                                    color: '#ffffff', 
-                                                    fontWeight: '800', 
-                                                    cursor: disableSave ? 'not-allowed' : 'pointer', 
-                                                    fontSize: '15px', 
-                                                    boxShadow: disableSave ? 'none' : '0 4px 10px -2px rgba(5, 150, 105, 0.3)', 
+                                                style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    padding: '12px 28px',
+                                                    backgroundColor: disableSave ? '#a7f3d0' : '#059669',
+                                                    border: 'none',
+                                                    borderRadius: '10px',
+                                                    color: '#ffffff',
+                                                    fontWeight: '800',
+                                                    cursor: disableSave ? 'not-allowed' : 'pointer',
+                                                    fontSize: '15px',
+                                                    boxShadow: disableSave ? 'none' : '0 4px 10px -2px rgba(5, 150, 105, 0.3)',
                                                     transition: 'all 0.2s',
                                                     opacity: disableSave ? 0.7 : 1
                                                 }}
@@ -533,7 +532,7 @@ export default function GradingWorkspace({
                         <p style={{ fontSize: '14px', color: '#475569', marginTop: '8px', lineHeight: '1.5' }}>
                             This marksheet is frozen. Please enter your account password to unlock it for editing.
                         </p>
-                        
+
                         <div style={{ marginTop: '16px' }}>
                             <input
                                 type="password"
@@ -552,7 +551,7 @@ export default function GradingWorkspace({
                                 </div>
                             )}
                         </div>
-                        
+
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
                             <button
                                 onClick={handleUnlockCancel}

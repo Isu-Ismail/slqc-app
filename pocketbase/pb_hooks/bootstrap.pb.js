@@ -36,12 +36,6 @@ $app.onServe().bindFunc((e) => {
         "institution_rules",
         "applications_per_institute",
         "application_print_template",
-        "marksheet_template_5_preliminary",
-        "marksheet_template_15_preliminary",
-        "marksheet_template_30_preliminary",
-        "marksheet_template_5_final",
-        "marksheet_template_15_final",
-        "marksheet_template_30_final",
         "institution_list_template",
         "stat"
     ];

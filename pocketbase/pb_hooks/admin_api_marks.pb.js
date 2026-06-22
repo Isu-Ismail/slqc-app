@@ -37,12 +37,12 @@ routerAdd("GET", "/api/admin/marks/get-venue-sheet", (e) => {
                                     id: judgeRec.get("id"),
                                     name: judgeRec.get("name")
                                 });
-                            } catch (_) {}
+                            } catch (_) { }
                         }
                     });
                 }
             }
-        } catch (_) {}
+        } catch (_) { }
 
         // 2. Load the dynamic configuration template columns
         let templateColumns = { questions: [], criteria: [] };
@@ -196,21 +196,32 @@ routerAdd("GET", "/api/admin/marks/get-template", (e) => {
     const info = e.requestInfo();
     const round = (info.query.round || "preliminary").trim();
     const category = (info.query.category || "5_juz").trim();
+
     try {
-        const record = $app.findFirstRecordByData("mark_templates", "round", round, "category", category);
-        return e.json(200, {
-            id: record.get("id"),
-            round: record.get("round"),
-            category: record.get("category"),
-            columns: JSON.parse(record.getString("columns") || "{\"questions\":[],\"criteria\":[]}")
-        });
+        const records = $app.findRecordsByFilter(
+            "mark_templates",
+            "round = {:round} && category = {:category}",
+            "",
+            1,
+            0,
+            { round: round, category: category }
+        );
+
+        if (records && records.length > 0) {
+            const record = records[0];
+
+            return e.json(200, {
+                id: record.get("id"),
+                round: record.get("round"),
+                category: record.get("category"),
+                columns: JSON.parse(record.getString("columns") || "{\"questions\":[],\"criteria\":[]}")
+            });
+        } else {
+
+            return e.json(404, { error: "No template found for round " + round + " and category " + category });
+        }
     } catch (err) {
-        return e.json(200, {
-            id: "",
-            round: round,
-            category: category,
-            columns: { questions: [], criteria: [] }
-        });
+        return e.json(500, { error: "Error querying templates: " + err });
     }
 });
 
@@ -219,19 +230,29 @@ routerAdd("POST", "/api/admin/marks/save-template", (e) => {
     if (!authRecord || authRecord.get("designation") !== "admin") {
         return e.json(403, { error: "Access denied. Only admins can edit templates." });
     }
-    const body = new DynamicModel({
-        round: "preliminary",
-        category: "5_juz",
-        columns: {}
-    });
-    e.bindBody(body);
 
     try {
+        const body = e.requestInfo().body;
+        const round = (body.round || "preliminary").trim();
+        const category = (body.category || "5_juz").trim();
+        const columns = body.columns || {};
+
+
         let record;
         const collection = $app.findCollectionByNameOrId("mark_templates");
-        try {
-            record = $app.findFirstRecordByData("mark_templates", "round", body.round, "category", body.category);
-        } catch (_) {
+        const records = $app.findRecordsByFilter(
+            "mark_templates",
+            "round = {:round} && category = {:category}",
+            "",
+            1,
+            0,
+            { round: round, category: category }
+        );
+
+        if (records && records.length > 0) {
+            record = records[0];
+
+        } else {
             record = new Record(collection);
             // Generate a 15-character lowercase alphanumeric ID (PocketBase standard format)
             const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -240,13 +261,15 @@ routerAdd("POST", "/api/admin/marks/save-template", (e) => {
                 randomId += chars.charAt(Math.floor(Math.random() * chars.length));
             }
             record.set("id", randomId);
-            record.set("round", body.round);
-            record.set("category", body.category);
+            record.set("round", round);
+            record.set("category", category);
+
         }
-        record.set("columns", JSON.stringify(body.columns));
+        record.set("columns", JSON.stringify(columns));
         $app.save(record);
         return e.json(200, { success: true, id: record.get("id") });
     } catch (err) {
+
         return e.json(500, { error: "Failed to save template: " + err });
     }
 });
@@ -256,11 +279,11 @@ routerAdd("GET", "/api/admin/marks/check-preliminary-complete", (e) => {
     if (!authRecord || (authRecord.get("designation") !== "admin" && authRecord.get("designation") !== "coordinators")) {
         return e.json(403, { error: "Unauthorized access." });
     }
-    
+
     const isPreliminaryComplete = () => {
         const filterString = "status = 'approved' && arrival_status != 'absent' && is_finalist = false && allocated_venue != ''";
         const prelimStudents = $app.findRecordsByFilter("participants_application", filterString, "", 2000, 0);
-        
+
         for (let i = 0; i < prelimStudents.length; i++) {
             const student = prelimStudents[i];
             try {
@@ -294,7 +317,7 @@ routerAdd("GET", "/api/admin/marks/get-students-status", (e) => {
     const isPreliminaryComplete = () => {
         const filterString = "status = 'approved' && arrival_status != 'absent' && is_finalist = false && allocated_venue != ''";
         const prelimStudents = $app.findRecordsByFilter("participants_application", filterString, "", 2000, 0);
-        
+
         for (let i = 0; i < prelimStudents.length; i++) {
             const student = prelimStudents[i];
             try {
@@ -347,7 +370,7 @@ routerAdd("GET", "/api/admin/marks/get-students-status", (e) => {
                 existingValues = JSON.parse(markRec.getString("values") || "{}");
                 isFrozen = markRec.get("is_frozen") === true;
                 markRecordId = markRec.get("id");
-            } catch (_) {}
+            } catch (_) { }
 
             // Resolve judges for student's allocated venue
             const studentVenue = student.get("allocated_venue");
@@ -361,7 +384,7 @@ routerAdd("GET", "/api/admin/marks/get-students-status", (e) => {
                         if (raw) {
                             parsedJudges = JSON.parse(raw);
                         }
-                    } catch (_) {}
+                    } catch (_) { }
                     if (!Array.isArray(parsedJudges)) parsedJudges = [];
 
                     parsedJudges.forEach(j => {
@@ -377,10 +400,10 @@ routerAdd("GET", "/api/admin/marks/get-students-status", (e) => {
                                     id: judgeRec.get("id"),
                                     name: judgeRec.get("name")
                                 });
-                            } catch (_) {}
+                            } catch (_) { }
                         }
                     });
-                } catch (_) {}
+                } catch (_) { }
             }
 
             let hasMarksheet = false;
@@ -390,7 +413,7 @@ routerAdd("GET", "/api/admin/marks/get-students-status", (e) => {
                 if (marksheetRecs.length > 0) {
                     hasMarksheet = true;
                 }
-            } catch (_) {}
+            } catch (_) { }
 
             const studentData = {
                 mark_record_id: markRecordId,
@@ -443,7 +466,7 @@ routerAdd("POST", "/api/admin/marks/save-student-marks", (e) => {
     const isPreliminaryComplete = () => {
         const filterString = "status = 'approved' && arrival_status != 'absent' && is_finalist = false && allocated_venue != ''";
         const prelimStudents = $app.findRecordsByFilter("participants_application", filterString, "", 2000, 0);
-        
+
         for (let i = 0; i < prelimStudents.length; i++) {
             const student = prelimStudents[i];
             try {
@@ -517,9 +540,9 @@ routerAdd("GET", "/api/admin/marks/get-marksheets", (e) => {
         return e.json(403, { error: "Unauthorized. Only admins and coordinators can view marksheets." });
     }
 
-    const info          = e.requestInfo();
+    const info = e.requestInfo();
     const participantId = (info.query["participant_id"] || "").trim();
-    const round         = (info.query["round"] || "preliminary").trim();
+    const round = (info.query["round"] || "preliminary").trim();
 
     if (!participantId) {
         return e.json(400, { error: "Missing participant_id." });
@@ -553,32 +576,32 @@ routerAdd("GET", "/api/admin/marks/get-marksheets", (e) => {
 
         records.forEach(record => {
             const collectionId = record.collection().id;
-            const recordId     = record.get("id");
-            const raw          = record.get("images") || [];
-            const filenames    = Array.isArray(raw) ? raw : [raw].filter(Boolean);
+            const recordId = record.get("id");
+            const raw = record.get("images") || [];
+            const filenames = Array.isArray(raw) ? raw : [raw].filter(Boolean);
 
             filenames.forEach(f => {
                 allImages.push({
-                    url:      `${appUrl}/api/files/${collectionId}/${recordId}/${f}`,
+                    url: `${appUrl}/api/files/${collectionId}/${recordId}/${f}`,
                     filename: f,
                     recordId: recordId
                 });
             });
 
             recordSummaries.push({
-                id:    recordId,
+                id: recordId,
                 count: filenames.length
             });
         });
 
         return e.json(200, {
             participant_ref: participantId,
-            round:           round,
-            images:          allImages.map(i => i.url),
-            filenames:       allImages.map(i => i.filename),
-            image_details:   allImages,
-            records:         recordSummaries,
-            count:           allImages.length
+            round: round,
+            images: allImages.map(i => i.url),
+            filenames: allImages.map(i => i.filename),
+            image_details: allImages,
+            records: recordSummaries,
+            count: allImages.length
         });
 
     } catch (err) {
@@ -594,9 +617,9 @@ routerAdd("DELETE", "/api/admin/marks/delete-marksheet-image", (e) => {
         return e.json(403, { error: "Unauthorized. Only admins can delete marksheet images." });
     }
 
-    const info      = e.requestInfo();
-    const recordId  = (info.query["record_id"] || "").trim();
-    const filename  = (info.query["filename"] || "").trim();
+    const info = e.requestInfo();
+    const recordId = (info.query["record_id"] || "").trim();
+    const filename = (info.query["filename"] || "").trim();
 
     if (!recordId || !filename) {
         return e.json(400, { error: "Missing record_id or filename." });

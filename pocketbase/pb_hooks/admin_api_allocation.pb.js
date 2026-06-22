@@ -338,7 +338,7 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
                 
                 let chosenGroup = null;
                 for (let spacing = 3; spacing >= 0; spacing--) {
-                    const disallowedInsts = lastPlacedInsts.slice(-spacing);
+                    const disallowedInsts = spacing > 0 ? lastPlacedInsts.slice(-spacing) : [];
                     const candidateGroups = activeGroups.filter(g => !disallowedInsts.includes(g.inst));
                     if (candidateGroups.length > 0) {
                         chosenGroup = candidateGroups[0];
@@ -665,31 +665,17 @@ routerAdd("POST", "/api/admin/allocate-final-venues", (e) => {
             return e.json(400, { error: "Missing category parameter." });
         }
 
-        // Fetch finalists for category
-        const finalists = $app.findRecordsByFilter(
-            "participants_application",
-            "category = {:category} && is_finalist = true && status = 'approved'",
-            "",
-            100,
-            0,
-            { category: category }
-        );
-
-        if (finalists.length === 0) {
-            return e.json(400, { error: "No promoted finalists found in the " + category.replace("_", " ") + " category. Please select/promote finalists first." });
-        }
-
-        // Find or create final venue
+        // Determine final venue name
         let venueName = "";
         if (category === "5_juz") venueName = "5 Juz Finals";
         else if (category === "15_juz") venueName = "15 Juz Finals";
         else if (category === "30_juz") venueName = "30 Juz Finals";
 
+        // Find or create final venue record
         let finalVenue = null;
         try {
             finalVenue = $app.findFirstRecordByData("venue_detail", "name", venueName);
         } catch (_) {
-            // Create the final venue if it doesn't exist
             const venueCol = $app.findCollectionByNameOrId("venue_detail");
             const newVenue = new Record(venueCol);
             newVenue.set("name", venueName);
@@ -704,6 +690,35 @@ routerAdd("POST", "/api/admin/allocate-final-venues", (e) => {
             console.log("Created final round venue record: " + venueName);
         }
 
+        // 1. Reset all previous final venue allocations for this category
+        const oldAllocations = $app.findRecordsByFilter(
+            "participants_application",
+            "final_venue = {:venue}",
+            "",
+            9999,
+            0,
+            { venue: venueName }
+        );
+        oldAllocations.forEach(cand => {
+            cand.set("final_venue", "");
+            cand.set("final_order", 0);
+            $app.save(cand);
+        });
+
+        // 2. Fetch all current approved finalists for the category
+        const finalists = $app.findRecordsByFilter(
+            "participants_application",
+            "category = {:category} && is_finalist = true && status = 'approved'",
+            "",
+            100,
+            0,
+            { category: category }
+        );
+
+        if (finalists.length === 0) {
+            return e.json(400, { error: "No promoted finalists found in the " + category.replace("_", " ") + " category. Please select/promote finalists first." });
+        }
+
         // Helper function to shuffle an array
         const shuffle = (array) => {
             for (let i = array.length - 1; i > 0; i--) {
@@ -715,66 +730,15 @@ routerAdd("POST", "/api/admin/allocate-final-venues", (e) => {
             return array;
         };
 
-        // Arrange candidates with institutional spacing
-        const arrangeFinalists = (cands) => {
-            if (cands.length <= 1) return cands;
-            
-            const groups = {};
-            cands.forEach(c => {
-                const inst = c.get("institution_ref") || "individual_" + c.get("id");
-                if (!groups[inst]) groups[inst] = [];
-                groups[inst].push(c);
-            });
-            
-            const result = [];
-            const lastPlacedInsts = [];
-            const groupList = [];
-            
-            Object.keys(groups).forEach(inst => {
-                groupList.push({
-                    inst: inst,
-                    list: groups[inst]
-                });
-            });
-            
-            const totalCount = cands.length;
-            for (let step = 0; step < totalCount; step++) {
-                const activeGroups = groupList.filter(g => g.list.length > 0);
-                if (activeGroups.length === 0) break;
-                
-                activeGroups.sort((a, b) => b.list.length - a.list.length);
-                
-                let chosenGroup = null;
-                for (let spacing = 3; spacing >= 0; spacing--) {
-                    const disallowedInsts = lastPlacedInsts.slice(-spacing);
-                    const candidateGroups = activeGroups.filter(g => !disallowedInsts.includes(g.inst));
-                    if (candidateGroups.length > 0) {
-                        chosenGroup = candidateGroups[0];
-                        break;
-                    }
-                }
-                
-                if (!chosenGroup) {
-                    chosenGroup = activeGroups[0];
-                }
-                
-                const cand = chosenGroup.list.pop();
-                result.push(cand);
-                lastPlacedInsts.push(chosenGroup.inst);
-                
-                if (lastPlacedInsts.length > 10) {
-                    lastPlacedInsts.shift();
-                }
-            }
-            return result;
-        };
+        // Convert slice/list to native JS array to ensure perfect array operations
+        const nativeFinalists = [];
+        finalists.forEach(f => nativeFinalists.push(f));
 
-        // Shuffle then arrange finalists
-        const shuffled = shuffle(finalists);
-        const arranged = arrangeFinalists(shuffled);
+        // 3. Shuffle finalists randomly
+        const shuffled = shuffle(nativeFinalists);
 
-        // Update database records
-        arranged.forEach((cand, idx) => {
+        // 4. Update database records sequentially (orders 1 to shuffled.length)
+        shuffled.forEach((cand, idx) => {
             cand.set("final_venue", venueName);
             cand.set("final_order", idx + 1);
             $app.save(cand);
@@ -797,7 +761,7 @@ routerAdd("POST", "/api/admin/allocate-final-venues", (e) => {
                 [venueName]: {
                     category: category,
                     capacity: 10,
-                    allocated: arranged.length
+                    allocated: shuffled.length
                 }
             }
         });
@@ -959,7 +923,7 @@ routerAdd("POST", "/api/admin/update-final-candidate-allocation", (e) => {
                     "final_order",
                     100,
                     0,
-                    { newVenue, candId: participantId }
+                    { venue: newVenue, candId: participantId }
                 );
 
                 cands.sort((a, b) => (parseInt(a.get("final_order"), 10) || 0) - (parseInt(b.get("final_order"), 10) || 0));

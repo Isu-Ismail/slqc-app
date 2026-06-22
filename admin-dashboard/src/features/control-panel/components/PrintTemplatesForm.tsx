@@ -12,12 +12,6 @@ interface Props {
 export default function PrintTemplatesForm({ metadata, onUpdate }: Props) {
     const templates = [
         { key: 'application_print_template', label: 'Application Print Template (HTML)' },
-        { key: 'marksheet_template_5_preliminary', label: '5 Juz Marksheet Template - Preliminary (HTML)' },
-        { key: 'marksheet_template_15_preliminary', label: '15 Juz Marksheet Template - Preliminary (HTML)' },
-        { key: 'marksheet_template_30_preliminary', label: '30 Juz Marksheet Template - Preliminary (HTML)' },
-        { key: 'marksheet_template_5_final', label: '5 Juz Marksheet Template - Final (HTML)' },
-        { key: 'marksheet_template_15_final', label: '15 Juz Marksheet Template - Final (HTML)' },
-        { key: 'marksheet_template_30_final', label: '30 Juz Marksheet Template - Final (HTML)' },
         { key: 'institution_list_template', label: 'Institution List Print Template (HTML)' }
     ];
 
@@ -70,10 +64,10 @@ export default function PrintTemplatesForm({ metadata, onUpdate }: Props) {
                     Upload an HTML format template containing layout and markup.
                 </p>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <input 
-                        type="file" 
-                        accept=".html" 
-                        className={styles.formInput} 
+                    <input
+                        type="file"
+                        accept=".html"
+                        className={styles.formInput}
                         disabled={isUploading}
                         style={{ flex: 1 }}
                         onChange={(e) => handleFileChange(tmpl.key, e.target.files?.[0] || null)}
@@ -91,9 +85,9 @@ export default function PrintTemplatesForm({ metadata, onUpdate }: Props) {
                 {record?.document && (
                     <div style={{ marginTop: '10px', fontSize: '12px', color: '#0d9488', fontWeight: '500' }}>
                         ✓ Template Uploaded: {' '}
-                        <a 
-                            href={pb.files.getURL(record, record.document)} 
-                            target="_blank" 
+                        <a
+                            href={pb.files.getURL(record, record.document)}
+                            target="_blank"
                             rel="noopener noreferrer"
                             style={{ color: '#0ea5e9', textDecoration: 'underline' }}
                         >
