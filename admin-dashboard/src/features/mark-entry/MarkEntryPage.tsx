@@ -212,7 +212,7 @@ export default function MarkEntryPage() {
 
         judges.forEach(j => {
             let total = 0;
-            criteriaList.forEach(c => {
+            criteriaList.forEach((c: any) => {
                 for (let i = 0; i < c.numQuestions; i++) {
                     const score = parseFloat(scoring[j.id]?.[c.key]?.[i]) || 0;
                     total += score;
@@ -249,7 +249,7 @@ export default function MarkEntryPage() {
                 : (templateColumns.criteria || []);
 
             judges.forEach(j => {
-                criteriaList.forEach(c => {
+                criteriaList.forEach((c: any) => {
                     for (let i = 0; i < c.numQuestions; i++) {
                         const valStr = scoringValues[j.id]?.[c.key]?.[i];
                         if (valStr !== undefined && valStr !== '') {

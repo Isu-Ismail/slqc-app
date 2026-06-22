@@ -1796,7 +1796,9 @@
         "type": "autodate"
       }
     ],
-    "indexes": [],
+    "indexes": [
+      "CREATE INDEX `idx_BhR5I0Va4d` ON `marksheet_uploads` (`participant_ref`)"
+    ],
     "system": false
   },
   {
@@ -1883,7 +1885,7 @@
       }
     ],
     "indexes": [
-      "CREATE UNIQUE INDEX `idx_metadata_key_unique` ON `metadata` (`key`)"
+      "CREATE UNIQUE INDEX `idx_metadata_key_year_unique` ON `metadata` (`key`)"
     ],
     "system": false
   },
@@ -2617,16 +2619,6 @@
         "presentable": false,
         "system": true,
         "type": "autodate"
-      },
-      {
-        "hidden": false,
-        "id": "json_slots",
-        "maxSize": 0,
-        "name": "slots",
-        "presentable": false,
-        "required": false,
-        "system": false,
-        "type": "json"
       }
     ],
     "indexes": [

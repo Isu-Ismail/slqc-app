@@ -5,7 +5,7 @@ import { Camera, Upload, X, CheckCircle, AlertTriangle, Search, Loader2, Image, 
 import styles from './MarksheetUploadPage.module.css';
 
 export default function MarksheetUploadPage() {
-    const user = pb.authStore.model;
+
 
     const [round, setRound] = useState<'preliminary' | 'final'>('preliminary');
     const [selectedVenue, setSelectedVenue] = useState<string>('all');

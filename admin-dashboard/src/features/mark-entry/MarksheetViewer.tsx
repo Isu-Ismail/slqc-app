@@ -12,7 +12,7 @@ interface MarksheetViewerProps {
 
 export default function MarksheetViewer({ participantId, round, participantName, onClose }: MarksheetViewerProps) {
     const [images, setImages] = useState<string[]>([]);
-    const [filenames, setFilenames] = useState<string[]>([]);
+    const [, setFilenames] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
