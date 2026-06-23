@@ -665,30 +665,29 @@ routerAdd("POST", "/api/admin/allocate-final-venues", (e) => {
             return e.json(400, { error: "Missing category parameter." });
         }
 
-        // Determine final venue name
-        let venueName = "";
-        if (category === "5_juz") venueName = "5 Juz Finals";
-        else if (category === "15_juz") venueName = "15 Juz Finals";
-        else if (category === "30_juz") venueName = "30 Juz Finals";
-
-        // Find or create final venue record
+        // Find existing final venue record for this category
         let finalVenue = null;
         try {
-            finalVenue = $app.findFirstRecordByData("venue_detail", "name", venueName);
-        } catch (_) {
-            const venueCol = $app.findCollectionByNameOrId("venue_detail");
-            const newVenue = new Record(venueCol);
-            newVenue.set("name", venueName);
-            newVenue.set("description", "Final Round Venue for " + category.replace("_", " "));
-            newVenue.set("category", category);
-            newVenue.set("round", "final");
-            newVenue.set("capacity", 10);
-            newVenue.set("slots", []);
-            newVenue.set("judges", []);
-            $app.save(newVenue);
-            finalVenue = newVenue;
-            console.log("Created final round venue record: " + venueName);
+            const venues = $app.findRecordsByFilter(
+                "venue_detail",
+                "round = 'final' && category = {:category}",
+                "",
+                1,
+                0,
+                { category: category }
+            );
+            if (venues && venues.length > 0) {
+                finalVenue = venues[0];
+            }
+        } catch (_) {}
+
+        if (!finalVenue) {
+            return e.json(400, {
+                error: "No final round venue found for category " + category.replace("_", " ") + ". Please configure the final round venue first."
+            });
         }
+
+        const venueName = finalVenue.get("name");
 
         // 1. Reset all previous final venue allocations for this category
         const oldAllocations = $app.findRecordsByFilter(
@@ -801,17 +800,41 @@ routerAdd("POST", "/api/admin/unallocate-final-venues", (e) => {
             return e.json(400, { error: "Missing category parameter." });
         }
 
-        // Fetch finalists for category
-        const finalists = $app.findRecordsByFilter(
+        // Find existing final venue record for this category
+        let finalVenue = null;
+        try {
+            const venues = $app.findRecordsByFilter(
+                "venue_detail",
+                "round = 'final' && category = {:category}",
+                "",
+                1,
+                0,
+                { category: category }
+            );
+            if (venues && venues.length > 0) {
+                finalVenue = venues[0];
+            }
+        } catch (_) {}
+
+        if (!finalVenue) {
+            return e.json(400, {
+                error: "No final round venue found for category " + category.replace("_", " ") + ". Please configure the final round venue first."
+            });
+        }
+
+        const venueName = finalVenue.get("name");
+
+        // Reset all candidates allocated to this final venue (no matter is_finalist status)
+        const cands = $app.findRecordsByFilter(
             "participants_application",
-            "category = {:category} && is_finalist = true",
+            "final_venue = {:venue}",
             "",
-            100,
+            999999,
             0,
-            { category: category }
+            { venue: venueName }
         );
 
-        finalists.forEach(cand => {
+        cands.forEach(cand => {
             cand.set("final_venue", "");
             cand.set("final_order", 0);
             $app.save(cand);

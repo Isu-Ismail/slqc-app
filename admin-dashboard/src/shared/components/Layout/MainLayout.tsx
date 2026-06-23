@@ -270,6 +270,19 @@ export default function MainLayout({ children }: MainLayoutProps) {
                                     </NavLink>
 
                                     <NavLink
+                                        to="/history"
+                                        className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
+                                        onClick={closeMobileMenu}
+                                        preventScrollReset={true}
+                                    >
+                                        <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <circle cx="12" cy="12" r="10" />
+                                            <polyline points="12 6 12 12 16 14" />
+                                        </svg>
+                                        Historical Records
+                                    </NavLink>
+
+                                    <NavLink
                                         to="/control-panel"
                                         className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
                                         onClick={closeMobileMenu}

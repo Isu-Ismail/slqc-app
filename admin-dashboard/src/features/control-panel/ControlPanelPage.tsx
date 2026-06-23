@@ -9,6 +9,7 @@ import RulesSettingsForm from './components/RulesSettingsForm';
 import PrintTemplatesForm from './components/PrintTemplatesForm';
 import DynamicListEditor from './components/DynamicListEditor';
 import StatsRecalculator from './components/StatsRecalculator';
+import ArchiveManager from './components/ArchiveManager';
 import styles from './ControlPanelPage.module.css';
 import { pb } from '../../api/db';
 
@@ -64,7 +65,7 @@ export default function ControlPanelPage() {
         };
     }, []);
 
-    const [activeTab, setActiveTab] = useState<'system' | 'timings' | 'rules' | 'prizes' | 'documents' | 'limits' | 'templates'>('system');
+    const [activeTab, setActiveTab] = useState<'system' | 'timings' | 'rules' | 'prizes' | 'documents' | 'limits' | 'templates' | 'archiving'>('system');
 
     if (user?.designation !== 'admin') {
         return (
@@ -137,6 +138,14 @@ export default function ControlPanelPage() {
                     style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
                     <FileText size={16} /> Print Templates
+                </button>
+                <button
+                    type="button"
+                    className={`${styles.tabBtn} ${activeTab === 'archiving' ? styles.activeTab : ''}`}
+                    onClick={() => setActiveTab('archiving')}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                    <Settings size={16} /> Archiving
                 </button>
             </div>
 
@@ -215,6 +224,12 @@ export default function ControlPanelPage() {
                 {activeTab === 'templates' && (
                     <>
                         <PrintTemplatesForm metadata={metadata} onUpdate={() => loadMetadata(false, true)} />
+                    </>
+                )}
+
+                {activeTab === 'archiving' && (
+                    <>
+                        <ArchiveManager />
                     </>
                 )}
             </div>

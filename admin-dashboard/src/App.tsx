@@ -17,6 +17,7 @@ import MarkEntryPage from './features/mark-entry/MarkEntryPage';
 import MarksheetUploadPage from './features/mark-entry/MarksheetUploadPage';
 import { pb } from './api/db';
 import FinalistsPage from './features/finalists/FinalistsPage';
+import HistoryPage from './features/history/HistoryPage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
     if (!pb.authStore.isValid) {
@@ -181,6 +182,16 @@ function App() {
                         <RequireAuth>
                             <MainLayout>
                                 <FinalistsPage />
+                            </MainLayout>
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/history"
+                    element={
+                        <RequireAuth>
+                            <MainLayout>
+                                <HistoryPage />
                             </MainLayout>
                         </RequireAuth>
                     }

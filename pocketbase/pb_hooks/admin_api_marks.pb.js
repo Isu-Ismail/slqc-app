@@ -56,12 +56,12 @@ routerAdd("GET", "/api/admin/marks/get-venue-sheet", (e) => {
         const isFinalistFilter = round === "preliminary" ? "is_finalist = false" : "is_finalist = true";
 
         // CRUCIAL UPDATE: Added 'arrival_status != "absent"' to the filter string
-        const filterString = "status = 'approved' && allocated_venue = {:venue} && arrival_status != 'absent' && " + isFinalistFilter;
+        const filterString = "status = 'approved' && " + (round === "final" ? "final_venue = {:venue}" : "allocated_venue = {:venue}") + " && arrival_status != 'absent' && " + isFinalistFilter;
 
         const students = $app.findRecordsByFilter(
             "participants_application",
             filterString,
-            "allocated_order",
+            round === "final" ? "final_order" : "allocated_order",
             2000,
             0,
             { venue: venueName }
@@ -341,16 +341,24 @@ routerAdd("GET", "/api/admin/marks/get-students-status", (e) => {
 
         let queryParams = {};
         if (isAllVenues) {
-            filterString += " && allocated_venue != ''";
+            if (round === "final") {
+                filterString += " && final_venue != ''";
+            } else {
+                filterString += " && allocated_venue != ''";
+            }
         } else {
-            filterString += " && allocated_venue = {:venue}";
+            if (round === "final") {
+                filterString += " && final_venue = {:venue}";
+            } else {
+                filterString += " && allocated_venue = {:venue}";
+            }
             queryParams.venue = venueName;
         }
 
         const students = $app.findRecordsByFilter(
             "participants_application",
             filterString,
-            "allocated_order",
+            round === "final" ? "final_order" : "allocated_order",
             2000,
             0,
             queryParams
@@ -372,8 +380,8 @@ routerAdd("GET", "/api/admin/marks/get-students-status", (e) => {
                 markRecordId = markRec.get("id");
             } catch (_) { }
 
-            // Resolve judges for student's allocated venue
-            const studentVenue = student.get("allocated_venue");
+            // Resolve judges for student's allocated venue (allocated_venue or final_venue depending on round)
+            const studentVenue = round === "final" ? student.get("final_venue") : student.get("allocated_venue");
             const studentJudges = [];
             if (studentVenue) {
                 try {
@@ -421,7 +429,7 @@ routerAdd("GET", "/api/admin/marks/get-students-status", (e) => {
                 register_id: student.get("participant_id"),
                 full_name: student.get("full_name"),
                 category: student.get("category"),
-                allocated_venue: student.get("allocated_venue") || "",
+                allocated_venue: (round === "final" ? student.get("final_venue") : student.get("allocated_venue")) || "",
                 values: existingValues,
                 is_frozen: isFrozen,
                 judges: studentJudges,

@@ -1,4 +1,6 @@
-import { ArrowLeft, Save, Plus, Trash2, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
+import { pb } from '../../api/db';
+import { ArrowLeft, Save, Plus, Trash2, RefreshCw, Lock } from 'lucide-react';
 import styles from './MarkEntryPage.module.css';
 
 interface TemplateEditorProps {
@@ -14,6 +16,9 @@ interface TemplateEditorProps {
     addCriterion: () => void;
     updateCriterion: (index: number, field: string, value: any) => void;
     removeCriterion: (index: number) => void;
+    hasExistingMarks: boolean;
+    isLocked: boolean;
+    setIsLocked: (locked: boolean) => void;
     onPasteAspectNames?: (startIndex: number, names: string[]) => void;
 }
 
@@ -30,8 +35,44 @@ export default function TemplateEditor({
     addCriterion,
     updateCriterion,
     removeCriterion,
+    hasExistingMarks,
+    isLocked,
+    setIsLocked,
     onPasteAspectNames
 }: TemplateEditorProps) {
+
+    // Unlock modal states
+    const [showUnlockModal, setShowUnlockModal] = useState(false);
+    const [password, setPassword] = useState('');
+    const [phrase, setPhrase] = useState('');
+    const [verifying, setVerifying] = useState(false);
+    const [modalError, setModalError] = useState('');
+
+    const handleUnlockSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (phrase !== 'I WANT TO EDIT') {
+            setModalError("Please type 'I WANT TO EDIT' exactly (all caps).");
+            return;
+        }
+
+        setVerifying(true);
+        setModalError('');
+        try {
+            await pb.send('/api/admin/verify-password', {
+                method: 'POST',
+                body: { password }
+            });
+            setIsLocked(false);
+            setShowUnlockModal(false);
+            setPassword('');
+            setPhrase('');
+        } catch (err: any) {
+            console.error('Verify password failed:', err);
+            setModalError(err.message || 'Incorrect password.');
+        } finally {
+            setVerifying(false);
+        }
+    };
 
     // Helper to calculate total template marks
     const calculateTotalMarks = () => {
@@ -47,17 +88,61 @@ export default function TemplateEditor({
                         <ArrowLeft size={16} /> Back to Mark Entry
                     </button>
                     <h2 className={styles.title}>Template Configuration</h2>
-                    <p className={styles.subtitle}>Define aspects (e.g. Hifz, Tajweed), the number of questions, and marks per question.</p>
                 </div>
 
-                <button
-                    onClick={onSave}
-                    disabled={tplSaving || tplLoading}
-                    className={styles.btnPrim}
-                >
-                    <Save size={18} /> {tplSaving ? 'Saving...' : 'Save Template Configuration'}
-                </button>
+                {hasExistingMarks ? (
+                    <button
+                        disabled={true}
+                        className={styles.btnPrim}
+                        style={{ backgroundColor: '#94a3b8', borderColor: '#94a3b8', cursor: 'not-allowed', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                    >
+                        <Lock size={18} /> Template Locked (Marks Exist)
+                    </button>
+                ) : isLocked ? (
+                    <button
+                        onClick={() => setShowUnlockModal(true)}
+                        className={styles.btnPrim}
+                        style={{ backgroundColor: '#d97706', borderColor: '#d97706', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
+                        <Lock size={18} /> Edit Template (Locked)
+                    </button>
+                ) : (
+                    <button
+                        onClick={onSave}
+                        disabled={tplSaving || tplLoading}
+                        className={styles.btnPrim}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
+                        <Save size={18} /> {tplSaving ? 'Saving...' : 'Save Template Configuration'}
+                    </button>
+                )}
             </div>
+
+            {/* Warning Banner */}
+            {(hasExistingMarks || (tplCriteria.length > 0 && isLocked) || !isLocked) && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    backgroundColor: hasExistingMarks ? '#fef2f2' : isLocked ? '#fef3c7' : '#fee2e2',
+                    borderLeft: '4px solid ' + (hasExistingMarks ? '#ef4444' : isLocked ? '#d97706' : '#ef4444'),
+                    color: hasExistingMarks ? '#991b1b' : isLocked ? '#92400e' : '#991b1b',
+                    padding: '12px 16px',
+                    borderRadius: '8px',
+                    marginBottom: '16px',
+                    fontSize: '14px',
+                    fontWeight: '600'
+                }}>
+                    <Lock size={16} />
+                    {hasExistingMarks ? (
+                        <span> Marks are already entered for this category and round. Editing the template is disabled. You must remove all marks to edit this template.</span>
+                    ) : isLocked ? (
+                        <span> Template is locked to prevent accidental changes. Click "Edit Template" to unlock.</span>
+                    ) : (
+                        <span> Template unlocked. Modify aspects with extreme caution, as changes may affect calculation of existing marks.</span>
+                    )}
+                </div>
+            )}
 
             {/* Filter Segment */}
             <div className={styles.filterBar}>
@@ -99,7 +184,7 @@ export default function TemplateEditor({
                 </div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                    
+
                     {/* Horizontal Excel-like Grid Configurator using HTML Table for Perfect Row Alignment */}
                     <div className={styles.editorSection} style={{ padding: '20px', overflowX: 'auto' }}>
                         <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>
@@ -115,37 +200,43 @@ export default function TemplateEditor({
                                     </td>
                                     {tplCriteria.map((c, idx) => (
                                         <td key={c.key || idx} style={{ width: '150px', padding: '6px', borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}>
-                                            <input
-                                                type="text"
-                                                value={c.label || ''}
-                                                onChange={(e) => updateCriterion(idx, 'label', e.target.value)}
-                                                onPaste={(e) => {
-                                                    const pastedText = e.clipboardData.getData('text');
-                                                    if (pastedText && pastedText.includes(',')) {
-                                                        e.preventDefault();
-                                                        const names = pastedText.split(',').map(p => p.trim()).filter(Boolean);
-                                                        onPasteAspectNames?.(idx, names);
-                                                    }
-                                                }}
-                                                placeholder="Aspect Name"
-                                                style={{ width: '100%', height: '36px', border: '1px solid transparent', borderRadius: '4px', padding: '0 8px', fontSize: '14px', fontWeight: '700', textAlign: 'center', backgroundColor: '#ffffff', outline: 'none', boxSizing: 'border-box' }}
-                                                onFocus={(e) => e.target.style.border = '1px solid #10b981'}
-                                                onBlur={(e) => e.target.style.border = '1px solid transparent'}
-                                            />
+                                            {isLocked ? (
+                                                <div style={{ textAlign: 'center', fontWeight: '700', fontSize: '14px', padding: '8px 0', color: '#1e293b' }}>{c.label || ''}</div>
+                                            ) : (
+                                                <input
+                                                    type="text"
+                                                    value={c.label || ''}
+                                                    onChange={(e) => updateCriterion(idx, 'label', e.target.value)}
+                                                    onPaste={(e) => {
+                                                        const pastedText = e.clipboardData.getData('text');
+                                                        if (pastedText && pastedText.includes(',')) {
+                                                            e.preventDefault();
+                                                            const names = pastedText.split(',').map(p => p.trim()).filter(Boolean);
+                                                            onPasteAspectNames?.(idx, names);
+                                                        }
+                                                    }}
+                                                    placeholder="Aspect Name"
+                                                    style={{ width: '100%', height: '36px', border: '1px solid transparent', borderRadius: '4px', padding: '0 8px', fontSize: '14px', fontWeight: '700', textAlign: 'center', backgroundColor: '#ffffff', outline: 'none', boxSizing: 'border-box' }}
+                                                    onFocus={(e) => e.target.style.border = '1px solid #10b981'}
+                                                    onBlur={(e) => e.target.style.border = '1px solid transparent'}
+                                                />
+                                            )}
                                         </td>
                                     ))}
                                     {/* Add Aspect Button Cell spanning all rows */}
-                                    <td style={{ width: '140px', backgroundColor: '#fafafa', borderLeft: '1px solid #cbd5e1', padding: '12px', textAlign: 'center', verticalAlign: 'middle' }} rowSpan={5}>
-                                        <button
-                                            onClick={addCriterion}
-                                            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', border: '1px dashed #cbd5e1', borderRadius: '6px', padding: '20px 10px', width: '100%', minHeight: '190px', color: '#475569', cursor: 'pointer', backgroundColor: '#ffffff', transition: 'all 0.2s', outline: 'none', boxSizing: 'border-box' }}
-                                            onMouseOver={(e) => { e.currentTarget.style.borderColor = '#10b981'; e.currentTarget.style.color = '#10b981'; }}
-                                            onMouseOut={(e) => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#475569'; }}
-                                        >
-                                            <Plus size={20} />
-                                            <span style={{ fontSize: '12px', fontWeight: '700' }}>Add Aspect</span>
-                                        </button>
-                                    </td>
+                                    {!isLocked && (
+                                        <td style={{ width: '140px', backgroundColor: '#fafafa', borderLeft: '1px solid #cbd5e1', padding: '12px', textAlign: 'center', verticalAlign: 'middle' }} rowSpan={5}>
+                                            <button
+                                                onClick={addCriterion}
+                                                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', border: '1px dashed #cbd5e1', borderRadius: '6px', padding: '20px 10px', width: '100%', minHeight: '190px', color: '#475569', cursor: 'pointer', backgroundColor: '#ffffff', transition: 'all 0.2s', outline: 'none', boxSizing: 'border-box' }}
+                                                onMouseOver={(e) => { e.currentTarget.style.borderColor = '#10b981'; e.currentTarget.style.color = '#10b981'; }}
+                                                onMouseOut={(e) => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#475569'; }}
+                                            >
+                                                <Plus size={20} />
+                                                <span style={{ fontSize: '12px', fontWeight: '700' }}>Add Aspect</span>
+                                            </button>
+                                        </td>
+                                    )}
                                 </tr>
 
                                 {/* Row 2: Number of Columns */}
@@ -158,31 +249,35 @@ export default function TemplateEditor({
                                         const isInvalid = val === '' || parseInt(val.toString()) <= 0;
                                         return (
                                             <td key={c.key || idx} style={{ padding: '6px', borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}>
-                                                <input
-                                                    type="text"
-                                                    value={val}
-                                                    onChange={(e) => {
-                                                        const clean = e.target.value.replace(/[^0-9]/g, '');
-                                                        updateCriterion(idx, 'numQuestions', clean === '' ? '' : parseInt(clean));
-                                                    }}
-                                                    placeholder="e.g. 2"
-                                                    style={{ 
-                                                        width: '100%', 
-                                                        height: '36px', 
-                                                        border: isInvalid ? '1px solid #ef4444' : '1px solid transparent', 
-                                                        borderRadius: '4px', 
-                                                        padding: '0 8px', 
-                                                        fontSize: '14px', 
-                                                        fontWeight: '600', 
-                                                        textAlign: 'center', 
-                                                        backgroundColor: isInvalid ? '#fef2f2' : '#ffffff', 
-                                                        outline: 'none', 
-                                                        boxSizing: 'border-box',
-                                                        transition: 'all 0.2s'
-                                                    }}
-                                                    onFocus={(e) => { if (!isInvalid) e.target.style.border = '1px solid #10b981'; }}
-                                                    onBlur={(e) => { if (!isInvalid) e.target.style.border = '1px solid transparent'; }}
-                                                />
+                                                {isLocked ? (
+                                                    <div style={{ textAlign: 'center', fontWeight: '600', fontSize: '14px', padding: '8px 0', color: '#1e293b' }}>{val}</div>
+                                                ) : (
+                                                    <input
+                                                        type="text"
+                                                        value={val}
+                                                        onChange={(e) => {
+                                                            const clean = e.target.value.replace(/[^0-9]/g, '');
+                                                            updateCriterion(idx, 'numQuestions', clean === '' ? '' : parseInt(clean));
+                                                        }}
+                                                        placeholder="e.g. 2"
+                                                        style={{
+                                                            width: '100%',
+                                                            height: '36px',
+                                                            border: isInvalid ? '1px solid #ef4444' : '1px solid transparent',
+                                                            borderRadius: '4px',
+                                                            padding: '0 8px',
+                                                            fontSize: '14px',
+                                                            fontWeight: '600',
+                                                            textAlign: 'center',
+                                                            backgroundColor: isInvalid ? '#fef2f2' : '#ffffff',
+                                                            outline: 'none',
+                                                            boxSizing: 'border-box',
+                                                            transition: 'all 0.2s'
+                                                        }}
+                                                        onFocus={(e) => { if (!isInvalid) e.target.style.border = '1px solid #10b981'; }}
+                                                        onBlur={(e) => { if (!isInvalid) e.target.style.border = '1px solid transparent'; }}
+                                                    />
+                                                )}
                                             </td>
                                         );
                                     })}
@@ -198,35 +293,39 @@ export default function TemplateEditor({
                                         const isInvalid = val === '' || parseFloat(val.toString()) <= 0;
                                         return (
                                             <td key={c.key || idx} style={{ padding: '6px', borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}>
-                                                <input
-                                                    type="text"
-                                                    value={val}
-                                                    onChange={(e) => {
-                                                        let clean = e.target.value.replace(/[^0-9.]/g, '');
-                                                        const parts = clean.split('.');
-                                                        if (parts.length > 2) {
-                                                            clean = parts[0] + '.' + parts.slice(1).join('');
-                                                        }
-                                                        updateCriterion(idx, 'outOf', clean === '' ? '' : clean);
-                                                    }}
-                                                    placeholder="e.g. 10"
-                                                    style={{ 
-                                                        width: '100%', 
-                                                        height: '36px', 
-                                                        border: isInvalid ? '1px solid #ef4444' : '1px solid transparent', 
-                                                        borderRadius: '4px', 
-                                                        padding: '0 8px', 
-                                                        fontSize: '14px', 
-                                                        fontWeight: '600', 
-                                                        textAlign: 'center', 
-                                                        backgroundColor: isInvalid ? '#fef2f2' : '#ffffff', 
-                                                        outline: 'none', 
-                                                        boxSizing: 'border-box',
-                                                        transition: 'all 0.2s'
-                                                    }}
-                                                    onFocus={(e) => { if (!isInvalid) e.target.style.border = '1px solid #10b981'; }}
-                                                    onBlur={(e) => { if (!isInvalid) e.target.style.border = '1px solid transparent'; }}
-                                                />
+                                                {isLocked ? (
+                                                    <div style={{ textAlign: 'center', fontWeight: '600', fontSize: '14px', padding: '8px 0', color: '#1e293b' }}>{val}</div>
+                                                ) : (
+                                                    <input
+                                                        type="text"
+                                                        value={val}
+                                                        onChange={(e) => {
+                                                            let clean = e.target.value.replace(/[^0-9.]/g, '');
+                                                            const parts = clean.split('.');
+                                                            if (parts.length > 2) {
+                                                                clean = parts[0] + '.' + parts.slice(1).join('');
+                                                            }
+                                                            updateCriterion(idx, 'outOf', clean === '' ? '' : clean);
+                                                        }}
+                                                        placeholder="e.g. 10"
+                                                        style={{
+                                                            width: '100%',
+                                                            height: '36px',
+                                                            border: isInvalid ? '1px solid #ef4444' : '1px solid transparent',
+                                                            borderRadius: '4px',
+                                                            padding: '0 8px',
+                                                            fontSize: '14px',
+                                                            fontWeight: '600',
+                                                            textAlign: 'center',
+                                                            backgroundColor: isInvalid ? '#fef2f2' : '#ffffff',
+                                                            outline: 'none',
+                                                            boxSizing: 'border-box',
+                                                            transition: 'all 0.2s'
+                                                        }}
+                                                        onFocus={(e) => { if (!isInvalid) e.target.style.border = '1px solid #10b981'; }}
+                                                        onBlur={(e) => { if (!isInvalid) e.target.style.border = '1px solid transparent'; }}
+                                                    />
+                                                )}
                                             </td>
                                         );
                                     })}
@@ -248,22 +347,24 @@ export default function TemplateEditor({
                                 </tr>
 
                                 {/* Row 5: Action */}
-                                <tr>
-                                    <td style={{ padding: '12px 16px', fontWeight: '700', color: '#e11d48', fontSize: '13px', backgroundColor: '#f8fafc', borderRight: '2px solid #cbd5e1' }}>
-                                        Action
-                                    </td>
-                                    {tplCriteria.map((c, idx) => (
-                                        <td key={c.key || idx} style={{ padding: '8px', borderRight: '1px solid #e2e8f0', textAlign: 'center', verticalAlign: 'middle' }}>
-                                            <button
-                                                onClick={() => removeCriterion(idx)}
-                                                className={styles.deleteBtn}
-                                                style={{ padding: '6px 12px', borderRadius: '6px', margin: '0 auto' }}
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
+                                {!isLocked && (
+                                    <tr>
+                                        <td style={{ padding: '12px 16px', fontWeight: '700', color: '#e11d48', fontSize: '13px', backgroundColor: '#f8fafc', borderRight: '2px solid #cbd5e1' }}>
+                                            Action
                                         </td>
-                                    ))}
-                                </tr>
+                                        {tplCriteria.map((c, idx) => (
+                                            <td key={c.key || idx} style={{ padding: '8px', borderRight: '1px solid #e2e8f0', textAlign: 'center', verticalAlign: 'middle' }}>
+                                                <button
+                                                    onClick={() => removeCriterion(idx)}
+                                                    className={styles.deleteBtn}
+                                                    style={{ padding: '6px 12px', borderRadius: '6px', margin: '0 auto' }}
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </td>
+                                        ))}
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -339,6 +440,140 @@ export default function TemplateEditor({
                                 </table>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Unlock Modal */}
+            {showUnlockModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+                    backdropFilter: 'blur(4px)',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        backgroundColor: '#ffffff',
+                        borderRadius: '16px',
+                        width: '90%',
+                        maxWidth: '440px',
+                        padding: '24px',
+                        border: '1px solid #e2e8f0',
+                        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
+                    }}>
+                        <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
+                            Unlock Template Editor
+                        </h3>
+                        <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: '#64748b', lineHeight: '1.5' }}>
+                            Marks are already entered for this category. Modifying this template requires administrator authentication and confirmation.
+                        </p>
+
+                        <form onSubmit={handleUnlockSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#475569', marginBottom: '6px' }}>
+                                    Admin Password
+                                </label>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="Enter administrator password"
+                                    required
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid #cbd5e1',
+                                        outline: 'none',
+                                        fontSize: '14px',
+                                        boxSizing: 'border-box'
+                                    }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#475569', marginBottom: '6px' }}>
+                                    Type <strong style={{ color: '#ef4444' }}>I WANT TO EDIT</strong> to confirm
+                                </label>
+                                <input
+                                    type="text"
+                                    value={phrase}
+                                    onChange={(e) => setPhrase(e.target.value)}
+                                    placeholder="I WANT TO EDIT"
+                                    required
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid #cbd5e1',
+                                        outline: 'none',
+                                        fontSize: '14px',
+                                        fontWeight: 'bold',
+                                        textTransform: 'uppercase',
+                                        boxSizing: 'border-box'
+                                    }}
+                                />
+                            </div>
+
+                            {modalError && (
+                                <div style={{ fontSize: '13px', color: '#ef4444', fontWeight: '600' }}>
+                                    {modalError}
+                                </div>
+                            )}
+
+                            <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowUnlockModal(false);
+                                        setPassword('');
+                                        setPhrase('');
+                                        setModalError('');
+                                    }}
+                                    style={{
+                                        flex: 1,
+                                        padding: '10px',
+                                        borderRadius: '8px',
+                                        border: '1px solid #cbd5e1',
+                                        backgroundColor: '#ffffff',
+                                        color: '#475569',
+                                        fontWeight: '700',
+                                        fontSize: '14px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={verifying}
+                                    style={{
+                                        flex: 1,
+                                        padding: '10px',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        backgroundColor: '#ef4444',
+                                        color: '#ffffff',
+                                        fontWeight: '700',
+                                        fontSize: '14px',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                    }}
+                                >
+                                    {verifying ? 'Verifying...' : 'Unlock'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

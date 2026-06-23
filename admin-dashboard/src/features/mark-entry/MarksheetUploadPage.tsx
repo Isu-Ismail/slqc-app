@@ -141,13 +141,13 @@ export default function MarksheetUploadPage() {
                     <div className={styles.segmentGroup}>
                         <button
                             className={`${styles.segBtn} ${round === 'preliminary' ? styles.segBtnActive : ''}`}
-                            onClick={() => { setRound('preliminary'); setSelectedStudent(null); }}
+                            onClick={() => { setRound('preliminary'); setSelectedStudent(null); setSelectedVenue('all'); }}
                         >
                             <Zap size={14} /> Preliminary
                         </button>
                         <button
                             className={`${styles.segBtn} ${round === 'final' ? styles.segBtnActive : ''}`}
-                            onClick={() => { setRound('final'); setSelectedStudent(null); }}
+                            onClick={() => { setRound('final'); setSelectedStudent(null); setSelectedVenue('all'); }}
                         >
                             <Award size={14} /> Final
                         </button>
@@ -160,7 +160,10 @@ export default function MarksheetUploadPage() {
                         className={styles.venueSelect}
                     >
                         <option value="all">All Venues</option>
-                        {venues.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
+                        {venues
+                            .filter(v => v.round === round)
+                            .map(v => <option key={v.id} value={v.name}>{v.name}</option>)
+                        }
                     </select>
                 </div>
             </div>

@@ -535,6 +535,9 @@ export function generateVenueMarksheetHTML(
                     display: flex;
                     flex-direction: column;
                     overflow: hidden;
+                    padding-top: 5mm;
+                    padding-bottom: 5mm;
+                    box-sizing: border-box;
                 }
                 .print-page:last-child {
                     page-break-after: avoid;
@@ -544,7 +547,7 @@ export function generateVenueMarksheetHTML(
                 /* ── Card slot: exactly 1/3 of an A4 ── */
                 .card-slot {
                     width: 210mm;
-                    height: 92mm;
+                    height: 93mm;
                     display: flex;
                     flex-direction: column;
                     overflow: hidden;
@@ -558,7 +561,7 @@ export function generateVenueMarksheetHTML(
                 /* ── Cut line ── */
                 .cut-line {
                     width: 100%;
-                    height: 9mm;
+                    height: 4mm;
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -608,7 +611,7 @@ export function generateVenueMarksheetHTML(
                     background-color: #ffffff;
                 }
                 .ms-box-label {
-                    font-size: 8px;
+                    font-size: 9px;
                     font-weight: bold;
                     color: #000000;
                     border-bottom: 1.5px solid #000000;
@@ -619,7 +622,7 @@ export function generateVenueMarksheetHTML(
                     letter-spacing: 0.05em;
                 }
                 .ms-box-value {
-                    font-size: 12px;
+                    font-size: 14px;
                     font-weight: 800;
                     color: #000000;
                     text-align: center;
@@ -638,13 +641,13 @@ export function generateVenueMarksheetHTML(
                     margin-bottom: 1px;
                 }
                 .ms-main-heading {
-                    font-size: 13px;
+                    font-size: 14px;
                     font-weight: 800;
                     color: #000000;
                     letter-spacing: 0.02em;
                 }
                 .ms-round-heading {
-                    font-size: 9px;
+                    font-size: 10px;
                     font-weight: bold;
                     color: #000000;
                     margin-top: 1px;
@@ -653,8 +656,8 @@ export function generateVenueMarksheetHTML(
                 .ms-category-banner {
                     background-color: #fef08a; /* yellow background */
                     border: 1.5px solid #000000;
-                    padding: 2px 14px;
-                    font-size: 10px;
+                    padding: 2.5px 16px;
+                    font-size: 11px;
                     font-weight: 800;
                     color: #000000;
                     margin-top: 2px;
@@ -666,13 +669,13 @@ export function generateVenueMarksheetHTML(
                 .ms-candidate-bar-near {
                     display: flex;
                     justify-content: flex-start;
-                    gap: 24px;
+                    gap: 32px;
                     width: 100%;
-                    font-size: 11px;
+                    font-size: 13px;
                     color: #000000;
                     font-weight: bold;
-                    margin-top: 1mm;
-                    margin-bottom: 1mm;
+                    margin-top: 2mm;
+                    margin-bottom: 2mm;
                     text-transform: uppercase;
                 }
 
@@ -681,9 +684,10 @@ export function generateVenueMarksheetHTML(
                     width: 100%;
                     flex: 1;
                     display: flex;
-                    align-items: center;
+                    align-items: flex-start;
                     justify-content: center;
                     padding: 0.5mm 0;
+                    margin-bottom: 5mm;
                 }
                 .ms-dynamic-table {
                     width: 100%;
@@ -702,34 +706,34 @@ export function generateVenueMarksheetHTML(
                 }
                 .ms-th-total-header {
                     background-color: #f8fafc;
-                    font-size: 11px;
+                    font-size: 13px;
                     font-weight: 900;
                     color: #000000;
                     width: 75px;
                 }
                 .ms-th-crit-header {
                     background-color: #f8fafc;
-                    font-size: 11px;
+                    font-size: 14px;
                     font-weight: 900;
                     color: #000000;
                     font-family: 'Amiri', 'Noto Naskh Arabic', sans-serif;
                 }
                 .ms-th-sub-mark {
                     background-color: #ffffff;
-                    font-size: 10px;
+                    font-size: 12px;
                     font-weight: bold;
                     color: #000000;
                     padding: 2px;
                 }
                 .ms-td-total-value {
                     background-color: #f8fafc;
-                    font-size: 12px;
+                    font-size: 15px;
                     font-weight: 900;
                     color: #000000;
-                    height: 30px;
+                    height: 50px;
                 }
                 .ms-td-score-box {
-                    height: 30px;
+                    height: 50px;
                     background-color: #ffffff;
                 }
 

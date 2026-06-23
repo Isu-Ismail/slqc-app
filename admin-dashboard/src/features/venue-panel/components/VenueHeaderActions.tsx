@@ -127,7 +127,7 @@ export default function VenueHeaderActions({
                         opacity: (printing || loadingCandidates) ? 0.7 : 1
                     }}
                 >
-                    <Printer size={15} /> {printing ? 'Generating...' : 'Generate Marksheets'}
+                    <Printer size={15} /> {printing ? 'Print Marksheets' : 'Print Marksheets'}
                 </button>
             </div>
         </div>

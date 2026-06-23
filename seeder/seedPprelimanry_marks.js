@@ -13,14 +13,28 @@ const DEFAULT_PASSWORD = 'Admin@1234';
 const email = process.argv[2] || DEFAULT_EMAIL;
 const password = process.argv[3] || DEFAULT_PASSWORD;
 
-console.log(`[Seeder] Targeting PocketBase URL: ${PB_URL}`);
+console.log(`[Seeder] Targeting PocketBase URL (Preliminary): ${PB_URL}`);
 
-const DEFAULT_CRITERIA = [
-    { key: 'hifz', label: 'حفظ', numQuestions: 2, outOf: 20 },
-    { key: 'tajweed', label: 'تجويد', numQuestions: 2, outOf: 15 },
-    { key: 'surah_juz', label: 'إسم السورة والجزء', numQuestions: 2, outOf: 5 },
-    { key: 'mutashabihat', label: 'متشابهات', numQuestions: 2, outOf: 10 }
-];
+const CATEGORY_TEMPLATES = {
+    '5_juz': [
+        { key: 'c1782124908579', label: 'Memory', numQuestions: 2, outOf: 20 },
+        { key: 'c1782124909566', label: 'Tajweed', numQuestions: 2, outOf: 15 },
+        { key: 'c1782124910495', label: 'Surah Name', numQuestions: 2, outOf: 5 },
+        { key: 'c1782124911896', label: 'Mutashabihat', numQuestions: 2, outOf: 10 }
+    ],
+    '15_juz': [
+        { key: 'c1782126217530', label: 'Memory', numQuestions: 2, outOf: 20 },
+        { key: 'c1782126218361', label: 'Tajweed', numQuestions: 2, outOf: 15 },
+        { key: 'c1782126219189', label: 'Surah Name', numQuestions: 2, outOf: 5 },
+        { key: 'c1782126220059', label: 'Mutashabihat', numQuestions: 2, outOf: 10 }
+    ],
+    '30_juz': [
+        { key: 'c1782126279191', label: 'Memory', numQuestions: 2, outOf: 20 },
+        { key: 'c1782126279977', label: 'Tajweed', numQuestions: 2, outOf: 15 },
+        { key: 'c1782126280780', label: 'Surah Name', numQuestions: 2, outOf: 5 },
+        { key: 'c1782126281616', label: 'Mutshabihat', numQuestions: 2, outOf: 10 }
+    ]
+};
 
 async function run() {
     // 1. Authenticate
@@ -78,52 +92,70 @@ async function run() {
 
     // 2. Setup / Seed Mark Templates if they don't exist
     const categories = ['5_juz', '15_juz', '30_juz'];
-    const rounds = ['preliminary', 'final'];
+    const round = 'preliminary';
 
-    console.log('[Seeder] Ensuring mark templates are seeded...');
-    for (const round of rounds) {
-        for (const category of categories) {
-            try {
-                const checkRes = await fetch(`${PB_URL}/api/collections/mark_templates/records?filter=round='${round}'%26%26category='${category}'`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const checkData = await checkRes.json();
+    console.log('[Seeder] Ensuring preliminary mark templates are seeded...');
+    for (const category of categories) {
+        const currentCriteria = CATEGORY_TEMPLATES[category];
+        try {
+            const checkRes = await fetch(`${PB_URL}/api/collections/mark_templates/records?filter=round='${round}'%26%26category='${category}'`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const checkData = await checkRes.json();
 
-                if (checkData.items && checkData.items.length > 0) {
-                    console.log(`[✓] Template already exists for Round: ${round}, Category: ${category}`);
-                } else {
-                    const createRes = await fetch(`${PB_URL}/api/collections/mark_templates/records`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            round,
-                            category,
-                            columns: JSON.stringify({
-                                questions: [],
-                                criteria: DEFAULT_CRITERIA
-                            })
+            if (checkData.items && checkData.items.length > 0) {
+                // Update the existing templates to make sure they match the new criteria keys
+                const templateId = checkData.items[0].id;
+                const updateRes = await fetch(`${PB_URL}/api/collections/mark_templates/records/${templateId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        columns: JSON.stringify({
+                            questions: [],
+                            criteria: currentCriteria
                         })
-                    });
-                    if (createRes.ok) {
-                        console.log(`[✓] Created default template for Round: ${round}, Category: ${category}`);
-                    } else {
-                        console.error(`[✗] Failed to create template for Round: ${round}, Category: ${category}`);
-                    }
+                    })
+                });
+                if (updateRes.ok) {
+                    console.log(`[✓] Template updated for Round: ${round}, Category: ${category}`);
+                } else {
+                    console.error(`[✗] Failed to update template for Round: ${round}, Category: ${category}`);
                 }
-            } catch (err) {
-                console.error(`[✗] Error checking/creating template for ${round}/${category}:`, err);
+            } else {
+                const createRes = await fetch(`${PB_URL}/api/collections/mark_templates/records`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        round,
+                        category,
+                        columns: JSON.stringify({
+                            questions: [],
+                            criteria: currentCriteria
+                        })
+                    })
+                });
+                if (createRes.ok) {
+                    console.log(`[✓] Created template for Round: ${round}, Category: ${category}`);
+                } else {
+                    console.error(`[✗] Failed to create template for Round: ${round}, Category: ${category}`);
+                }
             }
+        } catch (err) {
+            console.error(`[✗] Error checking/updating template for ${round}/${category}:`, err);
         }
     }
 
-    // 3. Fetch participants who are present (arrival_status != 'absent') and allocated a venue (allocated_venue != '')
-    console.log('[Seeder] Fetching eligible participants...');
+    // 3. Fetch participants who are present (arrival_status != 'absent') and allocated a preliminary venue
+    console.log('[Seeder] Fetching eligible preliminary participants...');
     let participants = [];
     try {
-        const filter = encodeURIComponent("status='approved' && arrival_status!='absent' && allocated_venue!=''");
+        const filter = encodeURIComponent("status='approved' && arrival_status!='absent' && allocated_venue!='' && is_finalist=false");
         const res = await fetch(`${PB_URL}/api/collections/participants_application/records?perPage=500&filter=${filter}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -140,11 +172,11 @@ async function run() {
     }
 
     if (participants.length === 0) {
-        console.log('[Seeder] No participants found that are present and allocated to a venue.');
+        console.log('[Seeder] No participants found that are present and allocated to a preliminary venue.');
         return;
     }
 
-    console.log(`[Seeder] Found ${participants.length} eligible participants.`);
+    console.log(`[Seeder] Found ${participants.length} eligible preliminary participants.`);
 
     // 4. Read seed marksheet image
     const imagePath = path.join(__dirname, 'eg.jpeg');
@@ -206,7 +238,6 @@ async function run() {
 
     // 7. Seed marks for each participant
     for (const student of participants) {
-        const round = student.is_finalist ? 'final' : 'preliminary';
         const venueName = student.allocated_venue;
         
         // Find judges allocated to this venue
@@ -232,8 +263,8 @@ async function run() {
         }
 
         // Get dynamic criteria list from template
-        let studentCriteria = DEFAULT_CRITERIA;
         const category = student.category;
+        let studentCriteria = CATEGORY_TEMPLATES[category] || [];
         const templateRec = templates.find(t => t.round === round && t.category === category);
         if (templateRec) {
             try {
@@ -258,9 +289,9 @@ async function run() {
             studentCriteria.forEach(c => {
                 scoringValues[j.id][c.key] = {};
                 for (let i = 0; i < c.numQuestions; i++) {
-                    // Generate a high random score (realistic for present candidates)
-                    const minScore = Math.max(0, c.outOf - 4);
-                    const score = Math.floor(Math.random() * (c.outOf - minScore + 1)) + minScore;
+                    const outOfNum = parseFloat(c.outOf);
+                    const minScore = Math.max(0, outOfNum - 4);
+                    const score = Math.floor(Math.random() * (outOfNum - minScore + 1)) + minScore;
                     scoringValues[j.id][c.key][i] = score;
                     jTotal += score;
                 }
@@ -283,8 +314,7 @@ async function run() {
 
         // Save and freeze the marks
         try {
-            // First check if there is an existing marks record to update
-            const marksCollection = round === 'final' ? 'final_marks' : 'preliminary_marks';
+            const marksCollection = 'preliminary_marks';
             const checkRes = await fetch(`${PB_URL}/api/collections/${marksCollection}/records?filter=participant_ref='${student.id}'`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -332,7 +362,6 @@ async function run() {
 
         // Upload the marksheet (eg.jpeg)
         try {
-            // Check if marksheet already exists for this participant and round
             const checkRes = await fetch(`${PB_URL}/api/collections/marksheet_uploads/records?filter=participant_ref='${student.id}'%26%26round='${round}'`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -366,7 +395,7 @@ async function run() {
         }
     }
 
-    console.log('[Seeder] Marks and marksheets seeding completed successfully.');
+    console.log('[Seeder] Preliminary Marks and marksheets seeding completed successfully.');
 }
 
 run().catch(console.error);

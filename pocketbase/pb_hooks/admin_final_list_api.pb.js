@@ -50,7 +50,9 @@ routerAdd("GET", "/api/admin/finalist/preliminary-leaderboard", (e) => {
                 grand_total: grandTotal,
                 grand_average: grandAverage,
                 is_frozen: isFrozen,
-                is_finalist: student.get("is_finalist") === true
+                is_finalist: student.get("is_finalist") === true,
+                final_venue: student.get("final_venue") || "",
+                final_order: student.getInt("final_order") || 0
             });
         });
 
@@ -212,10 +214,11 @@ routerAdd("GET", "/api/admin/finalist/final-leaderboard", (e) => {
         let allCompleted = finalists.length > 0;
 
         finalists.forEach(student => {
-            let grandTotal = 0;
-            let grandAverage = 0;
-            let isFrozen = false;
-            let hasMarks = false;
+            var grandTotal = 0;
+            var grandAverage = 0;
+            var isFrozen = false;
+            var hasMarks = false;
+            var existingValues = {};
 
             try {
                 const markRec = $app.findFirstRecordByData("final_marks", "participant_ref", student.get("id"));
@@ -224,10 +227,10 @@ routerAdd("GET", "/api/admin/finalist/final-leaderboard", (e) => {
                 
                 const valStr = markRec.getString("values");
                 if (valStr) {
-                    const parsed = JSON.parse(valStr);
-                    if (parsed && parsed.totals) {
-                        grandTotal = parseFloat(parsed.totals.grandTotal) || 0;
-                        grandAverage = parseFloat(parsed.totals.grandAverage) || 0;
+                    existingValues = JSON.parse(valStr || "{}");
+                    if (existingValues && existingValues.totals) {
+                        grandTotal = parseFloat(existingValues.totals.grandTotal) || 0;
+                        grandAverage = parseFloat(existingValues.totals.grandAverage) || 0;
                     }
                 }
             } catch (_) {}
@@ -244,7 +247,9 @@ routerAdd("GET", "/api/admin/finalist/final-leaderboard", (e) => {
                 grand_total: grandTotal,
                 grand_average: grandAverage,
                 is_frozen: isFrozen,
-                has_marks: hasMarks
+                has_marks: hasMarks,
+                values: existingValues,
+                final_ranking: student.getInt("final_ranking")
             });
         });
 
@@ -261,16 +266,17 @@ routerAdd("GET", "/api/admin/finalist/final-leaderboard", (e) => {
 
         // Winners list
         let winners = null;
-        if (allCompleted && leaderboard.length >= 2) {
+        if (allCompleted && leaderboard.length >= 1) {
             winners = {
-                firstPlace: leaderboard[0],
-                secondPlace: leaderboard[1]
+                firstPlace: leaderboard[0] || null,
+                secondPlace: leaderboard[1] || null,
+                thirdPlace: leaderboard[2] || null
             };
         }
 
         return e.json(200, {
             items: leaderboard,
-            winners_declared: allCompleted && leaderboard.length >= 2,
+            winners_declared: allCompleted && leaderboard.length >= 1,
             winners: winners
         });
     } catch (err) {
@@ -304,6 +310,21 @@ routerAdd("POST", "/api/admin/finalist/revert-promotion", (e) => {
             { category: category }
         );
 
+        let hasAllocation = false;
+        students.forEach(student => {
+            if (student.get("is_finalist") === true) {
+                const venueVal = student.get("final_venue");
+                const orderVal = student.getInt("final_order");
+                if (venueVal && venueVal !== "" && orderVal > 0) {
+                    hasAllocation = true;
+                }
+            }
+        });
+
+        if (hasAllocation) {
+            return e.json(400, { error: "Cannot revert promotion because final venue allocation has already been done for this category." });
+        }
+
         $app.runInTransaction((txApp) => {
             students.forEach(student => {
                 student.set("is_finalist", false);
@@ -314,5 +335,86 @@ routerAdd("POST", "/api/admin/finalist/revert-promotion", (e) => {
         return e.json(200, { success: true, message: "Successfully reverted finalist promotion." });
     } catch (err) {
         return e.json(500, { error: "Failed to revert finalist promotion: " + err });
+    }
+});
+
+routerAdd("POST", "/api/admin/finalist/issue-rankings", (e) => {
+    const authRecord = e.auth;
+    if (!authRecord || authRecord.get("designation") !== "admin") {
+        return e.json(403, { error: "Access denied. Only administrators can issue rankings." });
+    }
+
+    let category = "5_juz";
+    let rankings = [];
+
+    try {
+        const body = new DynamicModel({
+            category: "5_juz",
+            rankings: []
+        });
+        e.bindBody(body);
+        category = (body.category || "5_juz").trim();
+        rankings = body.rankings;
+    } catch (err) {
+        return e.json(400, { error: "Invalid request body: " + err });
+    }
+
+    try {
+        if (!Array.isArray(rankings) || rankings.length === 0) {
+            return e.json(400, { error: "Rankings array is required and cannot be empty." });
+        }
+
+        $app.runInTransaction((txApp) => {
+            rankings.forEach(item => {
+                if (item && item.participant_id) {
+                    const student = txApp.findRecordById("participants_application", item.participant_id);
+                    student.set("final_ranking", parseInt(item.rank, 10) || 0);
+                    txApp.save(student);
+                }
+            });
+        });
+
+        return e.json(200, { success: true, message: "Successfully issued final round rankings." });
+    } catch (err) {
+        return e.json(500, { error: "Failed to issue rankings: " + err });
+    }
+});
+
+routerAdd("POST", "/api/admin/finalist/revert-rankings", (e) => {
+    const authRecord = e.auth;
+    if (!authRecord || authRecord.get("designation") !== "admin") {
+        return e.json(403, { error: "Access denied. Only administrators can revert rankings." });
+    }
+
+    let category = "5_juz";
+    try {
+        const body = new DynamicModel({
+            category: "5_juz"
+        });
+        e.bindBody(body);
+        category = (body.category || "5_juz").trim();
+    } catch (_) {}
+
+    try {
+        const filterString = "category = {:category} && is_finalist = true";
+        const finalists = $app.findRecordsByFilter(
+            "participants_application",
+            filterString,
+            "allocated_order",
+            100,
+            0,
+            { category: category }
+        );
+
+        $app.runInTransaction((txApp) => {
+            finalists.forEach(student => {
+                student.set("final_ranking", 0);
+                txApp.save(student);
+            });
+        });
+
+        return e.json(200, { success: true, message: "Successfully reverted rankings." });
+    } catch (err) {
+        return e.json(500, { error: "Failed to revert rankings: " + err });
     }
 });

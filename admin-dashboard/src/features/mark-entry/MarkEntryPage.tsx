@@ -38,6 +38,8 @@ export default function MarkEntryPage() {
     const [tplCriteria, setTplCriteria] = useState<any[]>([]);
     const [tplLoading, setTplLoading] = useState<boolean>(false);
     const [tplSaving, setTplSaving] = useState<boolean>(false);
+    const [hasExistingMarks, setHasExistingMarks] = useState<boolean>(false);
+    const [isLocked, setIsLocked] = useState<boolean>(true);
 
     // Initial load: Fetch valid venues to populate selection drop-down matrix
     useEffect(() => {
@@ -298,10 +300,29 @@ export default function MarkEntryPage() {
         try {
             const data = await marksApi.getTemplate(editRound, editCategory);
             console.log("[client loadTemplate] round=" + editRound + ", category=" + editCategory + ", data=", data);
-            setTplCriteria(data.columns?.criteria || []);
+            const criteria = data.columns?.criteria || [];
+            setTplCriteria(criteria);
+            
+            // Check if marks already exist for this category/round
+            const marksCollection = editRound === 'final' ? 'final_marks' : 'preliminary_marks';
+            const marksList = await pb.collection(marksCollection).getList(1, 1, {
+                filter: `participant_ref.category = "${editCategory}"`
+            });
+            const exists = marksList.totalItems > 0;
+            setHasExistingMarks(exists);
+            
+            if (exists) {
+                setIsLocked(true);
+            } else if (criteria.length > 0) {
+                setIsLocked(true);
+            } else {
+                setIsLocked(false);
+            }
         } catch (err) {
             console.warn('[client loadTemplate] Template not found or failed to load:', err);
             setTplCriteria([]); // Ensure it remains empty
+            setHasExistingMarks(false);
+            setIsLocked(false);
         } finally {
             setTplLoading(false);
         }
@@ -392,6 +413,9 @@ export default function MarkEntryPage() {
                     addCriterion={addCriterion}
                     updateCriterion={updateCriterion}
                     removeCriterion={removeCriterion}
+                    hasExistingMarks={hasExistingMarks}
+                    isLocked={isLocked}
+                    setIsLocked={setIsLocked}
                     onPasteAspectNames={handlePasteAspectNames}
                 />
             ) : (
@@ -401,14 +425,14 @@ export default function MarkEntryPage() {
                         <div style={{ display: 'flex', gap: '8px' }}>
                             <button
                                 type="button"
-                                onClick={() => { setCurrentRound('preliminary'); setSelectedStudent(null); }}
+                                onClick={() => { setCurrentRound('preliminary'); setSelectedStudent(null); setSelectedVenue('all'); }}
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '8px', fontWeight: '700', border: '1px solid ' + (currentRound === 'preliminary' ? '#059669' : '#cbd5e1'), backgroundColor: currentRound === 'preliminary' ? '#f0fdf4' : '#ffffff', color: currentRound === 'preliminary' ? '#065f46' : '#475569', cursor: 'pointer', fontSize: '14px' }}
                             >
                                 <Zap size={15} /> Preliminary Round
                             </button>
                             <button
                                 type="button"
-                                onClick={() => { setCurrentRound('final'); setSelectedStudent(null); }}
+                                onClick={() => { setCurrentRound('final'); setSelectedStudent(null); setSelectedVenue('all'); }}
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '8px', fontWeight: '700', border: '1px solid ' + (currentRound === 'final' ? '#059669' : '#cbd5e1'), backgroundColor: currentRound === 'final' ? '#f0fdf4' : '#ffffff', color: currentRound === 'final' ? '#065f46' : '#475569', cursor: 'pointer', fontSize: '14px' }}
                             >
                                 <Award size={15} /> Final Round
@@ -431,9 +455,12 @@ export default function MarkEntryPage() {
                                     style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', minWidth: '180px', outline: 'none', fontSize: '14px', fontWeight: '600' }}
                                 >
                                     <option value="all">All Venues</option>
-                                    {venues.map(v => (
-                                        <option key={v.id} value={v.name}>{v.name}</option>
-                                    ))}
+                                    {venues
+                                        .filter(v => v.round === currentRound)
+                                        .map(v => (
+                                            <option key={v.id} value={v.name}>{v.name}</option>
+                                        ))
+                                    }
                                 </select>
                             </div>
 
