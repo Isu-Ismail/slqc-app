@@ -26,8 +26,8 @@ export type HTMLString = string
 
 type ExpandType<T> = unknown extends T
 	? T extends unknown
-		? { expand?: unknown }
-		: { expand: T }
+	? { expand?: unknown }
+	: { expand: T }
 	: { expand: T }
 
 // System fields
@@ -102,7 +102,11 @@ export const InstitutionsStatusOptions = {
 } as const
 export type InstitutionsStatusOptions = typeof InstitutionsStatusOptions[keyof typeof InstitutionsStatusOptions]
 export type InstitutionsRecord = {
-	address: string
+	street_address: string
+	pincode: string
+	state_name: string
+	district_name: string
+	village_name: string
 	contact_person: string
 	created: IsoAutoDateString
 	document?: FileNameString
@@ -234,13 +238,13 @@ export type CollectionResponses = {
 
 type ProcessCreateAndUpdateFields<T> = Omit<{
 	// Omit AutoDate fields
-	[K in keyof T as Extract<T[K], IsoAutoDateString> extends never ? K : never]: 
-		// Convert FileNameString to File
-		T[K] extends infer U ? 
-			U extends (FileNameString | FileNameString[]) ? 
-				U extends [] ? File[] : File 
-			: U
-		: never
+	[K in keyof T as Extract<T[K], IsoAutoDateString> extends never ? K : never]:
+	// Convert FileNameString to File
+	T[K] extends infer U ?
+	U extends (FileNameString | FileNameString[]) ?
+	U extends [] ? File[] : File
+	: U
+	: never
 }, 'id'>
 
 // Create type for Auth collections
@@ -278,14 +282,14 @@ export type UpdateBase<T> = Partial<
 // Get the correct create type for any collection
 export type Create<T extends keyof CollectionResponses> =
 	CollectionResponses[T] extends AuthSystemFields
-		? CreateAuth<CollectionRecords[T]>
-		: CreateBase<CollectionRecords[T]>
+	? CreateAuth<CollectionRecords[T]>
+	: CreateBase<CollectionRecords[T]>
 
 // Get the correct update type for any collection
 export type Update<T extends keyof CollectionResponses> =
 	CollectionResponses[T] extends AuthSystemFields
-		? UpdateAuth<CollectionRecords[T]>
-		: UpdateBase<CollectionRecords[T]>
+	? UpdateAuth<CollectionRecords[T]>
+	: UpdateBase<CollectionRecords[T]>
 
 // Type for usage with type asserted PocketBase instance
 // https://github.com/pocketbase/js-sdk#specify-typescript-definitions

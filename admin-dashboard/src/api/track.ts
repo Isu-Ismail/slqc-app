@@ -5,11 +5,11 @@ import type { RecordModel } from 'pocketbase';
 // ── Result cache — avoids repeat DB round-trips for the same query ────────────
 // Entries expire after 60 seconds. Max 50 entries (LRU-style eviction).
 const TRACK_CACHE_TTL = 60_000;
-const MAX_CACHE_SIZE  = 50;
+const MAX_CACHE_SIZE = 50;
 
 type CacheEntry<T> = { data: T; ts: number };
 const indivCache = new Map<string, CacheEntry<any>>();
-const instCache  = new Map<string, CacheEntry<any>>();
+const instCache = new Map<string, CacheEntry<any>>();
 
 function cacheGet<T>(map: Map<string, CacheEntry<T>>, key: string): T | null {
     const entry = map.get(key);
@@ -28,12 +28,12 @@ function cacheSet<T>(map: Map<string, CacheEntry<T>>, key: string, data: T) {
 /** Call this when a record is updated so stale cache is dropped immediately */
 export function invalidateTrackCache(recordId?: string) {
     if (recordId) {
-        indivCache.forEach((v, k) => { 
+        indivCache.forEach((v, k) => {
             if (v.data && v.data.id === recordId) {
-                indivCache.delete(k); 
+                indivCache.delete(k);
             }
         });
-        instCache.forEach((v, k) => { 
+        instCache.forEach((v, k) => {
             if (v.data) {
                 if (v.data.institution && v.data.institution.id === recordId) {
                     instCache.delete(k);
@@ -82,7 +82,11 @@ export interface ParticipantsApplicationResponse extends RecordModel {
 
 export interface InstitutionsResponse extends RecordModel {
     name: string;
-    address: string;
+    street_address: string
+    pincode: string
+    state_name: string
+    district_name: string
+    village_name: string
     contact_person: string;
     email: string;
     whatsapp_number: string;

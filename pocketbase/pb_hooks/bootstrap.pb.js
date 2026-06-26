@@ -36,7 +36,6 @@ $app.onServe().bindFunc((e) => {
         "institution_rules",
         "applications_per_institute",
         "application_print_template",
-        "institution_list_template",
         "stat"
     ];
 

@@ -34,11 +34,11 @@ const normalizeUrl = (url: string): string => {
 export default function TrackPage() {
     const [searchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState<'individual' | 'institution'>('individual');
-    
+
     // Search Inputs (No DOB or Passcode needed for admin)
     const [individualQuery, setIndividualQuery] = useState('');
     const [institutionQuery, setInstitutionQuery] = useState('');
-    
+
     // States
     const [loading, setLoading] = useState(false);
     const [individualRecord, setIndividualRecord] = useState<ParticipantsApplicationResponse | null>(null);
@@ -82,7 +82,11 @@ export default function TrackPage() {
     // Institution Edit Form States
     const [isInstEditMode, setIsInstEditMode] = useState(false);
     const [instEditName, setInstEditName] = useState('');
-    const [instEditAddress, setInstEditAddress] = useState('');
+    const [instEditStreet, setInstEditStreet] = useState('');
+    const [instEditPincode, setInstEditPincode] = useState('');
+    const [instEditVillage, setInstEditVillage] = useState('');
+    const [instEditDistrict, setInstEditDistrict] = useState('');
+    const [instEditState, setInstEditState] = useState('');
     const [instEditContactPerson, setInstEditContactPerson] = useState('');
     const [instEditEmail, setInstEditEmail] = useState('');
     const [instEditWhatsapp, setInstEditWhatsapp] = useState('');
@@ -128,10 +132,6 @@ export default function TrackPage() {
             }
             initializeEditData(updatedRecord);
         },
-        () => {
-            setIndividualRecord(null);
-            triggerAlert('This application record has been deleted.', 'Deleted');
-        }
     );
 
     useInstitutionRealtime(
@@ -152,9 +152,7 @@ export default function TrackPage() {
                     }
                 } else if (action === 'update') {
                     updatedApps = updatedApps.map(a => a.id === record.id ? record : a);
-                } else if (action === 'delete') {
-                    updatedApps = updatedApps.filter(a => a.id !== record.id);
-                }
+                } 
                 return { ...prev, applications: updatedApps };
             });
         }
@@ -217,7 +215,11 @@ export default function TrackPage() {
 
                 const inst = result.institution;
                 setInstEditName(inst.name || '');
-                setInstEditAddress(inst.address || '');
+                setInstEditStreet(inst.street_address || '');
+                setInstEditPincode(inst.pincode || '');
+                setInstEditVillage(inst.village_name || '');
+                setInstEditDistrict(inst.district_name || '');
+                setInstEditState(inst.state_name || '');
                 setInstEditContactPerson(inst.contact_person || '');
                 setInstEditEmail(inst.email || '');
                 setInstEditWhatsapp(inst.whatsapp_number || '');
@@ -304,7 +306,12 @@ export default function TrackPage() {
                     if (parsed.institution) {
                         const inst = parsed.institution;
                         setInstEditName(inst.name || '');
-                        setInstEditAddress(inst.address || '');
+                        setInstEditStreet(inst.street_address || '');
+                        setInstEditPincode(inst.pincode || '');
+                        setInstEditVillage(inst.village_name || '');
+                        setInstEditDistrict(inst.district_name || '');
+                        setInstEditState(inst.state_name || '');
+
                         setInstEditContactPerson(inst.contact_person || '');
                         setInstEditEmail(inst.email || '');
                         setInstEditWhatsapp(inst.whatsapp_number || '');
@@ -329,29 +336,7 @@ export default function TrackPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchParams]);
 
-    const handleDeleteIndividual = async (app: ParticipantsApplicationResponse) => {
-        const confirmDelete = window.confirm(`Are you sure you want to delete participant ${app.full_name}? This action is permanent and cannot be undone.`);
-        if (!confirmDelete) return;
-
-        setLoading(true);
-        try {
-            await pb.collection('participants_application').delete(app.id);
-            
-            setInstitutionData(prev => {
-                if (!prev) return null;
-                const newApps = prev.applications.filter(a => a.id !== app.id);
-                const nextData = { ...prev, applications: newApps };
-                localStorage.setItem('admin_track_institution_data', JSON.stringify(nextData));
-                return nextData;
-            });
-
-            triggerAlert('Participant application deleted successfully.', 'Deleted', 'success');
-        } catch (e: any) {
-            triggerAlert(e.message || 'Failed to delete applicant.', 'Error');
-        } finally {
-            setLoading(false);
-        }
-    };
+    
 
     const handleSaveIndividualChanges = async () => {
         if (!individualRecord) return;
@@ -443,7 +428,7 @@ export default function TrackPage() {
 
     const handleSaveInstitutionChanges = async () => {
         if (!institutionData || !institutionData.institution) return;
-        if (!instEditName.trim() || !instEditAddress.trim() || !instEditContactPerson.trim() || !instEditEmail.trim() || !instEditWhatsapp.trim()) {
+        if (!instEditName.trim() || !instEditStreet.trim() || !instEditPincode.trim() || !instEditVillage.trim() || !instEditDistrict.trim() || !instEditState.trim() || !instEditContactPerson.trim() || !instEditEmail.trim() || !instEditWhatsapp.trim() || !instEditPhone.trim()) {
             triggerAlert('Please fill in all required fields.', 'Validation Error');
             return;
         }
@@ -452,12 +437,16 @@ export default function TrackPage() {
         try {
             const formData = new FormData();
             formData.append('name', instEditName.trim());
-            formData.append('address', instEditAddress.trim());
+            formData.append('street', instEditStreet.trim());
+            formData.append('pincode', instEditPincode.trim());
+            formData.append('village', instEditVillage.trim());
+            formData.append('district', instEditDistrict.trim());
+            formData.append('state', instEditState.trim());
             formData.append('contact_person', instEditContactPerson.trim());
             formData.append('email', instEditEmail.trim());
             formData.append('whatsapp_number', instEditWhatsapp.trim());
             if (instEditPhone) formData.append('phone_number', instEditPhone.trim());
-            
+
             if (instEditDocFile) {
                 formData.append('document', instEditDocFile);
             }
@@ -584,8 +573,8 @@ export default function TrackPage() {
                                     />
                                 </div>
                                 <div className={styles.searchBtnCol} style={{ display: 'flex', gap: '8px' }}>
-                                    <button 
-                                        className={styles.btnPrimary} 
+                                    <button
+                                        className={styles.btnPrimary}
                                         onClick={() => handleSearchIndividual()}
                                         disabled={loading}
                                     >
@@ -616,8 +605,8 @@ export default function TrackPage() {
                                     />
                                 </div>
                                 <div className={styles.searchBtnCol} style={{ display: 'flex', gap: '8px' }}>
-                                    <button 
-                                        className={styles.btnPrimary} 
+                                    <button
+                                        className={styles.btnPrimary}
                                         onClick={() => handleSearchInstitution()}
                                         disabled={loading}
                                     >
@@ -670,8 +659,16 @@ export default function TrackPage() {
                         setIsInstEditMode={setIsInstEditMode}
                         instEditName={instEditName}
                         setInstEditName={setInstEditName}
-                        instEditAddress={instEditAddress}
-                        setInstEditAddress={setInstEditAddress}
+                        instEditStreet={instEditStreet}
+                        setInstEditStreet={setInstEditStreet}
+                        instEditPincode={instEditPincode}
+                        setInstEditPincode={setInstEditPincode}
+                        instEditVillage={instEditVillage}
+                        setInstEditVillage={setInstEditVillage}
+                        instEditDistrict={instEditDistrict}
+                        setInstEditDistrict={setInstEditDistrict}
+                        instEditState={instEditState}
+                        setInstEditState={setInstEditState}
                         instEditContactPerson={instEditContactPerson}
                         setInstEditContactPerson={setInstEditContactPerson}
                         instEditEmail={instEditEmail}
@@ -700,7 +697,7 @@ export default function TrackPage() {
                             localStorage.setItem('admin_track_tab', 'individual');
                             handleSearchIndividual(app.id);
                         }}
-                        onDeleteIndividual={handleDeleteIndividual}
+                       
                         onRefresh={() => handleSearchInstitution(institutionQuery, true)}
                     />
                 )}

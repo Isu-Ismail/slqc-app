@@ -381,9 +381,27 @@ export default function ApprovalReviewPage() {
                                             <label>Institution ID</label>
                                             <div>{instData.institution_id || 'N/A'}</div>
                                         </div>
-                                        <div className={styles.detailGroup} style={{ gridColumn: '1 / -1' }}>
-                                            <label>Institution Address</label>
-                                            <div>{instData.address || 'N/A'}</div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', gridColumn: '1 / -1', marginTop: '10px' }}>
+                                            <div className={styles.detailGroup}>
+                                                <label>Street Address</label>
+                                                <div>{instData.street_address || 'N/A'}</div>
+                                            </div>
+                                            <div className={styles.detailGroup}>
+                                                <label>Pincode</label>
+                                                <div>{instData.pincode || 'N/A'}</div>
+                                            </div>
+                                            <div className={styles.detailGroup}>
+                                                <label>District</label>
+                                                <div>{instData.district_name || 'N/A'}</div>
+                                            </div>
+                                            <div className={styles.detailGroup}>
+                                                <label>Village / Locality</label>
+                                                <div>{instData.village_name || 'N/A'}</div>
+                                            </div>
+                                            <div className={styles.detailGroup} style={{ gridColumn: '1 / -1' }}>
+                                                <label>State</label>
+                                                <div>{instData.state_name || 'N/A'}</div>
+                                            </div>
                                         </div>
                                     </>
                                 )}
@@ -410,9 +428,28 @@ export default function ApprovalReviewPage() {
                                     <label>Email Address</label>
                                     <div>{instApp.email || 'N/A'}</div>
                                 </div>
-                                <div className={styles.detailGroup} style={{ gridColumn: '1 / -1' }}>
-                                    <label>Address</label>
-                                    <div>{instApp.address || 'N/A'}</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', gridColumn: '1 / -1' }}>
+                                    <div className={styles.detailGroup}>
+                                        <label>Street Address</label>
+                                        <div>{instApp.street_address || 'N/A'}</div>
+                                    </div>
+                                    <div className={styles.detailGroup}>
+                                        <label>Pincode</label>
+                                        <div>{instApp.pincode || 'N/A'}</div>
+                                    </div>
+                                    <div className={styles.detailGroup}>
+                                        <label>Village / Locality</label>
+                                        <div>{instApp.village_name || 'N/A'}</div>
+                                    </div>
+                                    <div className={styles.detailGroup}>
+                                        <label>District</label>
+                                        <div>{instApp.district_name || 'N/A'}</div>
+                                    </div>
+
+                                    <div className={styles.detailGroup} style={{ gridColumn: '1 / -1' }}>
+                                        <label>State</label>
+                                        <div>{instApp.state_name || 'N/A'}</div>
+                                    </div>
                                 </div>
                                 <div className={styles.detailGroup} style={{ gridColumn: '1 / -1' }}>
                                     <label>Location Map</label>

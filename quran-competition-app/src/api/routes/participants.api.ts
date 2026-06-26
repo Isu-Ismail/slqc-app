@@ -18,6 +18,7 @@ export interface CreateApplicationParams {
     guardian_name: string;
     guardian_phone: string;
     requires_accommodation?: boolean;
+    address?: string;
     aadhaar_front?: File;
     birthcertificate_photo?: File;
     candidate_photo: File;
@@ -53,13 +54,21 @@ export const participantsApi = {
         formData.append('guardian_name', params.guardian_name);
         formData.append('guardian_phone', params.guardian_phone);
         formData.append('requires_accommodation', String(params.requires_accommodation || false));
+
+        // Explicitly appending the text address parameter
+        if (params.address) {
+            formData.append('address', params.address.trim());
+        } else {
+            formData.append('address', '');
+        }
+
         if (params.selected_juz) {
             formData.append('selected_juz', params.selected_juz);
         }
         if (params.juz_options) {
             formData.append('juz_options', params.juz_options);
         }
-        
+
         const safeName = params.full_name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
         const photoExt = params.candidate_photo.name.split('.').pop() || 'jpg';
         const renamedPhoto = new File([params.candidate_photo], `${safeName}_passport.${photoExt}`, { type: params.candidate_photo.type });
@@ -86,29 +95,30 @@ export const participantsApi = {
     updateApplication: async (id: string, payload: FormData | Record<string, any>, dob?: string): Promise<ParticipantsApplicationResponse> => {
         const actualDob = dob || localStorage.getItem('quran_competition_track_individual_dob') || '';
 
+        // Append context fields as URL parameters to comply with hook verification rules
+        const targetUrl = `/api/public/update-individual?id=${encodeURIComponent(id)}&dob=${encodeURIComponent(actualDob)}`;
+
         if (payload instanceof FormData) {
-            payload.set('id', id);
-            payload.set('dob', actualDob);
-            return await pb.send<ParticipantsApplicationResponse>(`/api/public/update-individual`, {
+            return await pb.send<ParticipantsApplicationResponse>(targetUrl, {
                 method: 'POST',
                 body: payload
             });
         } else {
-            const body = { ...payload, id, dob: actualDob };
-            return await pb.send<ParticipantsApplicationResponse>(`/api/public/update-individual`, {
+            return await pb.send<ParticipantsApplicationResponse>(targetUrl, {
                 method: 'POST',
-                body
+                body: payload
             });
         }
     },
 
-    getApplicationByAadhaar: async (aadhaar: string): Promise<ParticipantsApplicationResponse | null> => {
+    getApplicationByAadhaar: async (aadhaar: string): Promise<any> => {
         try {
-            return await pb.collection('participants_application').getFirstListItem<ParticipantsApplicationResponse>(
-                `aadhaar_number = "${aadhaar}"`
-            );
+            // Uses your defined public hook route safely
+            return await pb.send<{ exists: boolean }>(`/api/public/check-aadhaar?aadhaar=${encodeURIComponent(aadhaar)}`, {
+                method: 'GET'
+            });
         } catch (e) {
-            return null;
+            return { exists: false };
         }
     }
 };

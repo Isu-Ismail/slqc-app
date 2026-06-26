@@ -33,9 +33,10 @@ routerAdd("POST", "/api/admin/archive-year", (e) => {
                 dest: "participants_application_archive",
                 fields: [
                     "registration_type", "institution_id", "institution_ref", "full_name", "aadhaar_number", "dob",
-                    "category", "gender", "email", "whatsapp_number", "father_name", "father_number", "guardian_name",
+                    "participant_id", "category", "gender", "email", "whatsapp_number", "father_name", "father_number", "guardian_name",
                     "guardian_phone", "requires_accommodation", "address", "selected_juz", "juzz_options", "status",
-                    "is_locked", "rejection_reason", "allocated_venue", "allocated_order", "is_finalist", "final_ranking"
+                    "is_locked", "rejection_reason", "allocated_venue", "allocated_order", "is_finalist", "final_ranking",
+                    "final_venue", "final_order"
                 ],
                 fileFields: ["aadhaar_front", "birthcertificate_photo", "candidate_photo"]
             },
@@ -57,26 +58,26 @@ routerAdd("POST", "/api/admin/archive-year", (e) => {
             "preliminary_marks": {
                 dest: "preliminary_marks_archive",
                 fields: [
-                    "participant_ref", "judge_ref", "tajweed", "hifz", "mutashabihat", "total", "is_absent"
+                    "participant_ref", "values", "is_frozen"
                 ]
             },
             "final_marks": {
                 dest: "final_marks_archive",
                 fields: [
-                    "participant_ref", "sitting_number", "judge_ref", "tajweed", "hifz", "mutashabihat", "total", "is_absent"
+                    "participant_ref", "values", "is_frozen"
                 ]
             },
             "marksheet_uploads": {
                 dest: "marksheet_uploads_archive",
                 fields: [
-                    "participant_ref", "uploaded_by"
+                    "participant_ref", "round", "uploaded_by"
                 ],
-                fileFields: ["marksheet_photo"]
+                fileFields: ["images"]
             },
             "mark_templates": {
                 dest: "mark_templates_archive",
                 fields: [
-                    "name", "category", "html_content", "is_default"
+                    "round", "category", "columns"
                 ]
             },
             "judges": {
@@ -110,7 +111,12 @@ routerAdd("POST", "/api/admin/archive-year", (e) => {
                     // 1. Copy Standard Fields (Text, Numbers, Relations)
                     if (config.fields) {
                         config.fields.forEach(field => {
-                            archRec.set(field, srcRec.get(field));
+                            let val = srcRec.get(field);
+                            // Fallback for required JSON/text fields if they are empty
+                            if ((field === "values" || field === "columns") && (!val || val === "null" || val === "")) {
+                                val = "{}";
+                            }
+                            archRec.set(field, val);
                         });
                     }
 
@@ -260,7 +266,19 @@ routerAdd("GET", "/api/admin/archive/participants", (e) => {
 
     try {
         const records = $app.findRecordsByFilter("participants_application_archive", "year = {:year}", "-created", 99999, 0, { year: year });
+        try {
+            $app.expandRecords(records, ["institution_ref"]);
+        } catch (_) {}
+
         const result = records.map(r => {
+            let instName = "";
+            try {
+                const expandedInst = r.expandedOne("institution_ref");
+                if (expandedInst) {
+                    instName = expandedInst.get("name");
+                }
+            } catch (_) {}
+
             return {
                 id: r.get("id"),
                 participant_id: r.get("participant_id"),
@@ -275,6 +293,7 @@ routerAdd("GET", "/api/admin/archive/participants", (e) => {
                 is_finalist: r.get("is_finalist") === true,
                 institution_id: r.get("institution_id"),
                 institution_ref: r.get("institution_ref"),
+                institution_name: instName,
                 year: r.get("year")
             };
         });

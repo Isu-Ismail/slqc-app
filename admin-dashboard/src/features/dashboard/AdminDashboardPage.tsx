@@ -4,6 +4,7 @@
 // Same countdown logic, same metadata, same stats — plus a stats recalculator card.
 
 import { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import {
     Users, Building2, CalendarDays, Ban, RefreshCw,
     CheckCircle2, AlertCircle, Timer, BarChart3, Trophy, Landmark
@@ -19,8 +20,13 @@ export default function AdminDashboardPage() {
     const [metadata, setMetadata] = useState<Record<string, unknown>>({});
     const [activeCategory, setActiveCategory] = useState<'5_juz' | '15_juz' | '30_juz'>('5_juz');
     const user = pb.authStore.model;
+    const isVenueStaff = user?.designation === 'venue Incharge' || user?.designation === 'coordinators';
     const isAdmin = user?.designation === 'admin';
     const pad = (n: number) => String(n).padStart(2, '0');
+
+    if (isVenueStaff) {
+        return <Navigate to="/mark-entry" replace />;
+    }
 
     // ── Load metadata & subscribe to realtime ────────────────────────────────
     useEffect(() => {

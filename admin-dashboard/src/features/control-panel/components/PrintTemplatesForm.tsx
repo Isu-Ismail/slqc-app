@@ -11,8 +11,7 @@ interface Props {
 
 export default function PrintTemplatesForm({ metadata, onUpdate }: Props) {
     const templates = [
-        { key: 'application_print_template', label: 'Application Print Template (HTML)' },
-        { key: 'institution_list_template', label: 'Institution List Print Template (HTML)' }
+        { key: 'application_print_template', label: 'Application Print Template (HTML)' }
     ];
 
     const [uploadingKey, setUploadingKey] = useState<string | null>(null);

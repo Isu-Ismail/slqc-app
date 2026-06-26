@@ -1,12 +1,24 @@
 routerAdd("GET", "/api/admin/marks/get-venue-sheet", (e) => {
     const authRecord = e.auth;
-    if (!authRecord || (authRecord.get("designation") !== "admin" && authRecord.get("designation") !== "coordinators")) {
+    const designation = authRecord ? authRecord.get("designation") : "";
+    if (!authRecord || (designation !== "admin" && designation !== "coordinators" && designation !== "venue Incharge")) {
         return e.json(403, { error: "Unauthorized access." });
     }
 
     const info = e.requestInfo();
     const venueName = (info.query.venue || "").trim();
     const round = (info.query.round || "preliminary").trim();
+
+    if (designation === "venue Incharge") {
+        try {
+            const checkVenueRec = $app.findFirstRecordByData("venue_detail", "name", venueName);
+            if (checkVenueRec.get("incharge") !== authRecord.get("id")) {
+                return e.json(403, { error: "Access denied. You are not the incharge of this venue." });
+            }
+        } catch (_) {
+            return e.json(403, { error: "Access denied. Venue not found or not assigned." });
+        }
+    }
 
     if (!venueName) {
         return e.json(400, { error: "Missing venue context parameter." });
@@ -68,26 +80,49 @@ routerAdd("GET", "/api/admin/marks/get-venue-sheet", (e) => {
         );
 
         const gridRows = [];
+        const categoryFinalistsMap = {};
         students.forEach(student => {
             let existingValues = {};
             let isFrozen = false;
             let markRecordId = "";
+            let enteredBy = "";
+            let lastEditedBy = "";
 
             try {
                 const markRec = $app.findFirstRecordByData(marksCollection, "participant_ref", student.get("id"));
                 existingValues = JSON.parse(markRec.getString("values") || "{}");
                 isFrozen = markRec.get("is_frozen") === true;
                 markRecordId = markRec.get("id");
+                enteredBy = markRec.get("entered_by") || "";
+                lastEditedBy = markRec.get("last_edited_by") || "";
             } catch (_) { }
+
+            const cat = student.get("category");
+            let finalistsPromoted = false;
+            if (categoryFinalistsMap[cat] !== undefined) {
+                finalistsPromoted = categoryFinalistsMap[cat];
+            } else {
+                try {
+                    const finalistFilter = "category = {:category} && is_finalist = true";
+                    const finalistRecs = $app.findRecordsByFilter("participants_application", finalistFilter, "", 1, 0, { category: cat });
+                    finalistsPromoted = (finalistRecs && finalistRecs.length > 0);
+                    categoryFinalistsMap[cat] = finalistsPromoted;
+                } catch (_) {
+                    finalistsPromoted = false;
+                }
+            }
 
             gridRows.push({
                 mark_record_id: markRecordId,
                 participant_id: student.get("id"),
                 register_id: student.get("participant_id"),
                 full_name: student.get("full_name"),
-                category: student.get("category"),
+                category: cat,
                 values: existingValues,
-                is_frozen: isFrozen
+                is_frozen: isFrozen,
+                entered_by: enteredBy,
+                last_edited_by: lastEditedBy,
+                finalists_promoted: finalistsPromoted
             });
         });
 
@@ -105,7 +140,8 @@ routerAdd("GET", "/api/admin/marks/get-venue-sheet", (e) => {
 
 routerAdd("POST", "/api/admin/marks/save-cell", (e) => {
     const authRecord = e.auth;
-    if (!authRecord || (authRecord.get("designation") !== "admin" && authRecord.get("designation") !== "coordinators")) {
+    const designation = authRecord ? authRecord.get("designation") : "";
+    if (!authRecord || (designation !== "admin" && designation !== "coordinators" && designation !== "venue Incharge")) {
         return e.json(403, { error: "Access denied." });
     }
 
@@ -120,9 +156,37 @@ routerAdd("POST", "/api/admin/marks/save-cell", (e) => {
         return e.json(400, { error: "Missing participant reference validation constraint." });
     }
 
+    if (designation === "venue Incharge") {
+        try {
+            const studentRec = $app.findRecordById("participants_application", body.participant_id);
+            const studentVenue = body.round === "final" ? studentRec.get("final_venue") : studentRec.get("allocated_venue");
+            if (!studentVenue) {
+                return e.json(403, { error: "Access denied. Student is not allocated to any venue." });
+            }
+            const checkVenueRec = $app.findFirstRecordByData("venue_detail", "name", studentVenue);
+            if (checkVenueRec.get("incharge") !== authRecord.get("id")) {
+                return e.json(403, { error: "Access denied. You are not the incharge of this student's venue." });
+            }
+        } catch (_) {
+            return e.json(403, { error: "Access denied. Verification of assigned venue failed." });
+        }
+    }
+
     const marksCollection = body.round === "final" ? "final_marks" : "preliminary_marks";
 
     try {
+        const studentRec = $app.findRecordById("participants_application", body.participant_id);
+        const category = studentRec.get("category");
+
+        // Block edit for preliminary round if finalists are promoted in this category
+        if (body.round === "preliminary") {
+            const finalistFilter = "category = {:category} && is_finalist = true";
+            const finalistRecs = $app.findRecordsByFilter("participants_application", finalistFilter, "", 1, 0, { category: category });
+            if (finalistRecs && finalistRecs.length > 0) {
+                return e.json(400, { error: "Edits blocked: Finalists have already been promoted for category " + category });
+            }
+        }
+
         let record;
         const collection = $app.findCollectionByNameOrId(marksCollection);
 
@@ -130,6 +194,14 @@ routerAdd("POST", "/api/admin/marks/save-cell", (e) => {
             record = $app.findFirstRecordByData(marksCollection, "participant_ref", body.participant_id);
             if (record.get("is_frozen") === true) {
                 return e.json(400, { error: "This marksheet cell collection entry has been locked and frozen." });
+            }
+            // If they are not admin, and there is already an entered_by value, prevent editing
+            if (designation !== "admin" && record.get("entered_by")) {
+                return e.json(403, { error: "Access denied. You cannot edit this marksheet after it has been entered." });
+            }
+
+            if (designation === "admin") {
+                record.set("last_edited_by", authRecord.get("id"));
             }
         } catch (_) {
             record = new Record(collection);
@@ -141,10 +213,10 @@ routerAdd("POST", "/api/admin/marks/save-cell", (e) => {
             record.set("id", randomId);
             record.set("participant_ref", body.participant_id);
             record.set("is_frozen", false);
+            record.set("entered_by", authRecord.get("id"));
         }
 
         // Perform dynamic safe evaluation on server layout parameters
-        const studentRec = $app.findRecordById("participants_application", body.participant_id);
         const templateRec = $app.findFirstRecordByData("mark_templates", "round", body.round, "category", studentRec.get("category"));
         const parsedColumns = JSON.parse(templateRec.getString("columns") || "{}");
         let criteriaList = [];
@@ -190,7 +262,8 @@ routerAdd("POST", "/api/admin/marks/save-cell", (e) => {
 
 routerAdd("GET", "/api/admin/marks/get-template", (e) => {
     const authRecord = e.auth;
-    if (!authRecord || (authRecord.get("designation") !== "admin" && authRecord.get("designation") !== "coordinators")) {
+    const designation = authRecord ? authRecord.get("designation") : "";
+    if (!authRecord || (designation !== "admin" && designation !== "coordinators" && designation !== "venue Incharge")) {
         return e.json(403, { error: "Unauthorized access." });
     }
     const info = e.requestInfo();
@@ -303,12 +376,27 @@ routerAdd("GET", "/api/admin/marks/check-preliminary-complete", (e) => {
 
 routerAdd("GET", "/api/admin/marks/get-students-status", (e) => {
     const authRecord = e.auth;
-    if (!authRecord || (authRecord.get("designation") !== "admin" && authRecord.get("designation") !== "coordinators")) {
+    const designation = authRecord ? authRecord.get("designation") : "";
+    if (!authRecord || (designation !== "admin" && designation !== "coordinators" && designation !== "venue Incharge")) {
         return e.json(403, { error: "Unauthorized access." });
     }
     const info = e.requestInfo();
     const venueName = (info.query.venue || "").trim();
     const round = (info.query.round || "preliminary").trim();
+
+    if (designation === "venue Incharge") {
+        if (venueName.toLowerCase() === "all") {
+            return e.json(403, { error: "Access denied. Venue Incharge cannot view all venues." });
+        }
+        try {
+            const checkVenueRec = $app.findFirstRecordByData("venue_detail", "name", venueName);
+            if (checkVenueRec.get("incharge") !== authRecord.get("id")) {
+                return e.json(403, { error: "Access denied. You are not the incharge of this venue." });
+            }
+        } catch (_) {
+            return e.json(403, { error: "Access denied. Venue not found or not assigned." });
+        }
+    }
 
     if (!venueName) {
         return e.json(400, { error: "Missing venue context parameter." });
@@ -367,10 +455,13 @@ routerAdd("GET", "/api/admin/marks/get-students-status", (e) => {
         const pending = [];
         const completed = [];
 
+        const categoryFinalistsMap = {};
         students.forEach(student => {
             let existingValues = {};
             let isFrozen = false;
             let markRecordId = "";
+            let enteredBy = "";
+            let lastEditedBy = "";
 
             const marksCollection = round === "preliminary" ? "preliminary_marks" : "final_marks";
             try {
@@ -378,7 +469,24 @@ routerAdd("GET", "/api/admin/marks/get-students-status", (e) => {
                 existingValues = JSON.parse(markRec.getString("values") || "{}");
                 isFrozen = markRec.get("is_frozen") === true;
                 markRecordId = markRec.get("id");
+                enteredBy = markRec.get("entered_by") || "";
+                lastEditedBy = markRec.get("last_edited_by") || "";
             } catch (_) { }
+
+            const cat = student.get("category");
+            let finalistsPromoted = false;
+            if (categoryFinalistsMap[cat] !== undefined) {
+                finalistsPromoted = categoryFinalistsMap[cat];
+            } else {
+                try {
+                    const finalistFilter = "category = {:category} && is_finalist = true";
+                    const finalistRecs = $app.findRecordsByFilter("participants_application", finalistFilter, "", 1, 0, { category: cat });
+                    finalistsPromoted = (finalistRecs && finalistRecs.length > 0);
+                    categoryFinalistsMap[cat] = finalistsPromoted;
+                } catch (_) {
+                    finalistsPromoted = false;
+                }
+            }
 
             // Resolve judges for student's allocated venue (allocated_venue or final_venue depending on round)
             const studentVenue = round === "final" ? student.get("final_venue") : student.get("allocated_venue");
@@ -428,12 +536,15 @@ routerAdd("GET", "/api/admin/marks/get-students-status", (e) => {
                 participant_id: student.get("id"),
                 register_id: student.get("participant_id"),
                 full_name: student.get("full_name"),
-                category: student.get("category"),
+                category: cat,
                 allocated_venue: (round === "final" ? student.get("final_venue") : student.get("allocated_venue")) || "",
                 values: existingValues,
                 is_frozen: isFrozen,
                 judges: studentJudges,
-                has_marksheet: hasMarksheet
+                has_marksheet: hasMarksheet,
+                entered_by: enteredBy,
+                last_edited_by: lastEditedBy,
+                finalists_promoted: finalistsPromoted
             };
 
             if (isFrozen) {
@@ -455,7 +566,8 @@ routerAdd("GET", "/api/admin/marks/get-students-status", (e) => {
 
 routerAdd("POST", "/api/admin/marks/save-student-marks", (e) => {
     const authRecord = e.auth;
-    if (!authRecord || (authRecord.get("designation") !== "admin" && authRecord.get("designation") !== "coordinators")) {
+    const designation = authRecord ? authRecord.get("designation") : "";
+    if (!authRecord || (designation !== "admin" && designation !== "coordinators" && designation !== "venue Incharge")) {
         return e.json(403, { error: "Access denied." });
     }
 
@@ -469,6 +581,22 @@ routerAdd("POST", "/api/admin/marks/save-student-marks", (e) => {
 
     if (!body.participant_id) {
         return e.json(400, { error: "Missing participant_id." });
+    }
+
+    if (designation === "venue Incharge") {
+        try {
+            const studentRec = $app.findRecordById("participants_application", body.participant_id);
+            const studentVenue = body.round === "final" ? studentRec.get("final_venue") : studentRec.get("allocated_venue");
+            if (!studentVenue) {
+                return e.json(403, { error: "Access denied. Student is not allocated to any venue." });
+            }
+            const checkVenueRec = $app.findFirstRecordByData("venue_detail", "name", studentVenue);
+            if (checkVenueRec.get("incharge") !== authRecord.get("id")) {
+                return e.json(403, { error: "Access denied. You are not the incharge of this student's venue." });
+            }
+        } catch (_) {
+            return e.json(403, { error: "Access denied. Verification of assigned venue failed." });
+        }
     }
 
     const isPreliminaryComplete = () => {
@@ -508,11 +636,35 @@ routerAdd("POST", "/api/admin/marks/save-student-marks", (e) => {
     const marksCollection = body.round === "final" ? "final_marks" : "preliminary_marks";
 
     try {
+        const studentRec = $app.findRecordById("participants_application", body.participant_id);
+        const category = studentRec.get("category");
+
+        // Block edit for preliminary round if finalists are promoted in this category
+        if (body.round === "preliminary") {
+            const finalistFilter = "category = {:category} && is_finalist = true";
+            const finalistRecs = $app.findRecordsByFilter("participants_application", finalistFilter, "", 1, 0, { category: category });
+            if (finalistRecs && finalistRecs.length > 0) {
+                return e.json(400, { error: "Edits blocked: Finalists have already been promoted for category " + category });
+            }
+        }
+
         let record;
         const collection = $app.findCollectionByNameOrId(marksCollection);
 
         try {
             record = $app.findFirstRecordByData(marksCollection, "participant_ref", body.participant_id);
+            // If they are not admin, and it is already frozen, prevent editing
+            if (designation !== "admin" && record.get("is_frozen") === true) {
+                return e.json(403, { error: "Access denied. Marks are frozen and cannot be updated." });
+            }
+            // If they are not admin, and there is already an entered_by value, prevent editing
+            if (designation !== "admin" && record.get("entered_by")) {
+                return e.json(403, { error: "Access denied. You cannot edit this marksheet after it has been entered." });
+            }
+
+            if (designation === "admin") {
+                record.set("last_edited_by", authRecord.get("id"));
+            }
         } catch (_) {
             record = new Record(collection);
             const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -522,6 +674,7 @@ routerAdd("POST", "/api/admin/marks/save-student-marks", (e) => {
             }
             record.set("id", randomId);
             record.set("participant_ref", body.participant_id);
+            record.set("entered_by", authRecord.get("id"));
         }
 
         record.set("values", JSON.stringify(body.values));
@@ -544,13 +697,30 @@ routerAdd("POST", "/api/admin/marks/save-student-marks", (e) => {
 // Only admins and coordinators can view marksheets.
 routerAdd("GET", "/api/admin/marks/get-marksheets", (e) => {
     const authRecord = e.auth;
-    if (!authRecord || (authRecord.get("designation") !== "admin" && authRecord.get("designation") !== "coordinators")) {
-        return e.json(403, { error: "Unauthorized. Only admins and coordinators can view marksheets." });
+    const designation = authRecord ? authRecord.get("designation") : "";
+    if (!authRecord || (designation !== "admin" && designation !== "coordinators" && designation !== "venue Incharge")) {
+        return e.json(403, { error: "Unauthorized access." });
     }
 
     const info = e.requestInfo();
     const participantId = (info.query["participant_id"] || "").trim();
     const round = (info.query["round"] || "preliminary").trim();
+
+    if (designation === "venue Incharge") {
+        try {
+            const studentRec = $app.findRecordById("participants_application", participantId);
+            const studentVenue = round === "final" ? studentRec.get("final_venue") : studentRec.get("allocated_venue");
+            if (!studentVenue) {
+                return e.json(403, { error: "Access denied. Student is not allocated to any venue." });
+            }
+            const checkVenueRec = $app.findFirstRecordByData("venue_detail", "name", studentVenue);
+            if (checkVenueRec.get("incharge") !== authRecord.get("id")) {
+                return e.json(403, { error: "Access denied. You are not the incharge of this student's venue." });
+            }
+        } catch (_) {
+            return e.json(403, { error: "Access denied. Verification of assigned venue failed." });
+        }
+    }
 
     if (!participantId) {
         return e.json(400, { error: "Missing participant_id." });

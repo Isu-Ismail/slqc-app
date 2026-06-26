@@ -5,7 +5,8 @@ import { Camera, Upload, X, CheckCircle, AlertTriangle, Search, Loader2, Image, 
 import styles from './MarksheetUploadPage.module.css';
 
 export default function MarksheetUploadPage() {
-
+    const user = pb.authStore.model;
+    const isVenueIncharge = user?.designation === 'venue Incharge' || user?.designation === 'coordinators';
 
     const [round, setRound] = useState<'preliminary' | 'final'>('preliminary');
     const [selectedVenue, setSelectedVenue] = useState<string>('all');
@@ -30,13 +31,35 @@ export default function MarksheetUploadPage() {
 
     // Load venues on mount
     useEffect(() => {
-        pb.collection('venue_detail').getFullList({ sort: 'name' }).then(setVenues).catch(console.error);
-    }, []);
+        pb.collection('venue_detail').getFullList({ sort: 'name' }).then(records => {
+            setVenues(records);
+            if (isVenueIncharge) {
+                const assignedVenue = records.find(r => r.incharge === user?.id && r.round === round);
+                setSelectedVenue(assignedVenue ? assignedVenue.name : '');
+            } else {
+                setSelectedVenue('all');
+            }
+        }).catch(console.error);
+    }, [isVenueIncharge, user?.id]);
+
+    const handleSetRound = (r: 'preliminary' | 'final') => {
+        setRound(r);
+        setSelectedStudent(null);
+        if (isVenueIncharge) {
+            const assignedVenue = venues.find(v => v.incharge === user?.id && v.round === r);
+            setSelectedVenue(assignedVenue ? assignedVenue.name : '');
+        } else {
+            setSelectedVenue('all');
+        }
+    };
 
     // Load students whenever round or venue changes
     useEffect(() => {
         const load = async () => {
-            if (!selectedVenue) return;
+            if (!selectedVenue || (selectedVenue === 'all' && isVenueIncharge)) {
+                setAllStudents([]);
+                return;
+            }
             setLoadingStudents(true);
             try {
                 const data = await marksApi.getStudentsStatus(selectedVenue, round);
@@ -49,7 +72,7 @@ export default function MarksheetUploadPage() {
             }
         };
         load();
-    }, [round, selectedVenue]);
+    }, [round, selectedVenue, isVenueIncharge]);
 
     // Filter students by search query
     useEffect(() => {
@@ -141,13 +164,13 @@ export default function MarksheetUploadPage() {
                     <div className={styles.segmentGroup}>
                         <button
                             className={`${styles.segBtn} ${round === 'preliminary' ? styles.segBtnActive : ''}`}
-                            onClick={() => { setRound('preliminary'); setSelectedStudent(null); setSelectedVenue('all'); }}
+                            onClick={() => handleSetRound('preliminary')}
                         >
                             <Zap size={14} /> Preliminary
                         </button>
                         <button
                             className={`${styles.segBtn} ${round === 'final' ? styles.segBtnActive : ''}`}
-                            onClick={() => { setRound('final'); setSelectedStudent(null); setSelectedVenue('all'); }}
+                            onClick={() => handleSetRound('final')}
                         >
                             <Award size={14} /> Final
                         </button>
@@ -158,8 +181,11 @@ export default function MarksheetUploadPage() {
                         value={selectedVenue}
                         onChange={e => { setSelectedVenue(e.target.value); setSelectedStudent(null); }}
                         className={styles.venueSelect}
+                        disabled={isVenueIncharge}
+                        style={isVenueIncharge ? { backgroundColor: '#e2e8f0', cursor: 'not-allowed' } : {}}
                     >
-                        <option value="all">All Venues</option>
+                        {!isVenueIncharge && <option value="all">All Venues</option>}
+                        {(!selectedVenue || selectedVenue === '') && <option value="">No Venue Allocated</option>}
                         {venues
                             .filter(v => v.round === round)
                             .map(v => <option key={v.id} value={v.name}>{v.name}</option>)

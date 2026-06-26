@@ -149,8 +149,14 @@ export default function GradingWorkspace({
         return false;
     };
 
-    const isEditable = !selectedStudent?.is_frozen || isUnlocked;
-    const disableSave = isSaving || hasAnyError();
+    const finalistsPromoted = selectedStudent?.finalists_promoted && currentRound === 'preliminary';
+    const isAdmin = user?.designation === 'admin';
+    const isEditable = !finalistsPromoted && (
+        isAdmin
+            ? (!selectedStudent?.is_frozen || isUnlocked)
+            : (!selectedStudent?.is_frozen && !selectedStudent?.entered_by)
+    );
+    const disableSave = isSaving || hasAnyError() || !isEditable;
 
     const totalCols = criteria.reduce((sum, c) => sum + c.numQuestions, 0);
 
@@ -281,6 +287,17 @@ export default function GradingWorkspace({
                             </span>
                         </div>
                     </div>
+                    {/* Lock notifications */}
+                    {finalistsPromoted && (
+                        <div style={{ backgroundColor: '#fee2e2', border: '1px solid #fca5a5', padding: '12px 16px', borderRadius: '8px', color: '#991b1b', fontSize: '14px', fontWeight: '700', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                            <Shield size={16} /> Preliminary marks are permanently locked because finalists have already been promoted for this category.
+                        </div>
+                    )}
+                    {!finalistsPromoted && !isAdmin && (selectedStudent.is_frozen || selectedStudent.entered_by) && (
+                        <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '8px', color: '#b45309', fontSize: '14px', fontWeight: '700', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                            <Shield size={16} /> This marksheet has been submitted and is locked. Only an Administrator can unlock and edit it.
+                        </div>
+                    )}
 
                     {/* Warnings if Template unconfigured */}
                     {criteria.length === 0 ? (
@@ -459,13 +476,15 @@ export default function GradingWorkspace({
                                 </div>
 
                                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                    {selectedStudent.is_frozen && !isUnlocked ? (
-                                        <button
-                                            onClick={() => setShowPasswordPrompt(true)}
-                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 28px', backgroundColor: '#d97706', border: 'none', borderRadius: '10px', color: '#ffffff', fontWeight: '800', cursor: 'pointer', fontSize: '15px', boxShadow: '0 4px 10px -2px rgba(217, 119, 6, 0.3)', transition: 'all 0.2s' }}
-                                        >
-                                            <Shield size={18} /> Edit Marks (Unlock)
-                                        </button>
+                                    {((selectedStudent.is_frozen || selectedStudent.entered_by) && !isUnlocked) ? (
+                                        isAdmin && !finalistsPromoted ? (
+                                            <button
+                                                onClick={() => setShowPasswordPrompt(true)}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 28px', backgroundColor: '#d97706', border: 'none', borderRadius: '10px', color: '#ffffff', fontWeight: '800', cursor: 'pointer', fontSize: '15px', boxShadow: '0 4px 10px -2px rgba(217, 119, 6, 0.3)', transition: 'all 0.2s' }}
+                                            >
+                                                <Shield size={18} /> Edit Marks (Unlock)
+                                            </button>
+                                        ) : null
                                     ) : (
                                         <>
                                             {selectedStudent.is_frozen && isUnlocked && (
@@ -476,28 +495,30 @@ export default function GradingWorkspace({
                                                     Cancel Edit
                                                 </button>
                                             )}
-                                            <button
-                                                onClick={onSaveMarks}
-                                                disabled={disableSave}
-                                                style={{
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: '8px',
-                                                    padding: '12px 28px',
-                                                    backgroundColor: disableSave ? '#a7f3d0' : '#059669',
-                                                    border: 'none',
-                                                    borderRadius: '10px',
-                                                    color: '#ffffff',
-                                                    fontWeight: '800',
-                                                    cursor: disableSave ? 'not-allowed' : 'pointer',
-                                                    fontSize: '15px',
-                                                    boxShadow: disableSave ? 'none' : '0 4px 10px -2px rgba(5, 150, 105, 0.3)',
-                                                    transition: 'all 0.2s',
-                                                    opacity: disableSave ? 0.7 : 1
-                                                }}
-                                            >
-                                                <CheckCircle size={18} /> {isSaving ? 'Submitting...' : 'Save & Freeze Marks'}
-                                            </button>
+                                            {isEditable && (
+                                                <button
+                                                    onClick={onSaveMarks}
+                                                    disabled={disableSave}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        padding: '12px 28px',
+                                                        backgroundColor: disableSave ? '#a7f3d0' : '#059669',
+                                                        border: 'none',
+                                                        borderRadius: '10px',
+                                                        color: '#ffffff',
+                                                        fontWeight: '800',
+                                                        cursor: disableSave ? 'not-allowed' : 'pointer',
+                                                        fontSize: '15px',
+                                                        boxShadow: disableSave ? 'none' : '0 4px 10px -2px rgba(5, 150, 105, 0.3)',
+                                                        transition: 'all 0.2s',
+                                                        opacity: disableSave ? 0.7 : 1
+                                                    }}
+                                                >
+                                                    <CheckCircle size={18} /> {isSaving ? 'Submitting...' : 'Save & Freeze Marks'}
+                                                </button>
+                                            )}
                                         </>
                                     )}
                                 </div>

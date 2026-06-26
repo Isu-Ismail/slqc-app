@@ -88,9 +88,9 @@ const getInitialFormData = (): RegistrationFormData => {
 export default function RegisterPage() {
     const [currentStep, setCurrentStep] = useState<number>(1);
     const [isCaptchaVerified, setIsCaptchaVerified] = useState<boolean>(false);
-    const [alertModal, setAlertModal] = useState<{ 
-        isOpen: boolean; 
-        message: string; 
+    const [alertModal, setAlertModal] = useState<{
+        isOpen: boolean;
+        message: string;
         title?: string;
         type?: 'success' | 'warning';
         extraData?: string;
@@ -235,12 +235,12 @@ export default function RegisterPage() {
             });
 
             triggerAlert(
-                'Application submitted successfully! You can track your status on the status page.', 
-                'Registration Success', 
-                'success', 
+                'Application submitted successfully! You can track your status on the status page.',
+                'Registration Success',
+                'success',
                 record.id
             );
-            
+
             // Reset form
             setFormData({
                 registration_type: 'institution',
@@ -269,35 +269,42 @@ export default function RegisterPage() {
             });
             sessionStorage.removeItem(CACHE_KEY);
             setCurrentStep(1);
+            // Replace your handleFinalSubmit error catch block inside RegisterPage.tsx with this logic:
         } catch (e: any) {
             console.error('Submission failed:', e);
             let errorMessage = 'Submission failed. Please check your database connection.';
-            
-            // Extract PocketBase validation error details (e.g. non-unique fields)
+
+            // Matches the custom JSON errors thrown by your hook
             if (e.response && e.response.data) {
                 const errorData = e.response.data;
-                const errorList: string[] = [];
-                for (const [key, errorDetail] of Object.entries(errorData)) {
-                    let fieldName = key.replace('_', ' ');
-                    fieldName = fieldName.charAt(0).toUpperCase() + fieldName.slice(1);
-                    const detail = errorDetail as any;
-                    if (detail && typeof detail === 'object') {
-                        if (detail.code === 'validation_not_unique') {
-                            errorList.push(`• ${fieldName} is already registered.`);
+
+                if (errorData.error) {
+                    errorMessage = errorData.error;
+                } else {
+                    const errorList: string[] = [];
+                    for (const [key, errorDetail] of Object.entries(errorData)) {
+                        let fieldName = key.replace('_', ' ');
+                        fieldName = fieldName.charAt(0).toUpperCase() + fieldName.slice(1);
+                        const detail = errorDetail as any;
+
+                        if (detail && typeof detail === 'object') {
+                            if (detail.code === 'validation_not_unique' || detail.message?.includes('registered')) {
+                                errorList.push(`• ${fieldName} is already registered.`);
+                            } else {
+                                errorList.push(`• ${fieldName}: ${detail.message || 'invalid field.'}`);
+                            }
                         } else {
-                            errorList.push(`• ${fieldName}: ${detail.message || 'invalid field.'}`);
+                            errorList.push(`• ${fieldName}: ${detail}`);
                         }
-                    } else {
-                        errorList.push(`• ${fieldName}: ${detail}`);
                     }
-                }
-                if (errorList.length > 0) {
-                    errorMessage = `The application could not be saved due to conflicts:\n\n${errorList.join('\n')}`;
+                    if (errorList.length > 0) {
+                        errorMessage = `The application could not be saved due to conflicts:\n\n${errorList.join('\n')}`;
+                    }
                 }
             } else if (e.message) {
                 errorMessage = e.message;
             }
-            
+
             triggerAlert(errorMessage, 'Submission Error');
         }
     };
@@ -437,26 +444,26 @@ export default function RegisterPage() {
                 {/* Progress Bar UI */}
                 <div className={styles.progressBar}>
                     <div
-                         className={styles.progressFill}
-                         style={{ width: `${(currentStep / 3) * 100}%` }}
+                        className={styles.progressFill}
+                        style={{ width: `${(currentStep / 3) * 100}%` }}
                     />
                 </div>
 
                 <div className={styles.formContainer}>
                     {currentStep === 1 && (
-                        <Step1Type 
-                            formData={formData} 
-                            updateForm={updateForm} 
-                            onCaptchaVerified={setIsCaptchaVerified} 
+                        <Step1Type
+                            formData={formData}
+                            updateForm={updateForm}
+                            onCaptchaVerified={setIsCaptchaVerified}
                         />
                     )}
                     {currentStep === 2 && (
                         <Step2Details formData={formData} updateForm={updateForm} />
                     )}
                     {currentStep === 3 && (
-                        <Step3Upload 
-                            formData={formData} 
-                            updateForm={updateForm} 
+                        <Step3Upload
+                            formData={formData}
+                            updateForm={updateForm}
                             rulesAccepted={rulesAccepted}
                             setRulesAccepted={setRulesAccepted}
                         />
@@ -471,8 +478,8 @@ export default function RegisterPage() {
                     {currentStep < 3 ? (
                         <button onClick={handleNext} className={styles.btnPrimary}>Continue</button>
                     ) : (
-                        <button 
-                            onClick={handleFinalSubmit} 
+                        <button
+                            onClick={handleFinalSubmit}
                             className={styles.btnPrimary}
                             disabled={!rulesAccepted}
                         >
@@ -483,13 +490,13 @@ export default function RegisterPage() {
             </div>
 
             {/* Custom Alert Modal */}
-            <AlertModal 
-                isOpen={alertModal.isOpen} 
-                title={alertModal.title} 
-                message={alertModal.message} 
+            <AlertModal
+                isOpen={alertModal.isOpen}
+                title={alertModal.title}
+                message={alertModal.message}
                 type={alertModal.type}
                 extraData={alertModal.extraData}
-                onClose={closeAlert} 
+                onClose={closeAlert}
             />
         </div>
     );

@@ -13,20 +13,20 @@ export default function ArrivalCheckingPage() {
     const [institutions, setInstitutions] = useState<InstitutionsResponse[]>([]);
     const [loadingInsts, setLoadingInsts] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
-    
+
     const [selectedInst, setSelectedInst] = useState<InstitutionsResponse | null>(null);
     const [students, setStudents] = useState<ParticipantsApplicationResponse[]>([]);
     const [loadingStudents, setLoadingStudents] = useState(false);
-    
+
     // In-Charge Assign Modal state
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const [inchargeName, setInchargeName] = useState('');
     const [inchargePhone, setInchargePhone] = useState('');
     const [updatingIncharge, setUpdatingIncharge] = useState(false);
-    
+
     // Print Preview state
     const [printPreview, setPrintPreview] = useState<{ title: string; html: string } | null>(null);
-    
+
     // Local state for tracking edited arrival status before saving
     // key: student.id, value: 'none' | 'present' | 'absent'
     const [localStatuses, setLocalStatuses] = useState<Record<string, 'none' | 'present' | 'absent'>>({});
@@ -67,7 +67,7 @@ export default function ArrivalCheckingPage() {
                 sort: 'full_name',
             });
             setStudents(data);
-            
+
             // Populate initial statuses
             const initial: Record<string, 'none' | 'present' | 'absent'> = {};
             data.forEach(s => {
@@ -98,7 +98,7 @@ export default function ArrivalCheckingPage() {
 
     const handleSubmit = async () => {
         setMessage(null);
-        
+
         // 1. Validation check: ensure no student is left with 'none'
         const unselected = students.filter(s => !localStatuses[s.id] || localStatuses[s.id] === 'none');
         if (unselected.length > 0) {
@@ -169,7 +169,59 @@ export default function ArrivalCheckingPage() {
 
     const handlePrintInstitutionList = async () => {
         if (!selectedInst) return;
+
+        // Check if any student lacks a venue allocation
+        const hasUnallocated = students.some(s => !(s.allocated_venue || "").trim());
+
+        if (hasUnallocated) {
+            setPrintPreview({
+                title: 'Attendance Sheet Preview',
+                html: `
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center; font-family: sans-serif; color: #1e293b;">
+                        <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 8px; color: #ff0202;">Venue Not Allocated Yet</h2>
+                        <p style="font-size: 14px; color: #64748b; max-width: 400px; margin: 0 auto; line-height: 1.5;">
+                            This attendance list cannot be printed because one or more students from this institution have not been assigned a venue.
+                        </p>
+                    </div>
+                `
+            });
+            return;
+        }
+
         try {
+            // Process the students array to visually modify absent entries for printing
+            // Process the students array safely using plain text so they never disappear
+            const processedStudents = students.map(student => {
+                const currentStatus = localStatuses[student.id] || 'none';
+
+                if (currentStatus === 'absent') {
+                    return {
+                        ...student,
+                        // Keep the text completely clean but add explicit markers so it can't disappear
+                        full_name: `${student.full_name} (ABSENT)`,
+                        participant_id: `${student.participant_id || student.id} - ABSENT`,
+
+                        // Try matching whatever custom variable your signature column uses
+                        signature: 'ABSENT',
+                        signature_placeholder: 'ABSENT',
+                        arrival_status: 'absent'
+                    };
+                }
+                return student;
+            });
+
+            // COMPILING DISCRETE ADDRESS FIELDS FOR THE HTML TEMPLATE
+            const institutionWithCombinedAddress = {
+                ...selectedInst,
+                address: [
+                    selectedInst.street_address,
+                    selectedInst.village_name,
+                    selectedInst.district_name,
+                    selectedInst.state_name,
+                    selectedInst.pincode
+                ].filter(Boolean).join(", ")
+            };
+
             const allMeta = await metadataApi.getAllMetadata(true);
             const tplRecord = allMeta.find(r => r.key === 'institution_list_template');
             let customTemplateHtml = '';
@@ -187,7 +239,8 @@ export default function ArrivalCheckingPage() {
 
             setPrintPreview({
                 title: 'Attendance Sheet Preview',
-                html: generateAttendanceSheetHTML(selectedInst, students, customTemplateHtml || undefined)
+                // Pass the institution object with the newly attached combined address property
+                html: generateAttendanceSheetHTML(institutionWithCombinedAddress as any, processedStudents as any, customTemplateHtml || undefined)
             });
         } catch (err) {
             console.error('Failed to prepare attendance sheet:', err);
@@ -334,7 +387,16 @@ export default function ArrivalCheckingPage() {
                                         <span><strong>In-Charge Number:</strong> {selectedInst.incharge_number || <span style={{ color: '#94a3b8' }}>—</span>}</span>
                                     </div>
                                     <div>
-                                        <span><strong>Address:</strong> {selectedInst.address || <span style={{ color: '#94a3b8' }}>—</span>}</span>
+                                        <span>
+                                            <strong>Address:</strong>{' '}
+                                            {[
+                                                selectedInst.street_address,
+                                                selectedInst.village_name,
+                                                selectedInst.district_name,
+                                                selectedInst.state_name,
+                                                selectedInst.pincode
+                                            ].filter(Boolean).join(', ') || <span style={{ color: '#94a3b8' }}>—</span>}
+                                        </span>
                                     </div>
                                 </div>
                             </div>

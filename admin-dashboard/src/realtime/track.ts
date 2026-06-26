@@ -8,14 +8,14 @@ import type { ParticipantsApplicationResponse, InstitutionsResponse } from '../a
 export function useIndividualRealtime(
     recordId: string | undefined,
     onUpdate: (record: ParticipantsApplicationResponse) => void,
-    onDelete: () => void
+    
 ) {
     const onUpdateRef = useRef(onUpdate);
-    const onDeleteRef = useRef(onDelete);
+    
 
     useEffect(() => {
         onUpdateRef.current = onUpdate;
-        onDeleteRef.current = onDelete;
+        
     });
 
     useEffect(() => {
@@ -31,8 +31,6 @@ export function useIndividualRealtime(
             if (e.record) {
                 if (e.action === 'update') {
                     onUpdateRef.current(e.record);
-                } else if (e.action === 'delete') {
-                    onDeleteRef.current();
                 }
             }
         }).catch((err) => {

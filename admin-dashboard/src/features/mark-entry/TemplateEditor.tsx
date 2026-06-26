@@ -90,15 +90,7 @@ export default function TemplateEditor({
                     <h2 className={styles.title}>Template Configuration</h2>
                 </div>
 
-                {hasExistingMarks ? (
-                    <button
-                        disabled={true}
-                        className={styles.btnPrim}
-                        style={{ backgroundColor: '#94a3b8', borderColor: '#94a3b8', cursor: 'not-allowed', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-                    >
-                        <Lock size={18} /> Template Locked (Marks Exist)
-                    </button>
-                ) : isLocked ? (
+                {isLocked ? (
                     <button
                         onClick={() => setShowUnlockModal(true)}
                         className={styles.btnPrim}
@@ -124,7 +116,7 @@ export default function TemplateEditor({
                     display: 'flex',
                     alignItems: 'center',
                     gap: '10px',
-                    backgroundColor: hasExistingMarks ? '#fef2f2' : isLocked ? '#fef3c7' : '#fee2e2',
+                    backgroundColor: hasExistingMarks ? '#fee2e2' : isLocked ? '#fef3c7' : '#fee2e2',
                     borderLeft: '4px solid ' + (hasExistingMarks ? '#ef4444' : isLocked ? '#d97706' : '#ef4444'),
                     color: hasExistingMarks ? '#991b1b' : isLocked ? '#92400e' : '#991b1b',
                     padding: '12px 16px',
@@ -135,7 +127,11 @@ export default function TemplateEditor({
                 }}>
                     <Lock size={16} />
                     {hasExistingMarks ? (
-                        <span> Marks are already entered for this category and round. Editing the template is disabled. You must remove all marks to edit this template.</span>
+                        isLocked ? (
+                            <span> Marks exist. Template is locked. Click "Edit Template" to unlock. You will only be allowed to edit Aspect Names.</span>
+                        ) : (
+                            <span> Template unlocked. You can ONLY modify Aspect Names because marks exist. Adding, removing, or changing column count/max score is disabled.</span>
+                        )
                     ) : isLocked ? (
                         <span> Template is locked to prevent accidental changes. Click "Edit Template" to unlock.</span>
                     ) : (
@@ -224,7 +220,7 @@ export default function TemplateEditor({
                                         </td>
                                     ))}
                                     {/* Add Aspect Button Cell spanning all rows */}
-                                    {!isLocked && (
+                                    {!isLocked && !hasExistingMarks && (
                                         <td style={{ width: '140px', backgroundColor: '#fafafa', borderLeft: '1px solid #cbd5e1', padding: '12px', textAlign: 'center', verticalAlign: 'middle' }} rowSpan={5}>
                                             <button
                                                 onClick={addCriterion}
@@ -249,7 +245,7 @@ export default function TemplateEditor({
                                         const isInvalid = val === '' || parseInt(val.toString()) <= 0;
                                         return (
                                             <td key={c.key || idx} style={{ padding: '6px', borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}>
-                                                {isLocked ? (
+                                                {(isLocked || hasExistingMarks) ? (
                                                     <div style={{ textAlign: 'center', fontWeight: '600', fontSize: '14px', padding: '8px 0', color: '#1e293b' }}>{val}</div>
                                                 ) : (
                                                     <input
@@ -293,7 +289,7 @@ export default function TemplateEditor({
                                         const isInvalid = val === '' || parseFloat(val.toString()) <= 0;
                                         return (
                                             <td key={c.key || idx} style={{ padding: '6px', borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}>
-                                                {isLocked ? (
+                                                {(isLocked || hasExistingMarks) ? (
                                                     <div style={{ textAlign: 'center', fontWeight: '600', fontSize: '14px', padding: '8px 0', color: '#1e293b' }}>{val}</div>
                                                 ) : (
                                                     <input
@@ -347,7 +343,7 @@ export default function TemplateEditor({
                                 </tr>
 
                                 {/* Row 5: Action */}
-                                {!isLocked && (
+                                {!isLocked && !hasExistingMarks && (
                                     <tr>
                                         <td style={{ padding: '12px 16px', fontWeight: '700', color: '#e11d48', fontSize: '13px', backgroundColor: '#f8fafc', borderRight: '2px solid #cbd5e1' }}>
                                             Action

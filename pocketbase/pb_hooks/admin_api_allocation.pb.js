@@ -23,14 +23,14 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
             if (finalistCountRes.length > 0) {
                 return e.json(400, { error: "Action blocked: Finalists have already been chosen." });
             }
-        } catch (_) {}
+        } catch (_) { }
 
         let category = "";
         try {
             const info = e.requestInfo();
             const data = info.data || {};
             category = data.category || "";
-            
+
             if (!category) {
                 const body = new DynamicModel({
                     category: ""
@@ -38,7 +38,7 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
                 e.bindBody(body);
                 category = body.category;
             }
-        } catch (_) {}
+        } catch (_) { }
 
         if (!category) {
             return e.json(400, { error: "Missing category parameter." });
@@ -94,20 +94,14 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
             if (rawJudges) {
                 try {
                     venueJudges = JSON.parse(rawJudges);
-                } catch (_) {}
+                } catch (_) { }
             }
             if (!Array.isArray(venueJudges) || venueJudges.length === 0) {
                 return e.json(400, { error: "Cannot run allocation: Venue '" + v.get("name") + "' does not have any judges allocated. Please allocate judges first." });
             }
         }
 
-        // Check B: Ensure no judges registered in the system are unassigned (not allocated to any venue)
-        const unallocatedJudges = $app.findRecordsByFilter("judges", "allocated_venue = ''", "", 9999, 0);
-        if (unallocatedJudges && unallocatedJudges.length > 0) {
-            const names = [];
-            unallocatedJudges.forEach(j => names.push(j.get("name")));
-            return e.json(400, { error: "Cannot run allocation: The following judges are not allocated to any venue: " + names.join(", ") });
-        }
+
 
         // 3. Fetch all approved participants for the specified category
         const approvedCandidates = $app.findRecordsByFilter(
@@ -216,7 +210,7 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
             try {
                 const instRec = $app.findRecordById("institutions", studentInstId);
                 studentInstName = instRec.get("name");
-            } catch (_) {}
+            } catch (_) { }
 
             const norm = (s) => String(s || "").toLowerCase().trim().replace(/\s+/g, " ");
             const sNameNorm = norm(studentInstName);
@@ -235,9 +229,9 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
                                 const jInstNorm = norm(j.institution);
                                 if (jInstNorm) {
                                     // Match exact or fuzzy/partial institution name
-                                    if (jInstNorm === sIdNorm || 
-                                        jInstNorm === sNameNorm || 
-                                        sNameNorm.indexOf(jInstNorm) !== -1 || 
+                                    if (jInstNorm === sIdNorm ||
+                                        jInstNorm === sNameNorm ||
+                                        sNameNorm.indexOf(jInstNorm) !== -1 ||
                                         jInstNorm.indexOf(sNameNorm) !== -1) {
                                         return true;
                                     }
@@ -245,7 +239,7 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
                             }
                         }
                     }
-                } catch (_) {}
+                } catch (_) { }
             }
             return false;
         };
@@ -310,17 +304,17 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
         // Spacing algorithm to keep candidates of the same institution apart
         const arrangeCandidates = (cands) => {
             if (cands.length <= 1) return cands;
-            
+
             const groups = {};
             cands.forEach(c => {
                 const inst = c.get("institution_ref") || "individual_" + c.get("id");
                 if (!groups[inst]) groups[inst] = [];
                 groups[inst].push(c);
             });
-            
+
             const result = [];
             const lastPlacedInsts = [];
-            
+
             const groupList = [];
             Object.keys(groups).forEach(inst => {
                 groupList.push({
@@ -328,14 +322,14 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
                     list: groups[inst]
                 });
             });
-            
+
             const totalCount = cands.length;
             for (let step = 0; step < totalCount; step++) {
                 const activeGroups = groupList.filter(g => g.list.length > 0);
                 if (activeGroups.length === 0) break;
-                
+
                 activeGroups.sort((a, b) => b.list.length - a.list.length);
-                
+
                 let chosenGroup = null;
                 for (let spacing = 3; spacing >= 0; spacing--) {
                     const disallowedInsts = spacing > 0 ? lastPlacedInsts.slice(-spacing) : [];
@@ -345,20 +339,20 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
                         break;
                     }
                 }
-                
+
                 if (!chosenGroup) {
                     chosenGroup = activeGroups[0];
                 }
-                
+
                 const cand = chosenGroup.list.pop();
                 result.push(cand);
                 lastPlacedInsts.push(chosenGroup.inst);
-                
+
                 if (lastPlacedInsts.length > 10) {
                     lastPlacedInsts.shift();
                 }
             }
-            
+
             return result;
         };
 
@@ -390,7 +384,7 @@ routerAdd("POST", "/api/admin/allocate-venues", (e) => {
                 tr.set("random_value", $security.randomString(10));
                 $app.save(tr);
             }
-        } catch (_) {}
+        } catch (_) { }
 
         return e.json(200, {
             success: true,
@@ -426,14 +420,14 @@ routerAdd("POST", "/api/admin/unallocate-venues", (e) => {
             if (finalistCountRes.length > 0) {
                 return e.json(400, { error: "Action blocked: Finalists have already been chosen." });
             }
-        } catch (_) {}
+        } catch (_) { }
 
         let category = "";
         try {
             const info = e.requestInfo();
             const data = info.data || {};
             category = data.category || "";
-            
+
             if (!category) {
                 const body = new DynamicModel({
                     category: ""
@@ -441,7 +435,7 @@ routerAdd("POST", "/api/admin/unallocate-venues", (e) => {
                 e.bindBody(body);
                 category = body.category;
             }
-        } catch (_) {}
+        } catch (_) { }
 
         if (!category) {
             return e.json(400, { error: "Missing category parameter." });
@@ -474,7 +468,7 @@ routerAdd("POST", "/api/admin/unallocate-venues", (e) => {
                 tr.set("random_value", $security.randomString(10));
                 $app.save(tr);
             }
-        } catch (_) {}
+        } catch (_) { }
 
         return e.json(200, {
             success: true,
@@ -519,7 +513,7 @@ routerAdd("POST", "/api/admin/update-candidate-allocation", (e) => {
                 venue = body.allocated_venue;
                 order = parseInt(body.allocated_order, 10) || 0;
             }
-        } catch (_) {}
+        } catch (_) { }
 
         if (!participantId) {
             return e.json(400, { error: "Missing participantId parameter." });
@@ -587,7 +581,7 @@ routerAdd("POST", "/api/admin/update-candidate-allocation", (e) => {
 
                 const newList = [];
                 let inserted = false;
-                
+
                 // Insert at newOrder (1-based index)
                 cands.forEach((c, idx) => {
                     const currentPos = idx + 1;
@@ -623,7 +617,7 @@ routerAdd("POST", "/api/admin/update-candidate-allocation", (e) => {
                 tr.set("random_value", $security.randomString(10));
                 $app.save(tr);
             }
-        } catch (_) {}
+        } catch (_) { }
 
         return e.json(200, {
             success: true,
@@ -651,7 +645,7 @@ routerAdd("POST", "/api/admin/allocate-final-venues", (e) => {
             const info = e.requestInfo();
             const data = info.data || {};
             category = data.category || "";
-            
+
             if (!category) {
                 const body = new DynamicModel({
                     category: ""
@@ -659,7 +653,7 @@ routerAdd("POST", "/api/admin/allocate-final-venues", (e) => {
                 e.bindBody(body);
                 category = body.category;
             }
-        } catch (_) {}
+        } catch (_) { }
 
         if (!category) {
             return e.json(400, { error: "Missing category parameter." });
@@ -679,7 +673,7 @@ routerAdd("POST", "/api/admin/allocate-final-venues", (e) => {
             if (venues && venues.length > 0) {
                 finalVenue = venues[0];
             }
-        } catch (_) {}
+        } catch (_) { }
 
         if (!finalVenue) {
             return e.json(400, {
@@ -751,7 +745,7 @@ routerAdd("POST", "/api/admin/allocate-final-venues", (e) => {
                 tr.set("random_value", $security.randomString(10));
                 $app.save(tr);
             }
-        } catch (_) {}
+        } catch (_) { }
 
         return e.json(200, {
             success: true,
@@ -786,7 +780,7 @@ routerAdd("POST", "/api/admin/unallocate-final-venues", (e) => {
             const info = e.requestInfo();
             const data = info.data || {};
             category = data.category || "";
-            
+
             if (!category) {
                 const body = new DynamicModel({
                     category: ""
@@ -794,7 +788,7 @@ routerAdd("POST", "/api/admin/unallocate-final-venues", (e) => {
                 e.bindBody(body);
                 category = body.category;
             }
-        } catch (_) {}
+        } catch (_) { }
 
         if (!category) {
             return e.json(400, { error: "Missing category parameter." });
@@ -814,7 +808,7 @@ routerAdd("POST", "/api/admin/unallocate-final-venues", (e) => {
             if (venues && venues.length > 0) {
                 finalVenue = venues[0];
             }
-        } catch (_) {}
+        } catch (_) { }
 
         if (!finalVenue) {
             return e.json(400, {
@@ -848,7 +842,7 @@ routerAdd("POST", "/api/admin/unallocate-final-venues", (e) => {
                 tr.set("random_value", $security.randomString(10));
                 $app.save(tr);
             }
-        } catch (_) {}
+        } catch (_) { }
 
         return e.json(200, {
             success: true,
@@ -893,7 +887,7 @@ routerAdd("POST", "/api/admin/update-final-candidate-allocation", (e) => {
                 venue = body.final_venue;
                 order = parseInt(body.final_order, 10) || 0;
             }
-        } catch (_) {}
+        } catch (_) { }
 
         if (!participantId) {
             return e.json(400, { error: "Missing participantId parameter." });
@@ -953,7 +947,7 @@ routerAdd("POST", "/api/admin/update-final-candidate-allocation", (e) => {
 
                 const newList = [];
                 let inserted = false;
-                
+
                 cands.forEach((c, idx) => {
                     const currentPos = idx + 1;
                     if (currentPos === newOrder) {
@@ -986,7 +980,7 @@ routerAdd("POST", "/api/admin/update-final-candidate-allocation", (e) => {
                 tr.set("random_value", $security.randomString(10));
                 $app.save(tr);
             }
-        } catch (_) {}
+        } catch (_) { }
 
         return e.json(200, {
             success: true,

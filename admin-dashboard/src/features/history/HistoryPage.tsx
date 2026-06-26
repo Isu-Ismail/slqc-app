@@ -4,11 +4,9 @@ import styles from './HistoryPage.module.css';
 import { Users, Home, MapPin, Award, ShieldAlert } from 'lucide-react';
 
 export default function HistoryPage() {
-    const [years, setYears] = useState<string[]>([]);
     const [selectedYear, setSelectedYear] = useState<string>('');
     const [activeSubTab, setActiveSubTab] = useState<'participants' | 'institutions' | 'venues' | 'judges' | 'marks'>('participants');
     
-    const [loadingYears, setLoadingYears] = useState(false);
     const [loadingData, setLoadingData] = useState(false);
     const [error, setError] = useState('');
 
@@ -19,30 +17,36 @@ export default function HistoryPage() {
     const [judges, setJudges] = useState<any[]>([]);
     const [marks, setMarks] = useState<{ preliminary: any[]; final: any[] }>({ preliminary: [], final: [] });
 
-    // Fetch archived years on mount
-    useEffect(() => {
-        const fetchYears = async () => {
-            setLoadingYears(true);
-            try {
-                const res = await pb.send<string[]>('/api/admin/archive/years', { method: 'GET' });
-                setYears(res);
-                if (res.length > 0) {
-                    setSelectedYear(res[0]);
-                }
-            } catch (err: any) {
-                console.error('Failed to fetch archive years:', err);
-                setError('Failed to fetch archive years.');
-            } finally {
-                setLoadingYears(false);
-            }
-        };
+    // Client-side filtering states
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterCategory, setFilterCategory] = useState('');
+    const [filterGender, setFilterGender] = useState('');
+    const [filterStatus, setFilterStatus] = useState('');
+    const [filterFinalist, setFilterFinalist] = useState('');
+    const [filterRound, setFilterRound] = useState('');
+    const [filterRole, setFilterRole] = useState('');
 
-        fetchYears();
-    }, []);
+    // Reset filters on tab switch
+    useEffect(() => {
+        setSearchQuery('');
+        setFilterCategory('');
+        setFilterGender('');
+        setFilterStatus('');
+        setFilterFinalist('');
+        setFilterRound('');
+        setFilterRole('');
+    }, [activeSubTab]);
 
     // Fetch tab data when selected year or active sub-tab changes
     useEffect(() => {
-        if (!selectedYear) return;
+        if (!selectedYear) {
+            setParticipants([]);
+            setInstitutions([]);
+            setVenues([]);
+            setJudges([]);
+            setMarks({ preliminary: [], final: [] });
+            return;
+        }
 
         const fetchData = async () => {
             setLoadingData(true);
@@ -82,13 +86,86 @@ export default function HistoryPage() {
             } catch (err: any) {
                 console.error(`Failed to fetch ${activeSubTab}:`, err);
                 setError(`Failed to fetch archived data for ${activeSubTab}.`);
+                setParticipants([]);
+                setInstitutions([]);
+                setVenues([]);
+                setJudges([]);
+                setMarks({ preliminary: [], final: [] });
             } finally {
                 setLoadingData(false);
             }
         };
 
-        fetchData();
+        const handler = setTimeout(() => {
+            fetchData();
+        }, 300);
+
+        return () => clearTimeout(handler);
     }, [selectedYear, activeSubTab]);
+
+    // Apply filters client-side
+    const filteredParticipants = participants.filter(p => {
+        const matchesSearch = searchQuery.trim() === '' || 
+            (p.full_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (p.participant_id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (p.father_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (p.institution_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (p.institution_id || '').toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesCategory = filterCategory === '' || p.category === filterCategory;
+        const matchesGender = filterGender === '' || p.gender === filterGender;
+        const matchesStatus = filterStatus === '' || p.status === filterStatus;
+        const matchesFinalist = filterFinalist === '' || 
+            (filterFinalist === 'yes' && p.is_finalist) || 
+            (filterFinalist === 'no' && !p.is_finalist);
+        return matchesSearch && matchesCategory && matchesGender && matchesStatus && matchesFinalist;
+    });
+
+    const filteredInstitutions = institutions.filter(inst => {
+        const matchesSearch = searchQuery.trim() === '' || 
+            (inst.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (inst.institution_id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (inst.contact_person || '').toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesStatus = filterStatus === '' || inst.status === filterStatus;
+        return matchesSearch && matchesStatus;
+    });
+
+    const filteredVenues = venues.filter(v => {
+        const matchesSearch = searchQuery.trim() === '' || 
+            (v.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (v.category || '').toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesRound = filterRound === '' || 
+            (filterRound === 'preliminary' && (!v.round || v.round === 'preliminary')) ||
+            (filterRound === 'final' && v.round === 'final');
+        return matchesSearch && matchesRound;
+    });
+
+    const filteredJudges = judges.filter(j => {
+        const matchesSearch = searchQuery.trim() === '' || 
+            (j.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (j.phone_number || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (j.institution || '').toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesRole = filterRole === '' || 
+            (filterRole === 'final' && j.final_judge) ||
+            (filterRole === 'preliminary' && !j.final_judge);
+        return matchesSearch && matchesRole;
+    });
+
+    const filteredPreliminaryMarks = marks.preliminary.filter(m => {
+        const matchesSearch = searchQuery.trim() === '' || 
+            (m.participant_ref || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (m.judge_ref || '').toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesSearch;
+    });
+
+    const filteredFinalMarks = marks.final.filter(m => {
+        const matchesSearch = searchQuery.trim() === '' || 
+            (m.participant_ref || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (m.judge_ref || '').toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesSearch;
+    });
+
+    // Helper to check if any filters are active
+    const isFilterActive = searchQuery || filterCategory || filterGender || filterStatus || filterFinalist || filterRound || filterRole;
 
     return (
         <div className={styles.container}>
@@ -109,22 +186,15 @@ export default function HistoryPage() {
                 
                 {/* Year Selector */}
                 <div className={styles.yearSelectorArea}>
-                    <label className={styles.yearLabel}>Select Competition Year:</label>
-                    {loadingYears ? (
-                        <span className={styles.loadingText}>Loading years...</span>
-                    ) : years.length === 0 ? (
-                        <div className={styles.noArchiveBadge}>No archived years found</div>
-                    ) : (
-                        <select 
-                            value={selectedYear} 
-                            onChange={(e) => setSelectedYear(e.target.value)}
-                            className={styles.selectYear}
-                        >
-                            {years.map(yr => (
-                                <option key={yr} value={yr}>{yr}</option>
-                            ))}
-                        </select>
-                    )}
+                    <label className={styles.yearLabel}>Competition Year:</label>
+                    <input 
+                        type="text"
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(e.target.value.trim())}
+                        className={styles.selectYear}
+                        style={{ width: '150px' }}
+                        placeholder="Enter year..."
+                    />
                 </div>
             </div>
 
@@ -134,33 +204,157 @@ export default function HistoryPage() {
                     onClick={() => setActiveSubTab('participants')}
                     className={`${styles.tabBtn} ${activeSubTab === 'participants' ? styles.activeTab : ''}`}
                 >
-                    <Users size={16} /> Participants ({participants.length})
+                    <Users size={16} /> Participants ({isFilterActive && activeSubTab === 'participants' ? `${filteredParticipants.length} of ` : ''}{participants.length})
                 </button>
                 <button 
                     onClick={() => setActiveSubTab('institutions')}
                     className={`${styles.tabBtn} ${activeSubTab === 'institutions' ? styles.activeTab : ''}`}
                 >
-                    <Home size={16} /> Institutions ({institutions.length})
+                    <Home size={16} /> Institutions ({isFilterActive && activeSubTab === 'institutions' ? `${filteredInstitutions.length} of ` : ''}{institutions.length})
                 </button>
                 <button 
                     onClick={() => setActiveSubTab('venues')}
                     className={`${styles.tabBtn} ${activeSubTab === 'venues' ? styles.activeTab : ''}`}
                 >
-                    <MapPin size={16} /> Venues ({venues.length})
+                    <MapPin size={16} /> Venues ({isFilterActive && activeSubTab === 'venues' ? `${filteredVenues.length} of ` : ''}{venues.length})
                 </button>
                 <button 
                     onClick={() => setActiveSubTab('judges')}
                     className={`${styles.tabBtn} ${activeSubTab === 'judges' ? styles.activeTab : ''}`}
                 >
-                    <Users size={16} /> Judges ({judges.length})
+                    <Users size={16} /> Judges ({isFilterActive && activeSubTab === 'judges' ? `${filteredJudges.length} of ` : ''}{judges.length})
                 </button>
                 <button 
                     onClick={() => setActiveSubTab('marks')}
                     className={`${styles.tabBtn} ${activeSubTab === 'marks' ? styles.activeTab : ''}`}
                 >
-                    <Award size={16} /> Marks ({marks.preliminary.length + marks.final.length})
+                    <Award size={16} /> Marks ({isFilterActive && activeSubTab === 'marks' ? `${filteredPreliminaryMarks.length + filteredFinalMarks.length} of ` : ''}{marks.preliminary.length + marks.final.length})
                 </button>
             </div>
+
+            {/* Controls Bar for Filtering & Searching */}
+            {selectedYear && (
+                <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '16px',
+                    marginBottom: '24px',
+                    padding: '16px',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    alignItems: 'center'
+                }}>
+                    <div style={{ flex: '1 1 250px' }}>
+                        <input 
+                            type="text"
+                            placeholder={
+                                activeSubTab === 'participants' ? "Search name, ID, father, institution..." :
+                                activeSubTab === 'institutions' ? "Search name, ID, contact person..." :
+                                activeSubTab === 'venues' ? "Search name, category..." :
+                                activeSubTab === 'judges' ? "Search name, phone, institution..." :
+                                "Search participant ID or judge ID..."
+                            }
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className={styles.selectYear}
+                            style={{ width: '100%', boxSizing: 'border-box', height: '40px' }}
+                        />
+                    </div>
+
+                    {activeSubTab === 'participants' && (
+                        <>
+                            <select 
+                                value={filterCategory} 
+                                onChange={(e) => setFilterCategory(e.target.value)}
+                                className={styles.selectYear}
+                                style={{ flex: '1 1 150px', height: '40px' }}
+                            >
+                                <option value="">All Categories</option>
+                                <option value="5_juz">5 Juz</option>
+                                <option value="15_juz">15 Juz</option>
+                                <option value="30_juz">30 Juz</option>
+                            </select>
+
+                            <select 
+                                value={filterGender} 
+                                onChange={(e) => setFilterGender(e.target.value)}
+                                className={styles.selectYear}
+                                style={{ flex: '1 1 150px', height: '40px' }}
+                            >
+                                <option value="">All Genders</option>
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                            </select>
+
+                            <select 
+                                value={filterStatus} 
+                                onChange={(e) => setFilterStatus(e.target.value)}
+                                className={styles.selectYear}
+                                style={{ flex: '1 1 150px', height: '40px' }}
+                            >
+                                <option value="">All Statuses</option>
+                                <option value="pending">Pending</option>
+                                <option value="approved">Approved</option>
+                                <option value="rejected">Rejected</option>
+                                <option value="reapplied">Reapplied</option>
+                            </select>
+
+                            <select 
+                                value={filterFinalist} 
+                                onChange={(e) => setFilterFinalist(e.target.value)}
+                                className={styles.selectYear}
+                                style={{ flex: '1 1 150px', height: '40px' }}
+                            >
+                                <option value="">Finalist Status</option>
+                                <option value="yes">Finalists Only</option>
+                                <option value="no">Non-Finalists Only</option>
+                            </select>
+                        </>
+                    )}
+
+                    {activeSubTab === 'institutions' && (
+                        <select 
+                            value={filterStatus} 
+                            onChange={(e) => setFilterStatus(e.target.value)}
+                            className={styles.selectYear}
+                            style={{ flex: '1 1 150px', height: '40px' }}
+                        >
+                            <option value="">All Statuses</option>
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="reapplied">Reapplied</option>
+                        </select>
+                    )}
+
+                    {activeSubTab === 'venues' && (
+                        <select 
+                            value={filterRound} 
+                            onChange={(e) => setFilterRound(e.target.value)}
+                            className={styles.selectYear}
+                            style={{ flex: '1 1 150px', height: '40px' }}
+                        >
+                            <option value="">All Rounds</option>
+                            <option value="preliminary">Preliminary</option>
+                            <option value="final">Final</option>
+                        </select>
+                    )}
+
+                    {activeSubTab === 'judges' && (
+                        <select 
+                            value={filterRole} 
+                            onChange={(e) => setFilterRole(e.target.value)}
+                            className={styles.selectYear}
+                            style={{ flex: '1 1 150px', height: '40px' }}
+                        >
+                            <option value="">All Roles</option>
+                            <option value="preliminary">Preliminary Judges</option>
+                            <option value="final">Final Judges</option>
+                        </select>
+                    )}
+                </div>
+            )}
 
             {/* Content area */}
             <div className={styles.content}>
@@ -169,7 +363,7 @@ export default function HistoryPage() {
                 {loadingData ? (
                     <div className={styles.loadingSpinner}>Loading archive data...</div>
                 ) : !selectedYear ? (
-                    <div className={styles.emptyState}>Please select or create an archived year to begin browsing history.</div>
+                    <div className={styles.emptyState}>Please enter an archived year above to browse historical records.</div>
                 ) : (
                     <>
                         {/* ── PARTICIPANTS TAB ── */}
@@ -181,6 +375,7 @@ export default function HistoryPage() {
                                             <th>Participant ID</th>
                                             <th>Full Name</th>
                                             <th>Father's Name</th>
+                                            <th>Institution</th>
                                             <th>Category</th>
                                             <th>Gender</th>
                                             <th>WhatsApp</th>
@@ -189,16 +384,17 @@ export default function HistoryPage() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {participants.length === 0 ? (
+                                        {filteredParticipants.length === 0 ? (
                                             <tr>
-                                                <td colSpan={8} className={styles.noDataCell}>No participants archived for {selectedYear}</td>
+                                                <td colSpan={9} className={styles.noDataCell}>No matching participants found for {selectedYear}</td>
                                             </tr>
                                         ) : (
-                                            participants.map(p => (
+                                            filteredParticipants.map(p => (
                                                 <tr key={p.id}>
                                                     <td className={styles.boldCell}>{p.participant_id || 'N/A'}</td>
                                                     <td>{p.full_name}</td>
                                                     <td>{p.father_name}</td>
+                                                    <td>{p.institution_name || p.institution_id || <span style={{ color: '#94a3b8' }}>—</span>}</td>
                                                     <td>
                                                         <span className={styles.categoryBadge}>{p.category}</span>
                                                     </td>
@@ -234,12 +430,12 @@ export default function HistoryPage() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {institutions.length === 0 ? (
+                                        {filteredInstitutions.length === 0 ? (
                                             <tr>
-                                                <td colSpan={7} className={styles.noDataCell}>No institutions archived for {selectedYear}</td>
+                                                <td colSpan={7} className={styles.noDataCell}>No matching institutions found for {selectedYear}</td>
                                             </tr>
                                         ) : (
-                                            institutions.map(inst => (
+                                            filteredInstitutions.map(inst => (
                                                 <tr key={inst.id}>
                                                     <td className={styles.boldCell}>{inst.institution_id || 'N/A'}</td>
                                                     <td>{inst.name}</td>
@@ -275,12 +471,12 @@ export default function HistoryPage() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {venues.length === 0 ? (
+                                        {filteredVenues.length === 0 ? (
                                             <tr>
-                                                <td colSpan={6} className={styles.noDataCell}>No venues archived for {selectedYear}</td>
+                                                <td colSpan={6} className={styles.noDataCell}>No matching venues found for {selectedYear}</td>
                                             </tr>
                                         ) : (
-                                            venues.map(v => (
+                                            filteredVenues.map(v => (
                                                 <tr key={v.id}>
                                                     <td className={styles.boldCell}>{v.name}</td>
                                                     <td>{v.category}</td>
@@ -315,12 +511,12 @@ export default function HistoryPage() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {judges.length === 0 ? (
+                                        {filteredJudges.length === 0 ? (
                                             <tr>
-                                                <td colSpan={6} className={styles.noDataCell}>No judges archived for {selectedYear}</td>
+                                                <td colSpan={6} className={styles.noDataCell}>No matching judges found for {selectedYear}</td>
                                             </tr>
                                         ) : (
-                                            judges.map(j => (
+                                            filteredJudges.map(j => (
                                                 <tr key={j.id}>
                                                     <td className={styles.boldCell}>{j.name}</td>
                                                     <td>{j.phone_number}</td>
@@ -357,12 +553,12 @@ export default function HistoryPage() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {marks.preliminary.length === 0 ? (
+                                            {filteredPreliminaryMarks.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={7} className={styles.noDataCell}>No preliminary marks archived for {selectedYear}</td>
+                                                    <td colSpan={7} className={styles.noDataCell}>No matching preliminary marks found for {selectedYear}</td>
                                                 </tr>
                                             ) : (
-                                                marks.preliminary.map(m => (
+                                                filteredPreliminaryMarks.map(m => (
                                                     <tr key={m.id}>
                                                         <td>{m.participant_ref}</td>
                                                         <td>{m.judge_ref}</td>
@@ -403,12 +599,12 @@ export default function HistoryPage() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {marks.final.length === 0 ? (
+                                            {filteredFinalMarks.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={8} className={styles.noDataCell}>No final marks archived for {selectedYear}</td>
+                                                    <td colSpan={8} className={styles.noDataCell}>No matching final marks found for {selectedYear}</td>
                                                 </tr>
                                             ) : (
-                                                marks.final.map(m => (
+                                                filteredFinalMarks.map(m => (
                                                     <tr key={m.id}>
                                                         <td>{m.participant_ref}</td>
                                                         <td>Sitting {m.sitting_number}</td>

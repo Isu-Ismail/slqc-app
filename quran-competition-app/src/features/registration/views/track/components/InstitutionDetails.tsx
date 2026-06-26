@@ -14,26 +14,24 @@ interface InstitutionDetailsProps {
     };
     isInstEditMode: boolean;
     setIsInstEditMode: (val: boolean) => void;
-    instEditName: string;
-    setInstEditName: (val: string) => void;
-    instEditAddress: string;
-    setInstEditAddress: (val: string) => void;
-    instEditContactPerson: string;
-    setInstEditContactPerson: (val: string) => void;
-    instEditEmail: string;
-    setInstEditEmail: (val: string) => void;
-    instEditWhatsapp: string;
-    setInstEditWhatsapp: (val: string) => void;
-    instEditPhone: string;
-    setInstEditPhone: (val: string) => void;
-    instEditDocFile: File | null;
-    setInstEditDocFile: (val: File | null) => void;
-    instEditLocation: string;
-    setInstEditLocation: (val: string) => void;
-    instEditBuildingFile: File | null;
-    setInstEditBuildingFile: (val: File | null) => void;
-    isMinimized: boolean;
-    setIsMinimized: (val: boolean) => void;
+
+    // Updated structured fields
+    instEditName: string; setInstEditName: (val: string) => void;
+    instEditStreet: string; setInstEditStreet: (val: string) => void;
+    instEditPincode: string; setInstEditPincode: (val: string) => void;
+    instEditState: string; setInstEditState: (val: string) => void;
+    instEditDistrict: string; setInstEditDistrict: (val: string) => void;
+    instEditVillage: string; setInstEditVillage: (val: string) => void;
+
+    instEditContactPerson: string; setInstEditContactPerson: (val: string) => void;
+    instEditEmail: string; setInstEditEmail: (val: string) => void;
+    instEditWhatsapp: string; setInstEditWhatsapp: (val: string) => void;
+    instEditPhone: string; setInstEditPhone: (val: string) => void;
+    instEditDocFile: File | null; setInstEditDocFile: (val: File | null) => void;
+    instEditLocation: string; setInstEditLocation: (val: string) => void;
+    instEditBuildingFile: File | null; setInstEditBuildingFile: (val: File | null) => void;
+
+    isMinimized: boolean; setIsMinimized: (val: boolean) => void;
     handleSaveInstitutionChanges: () => void;
     loading: boolean;
     getStatusClass: (status: string) => string;
@@ -42,37 +40,19 @@ interface InstitutionDetailsProps {
     onRefresh?: () => Promise<boolean>;
 }
 
-export default function InstitutionDetails({
-    institutionData,
-    isInstEditMode,
-    setIsInstEditMode,
-    instEditName,
-    setInstEditName,
-    instEditAddress,
-    setInstEditAddress,
-    instEditContactPerson,
-    setInstEditContactPerson,
-    instEditEmail,
-    setInstEditEmail,
-    instEditWhatsapp,
-    setInstEditWhatsapp,
-    instEditPhone,
-    setInstEditPhone,
-    instEditDocFile,
-    setInstEditDocFile,
-    instEditLocation,
-    setInstEditLocation,
-    instEditBuildingFile,
-    setInstEditBuildingFile,
-    isMinimized,
-    setIsMinimized,
-    handleSaveInstitutionChanges,
-    loading,
-    getStatusClass,
-    onViewIndividual,
-    onDeleteIndividual,
-    onRefresh
-}: InstitutionDetailsProps) {
+export default function InstitutionDetails(props: InstitutionDetailsProps) {
+    const {
+        institutionData, isInstEditMode, setIsInstEditMode, instEditName, setInstEditName,
+        instEditStreet, setInstEditStreet, instEditPincode, setInstEditPincode,
+        instEditState, setInstEditState, instEditDistrict, setInstEditDistrict,
+        instEditVillage, setInstEditVillage, instEditContactPerson, setInstEditContactPerson,
+        instEditEmail, setInstEditEmail, instEditWhatsapp, setInstEditWhatsapp,
+        instEditPhone, setInstEditPhone, instEditDocFile, setInstEditDocFile,
+        instEditLocation, setInstEditLocation, instEditBuildingFile, setInstEditBuildingFile,
+        isMinimized, setIsMinimized, handleSaveInstitutionChanges, loading,
+        getStatusClass, onViewIndividual, onDeleteIndividual, onRefresh
+    } = props;
+
     const instFileInputRef = useRef<HTMLInputElement>(null);
     const instBuildingFileInputRef = useRef<HTMLInputElement>(null);
     const [printPreview, setPrintPreview] = useState<{ title: string; html: string } | null>(null);
@@ -80,6 +60,11 @@ export default function InstitutionDetails({
 
     const [isRefetching, setIsRefetching] = useState(false);
     const [refetchSuccess, setRefetchSuccess] = useState(false);
+
+    const getFileUrl = (recordId: string, filename: string) => {
+        // PocketBase file URL structure: /api/files/collectionName/recordId/filename
+        return `${import.meta.env.VITE_PB_URL}/api/files/institutions/${recordId}/${filename}`;
+    };
 
     const handleRefetch = async () => {
         if (!onRefresh) return;
@@ -115,12 +100,12 @@ export default function InstitutionDetails({
                             onClick={handleRefetch}
                             className={styles.btnSecondary}
                             disabled={loading || isRefetching}
-                            style={{ 
-                                padding: '4px 8px', 
-                                fontSize: '11px', 
-                                display: 'inline-flex', 
-                                alignItems: 'center', 
-                                gap: '4px', 
+                            style={{
+                                padding: '4px 8px',
+                                fontSize: '11px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
                                 height: '28px',
                                 backgroundColor: refetchSuccess ? '#ecfdf5' : undefined,
                                 color: refetchSuccess ? '#059669' : undefined,
@@ -239,9 +224,9 @@ export default function InstitutionDetails({
                             ) : (
                                 <div className={styles.filePreviewWrapper} style={{ paddingTop: '4px' }}>
                                     {institutionData.institution?.instituition_location ? (
-                                        <a 
-                                            href={institutionData.institution.instituition_location} 
-                                            target="_blank" 
+                                        <a
+                                            href={institutionData.institution.instituition_location}
+                                            target="_blank"
                                             rel="noopener noreferrer"
                                             className={styles.previewLink}
                                             style={{ fontSize: '13px' }}
@@ -259,9 +244,9 @@ export default function InstitutionDetails({
                             <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>Authenticity Document</label>
                             {!isInstEditMode && institutionData.institution?.document ? (
                                 <div className={styles.filePreviewWrapper}>
-                                    <a 
-                                        href={pb.files.getURL(institutionData.institution, institutionData.institution.document)} 
-                                        target="_blank" 
+                                    <a
+                                        href={getFileUrl(institutionData.institution.id, institutionData.institution.document)}
+                                        target="_blank"
                                         rel="noopener noreferrer"
                                         className={styles.previewLink}
                                         style={{ fontSize: '13px' }}
@@ -282,8 +267,8 @@ export default function InstitutionDetails({
                                             }
                                         }}
                                     />
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         className={styles.btnUpload}
                                         onClick={() => instFileInputRef.current?.click()}
                                     >
@@ -299,17 +284,16 @@ export default function InstitutionDetails({
                                 </div>
                             )}
                         </div>
-
+                        {/* 300 */}
                         <div className={styles.formGroup}>
                             <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>Building Proof Photo</label>
                             {!isInstEditMode && institutionData.institution?.instituition_building_proof ? (
                                 <div className={styles.filePreviewWrapper}>
-                                    <a 
-                                        href={pb.files.getURL(institutionData.institution, institutionData.institution.instituition_building_proof)} 
-                                        target="_blank" 
+                                    <a
+                                        href={getFileUrl(institutionData.institution.id, institutionData.institution.instituition_building_proof)}
+                                        target="_blank"
                                         rel="noopener noreferrer"
                                         className={styles.previewLink}
-                                        style={{ fontSize: '13px' }}
                                     >
                                         View Building Photo ↗
                                     </a>
@@ -327,8 +311,8 @@ export default function InstitutionDetails({
                                             }
                                         }}
                                     />
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         className={styles.btnUpload}
                                         onClick={() => instBuildingFileInputRef.current?.click()}
                                     >
@@ -345,37 +329,83 @@ export default function InstitutionDetails({
                             )}
                         </div>
 
-                        <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                            <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>Full Address</label>
-                            <textarea
-                                className={styles.formInput}
-                                style={{ minHeight: '50px', fontSize: '13px', fontFamily: 'inherit', resize: 'vertical', padding: '6px 10px' }}
-                                value={isInstEditMode ? instEditAddress : institutionData.institution?.address}
+
+                        {/* Row 1: 50/50 */}
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>Street Address</label>
+                            <input
+                                type="text" className={styles.formInput}
+                                value={isInstEditMode ? instEditStreet : (institutionData.institution?.street_address || '')}
                                 disabled={!isInstEditMode || institutionData.institution?.is_locked}
-                                onChange={(e) => setInstEditAddress(e.target.value)}
+                                onChange={(e) => setInstEditStreet(e.target.value)}
                             />
                         </div>
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>Pincode</label>
+                            <input
+                                type="text" className={styles.formInput}
+                                value={isInstEditMode ? instEditPincode : (institutionData.institution?.pincode || '')}
+                                disabled={!isInstEditMode || institutionData.institution?.is_locked}
+                                onChange={(e) => setInstEditPincode(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Row 2: 50/50 */}
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>District</label>
+                            <input
+                                type="text" className={styles.formInput}
+                                value={isInstEditMode ? instEditDistrict : (institutionData.institution?.district_name || '')}
+                                disabled={!isInstEditMode || institutionData.institution?.is_locked}
+                                onChange={(e) => setInstEditDistrict(e.target.value)}
+                            />
+                        </div>
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>Village / Locality</label>
+                            <input
+                                type="text" className={styles.formInput}
+                                value={isInstEditMode ? instEditVillage : (institutionData.institution?.village_name || '')}
+                                disabled={!isInstEditMode || institutionData.institution?.is_locked}
+                                onChange={(e) => setInstEditVillage(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Row 3: Full Width */}
+                        <div className={styles.formGroup} style={{ gridColumn: 'span 1' }}>
+                            <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>State</label>
+                            <input
+                                type="text" className={styles.formInput}
+                                value={isInstEditMode ? instEditState : (institutionData.institution?.state_name || '')}
+                                disabled={!isInstEditMode || institutionData.institution?.is_locked}
+                                onChange={(e) => setInstEditState(e.target.value)}
+                            />
+                        </div>
+
                     </div>
 
                     {!institutionData.institution?.is_locked && (
                         <div className={styles.detailsActions} style={{ margin: '16px 0', borderBottom: 'none' }}>
                             {isInstEditMode ? (
                                 <>
-                                    <button 
-                                        className={styles.btnSecondary} 
+                                    <button
+                                        className={styles.btnSecondary}
                                         style={{ padding: '6px 12px', fontSize: '13px' }}
                                         onClick={() => setIsInstEditMode(false)}
                                         disabled={loading}
                                     >
                                         Cancel
                                     </button>
-                                    <button 
-                                        className={styles.btnPrimary} 
+                                    <button
+                                        className={styles.btnPrimary}
                                         style={{ padding: '6px 12px', fontSize: '13px' }}
                                         onClick={handleSaveInstitutionChanges}
                                         disabled={loading || !(
                                             (instEditName || '').toString().trim() !== (institutionData.institution?.name || '').toString().trim() ||
-                                            (instEditAddress || '').toString().trim() !== (institutionData.institution?.address || '').toString().trim() ||
+                                            (instEditStreet || '').toString().trim() !== (institutionData.institution?.street_address || '').toString().trim() ||
+                                            (instEditPincode || '').toString().trim() !== (institutionData.institution?.pincode || '').toString().trim() ||
+                                            (instEditState || '').toString().trim() !== (institutionData.institution?.state_name || '').toString().trim() ||
+                                            (instEditDistrict || '').toString().trim() !== (institutionData.institution?.district_name || '').toString().trim() ||
+                                            (instEditVillage || '').toString().trim() !== (institutionData.institution?.village_name || '').toString().trim() ||
                                             (instEditContactPerson || '').toString().trim() !== (institutionData.institution?.contact_person || '').toString().trim() ||
                                             (instEditEmail || '').toString().trim() !== (institutionData.institution?.email || '').toString().trim() ||
                                             (instEditWhatsapp || '').toString().trim() !== (institutionData.institution?.whatsapp_number || '').toString().trim() ||
@@ -389,8 +419,8 @@ export default function InstitutionDetails({
                                     </button>
                                 </>
                             ) : (
-                                <button 
-                                    className={styles.btnPrimary} 
+                                <button
+                                    className={styles.btnPrimary}
                                     style={{ padding: '6px 12px', fontSize: '13px' }}
                                     onClick={() => setIsInstEditMode(true)}
                                 >

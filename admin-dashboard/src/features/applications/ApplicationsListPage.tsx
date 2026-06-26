@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { pb } from '../../api/db';
-import { RefreshCw, Search, ExternalLink, ChevronDown } from 'lucide-react';
+import { RefreshCw, Search, ExternalLink, ChevronDown, Eye } from 'lucide-react';
 import type { ParticipantsApplicationResponse, InstitutionsResponse } from '../../api/track';
 import { useApplicationsListRealtime } from '../../realtime/track';
 import styles from './ApplicationsListPage.module.css';
@@ -19,7 +19,7 @@ type CacheEntry<T> = {
 };
 
 const indivCache: Record<string, CacheEntry<ParticipantsApplicationResponse>> = {};
-const instCache:  Record<string, CacheEntry<InstitutionsResponse>>            = {};
+const instCache: Record<string, CacheEntry<InstitutionsResponse>> = {};
 
 function indivKey(search: string, cat: string, status: string, instId: string) {
     return `${search}|${cat}|${status}|${instId}`;
@@ -52,7 +52,7 @@ type AppTab = 'individual' | 'institution';
 function buildIndivSearchFilter(raw: string): string {
     const q = raw.trim().replace(/"/g, '\\"');
     const upper = q.toUpperCase();
-    if (upper.startsWith('APL-'))  return `participant_id = "${q}"`;
+    if (upper.startsWith('APL-')) return `participant_id = "${q}"`;
     if (upper.startsWith('INST-')) return `institution_ref.institution_id = "${q}"`;
     if (q.includes('@') && /\.[a-zA-Z]{2,}/.test(q.split('@')[1] || '')) return `email = "${q}"`;
     const digits = q.replace(/\D/g, '');
@@ -77,12 +77,12 @@ function buildInstSearchFilter(raw: string): string {
 // ─── Individual row ───────────────────────────────────────────────────────────
 const JUZ_LABELS: Record<string, string> = { '5_juz': '5 Juz', '15_juz': '15 Juz', '30_juz': '30 Juz' };
 
-function IndividualRow({ app, navigate }: { app: ParticipantsApplicationResponse; navigate: ReturnType<typeof useNavigate> }) {
+function IndividualRow({ app, navigate, isAdmin }: { app: ParticipantsApplicationResponse; navigate: ReturnType<typeof useNavigate>; isAdmin: boolean }) {
     const instData = (app as any).expand?.institution_ref as InstitutionsResponse | undefined;
     const catClass =
-        app.category === '5_juz'  ? styles.cat5  :
-        app.category === '15_juz' ? styles.cat15 :
-        app.category === '30_juz' ? styles.cat30 : '';
+        app.category === '5_juz' ? styles.cat5 :
+            app.category === '15_juz' ? styles.cat15 :
+                app.category === '30_juz' ? styles.cat30 : '';
     const juzLabel = app.juz_options ? getJuzLabel(app.juz_options) : (app.selected_juz || '');
     return (
         <tr className={styles.tableRow}>
@@ -94,23 +94,31 @@ function IndividualRow({ app, navigate }: { app: ParticipantsApplicationResponse
                     ? <span className={`${styles.categoryBadge} ${catClass}`}>
                         {JUZ_LABELS[app.category] || app.category}
                         {juzLabel ? ` (${juzLabel})` : ''}
-                      </span>
+                    </span>
                     : <span style={{ color: '#94a3b8' }}>—</span>}
             </td>
             <td>{app.allocated_venue || <span style={{ color: '#94a3b8' }}>—</span>}</td>
             <td><span className={`${styles.statusBadge} ${styles[app.status]}`}>{app.status.toUpperCase()}</span></td>
             <td>
-                <button className={styles.trackBtn}
-                    onClick={() => navigate(`/track?type=individual&query=${app.participant_id || app.id}`)}>
-                    <ExternalLink size={12} /> Track
-                </button>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                    <button className={styles.trackBtn}
+                        onClick={() => navigate(`/track?type=individual&query=${app.participant_id || app.id}`)}>
+                        <ExternalLink size={12} /> Track
+                    </button>
+                    {isAdmin && (
+                        <button className={styles.trackBtn} style={{ backgroundColor: '#f1f5f9', color: '#334155', borderColor: '#cbd5e1' }}
+                            onClick={() => navigate(`/approvals/${app.id}?type=individual&tab=history`)}>
+                            <Eye size={12} /> View
+                        </button>
+                    )}
+                </div>
             </td>
         </tr>
     );
 }
 
 // ─── Institution row ──────────────────────────────────────────────────────────
-function InstitutionRow({ inst, navigate }: { inst: InstitutionsResponse; navigate: ReturnType<typeof useNavigate> }) {
+function InstitutionRow({ inst, navigate, isAdmin }: { inst: InstitutionsResponse; navigate: ReturnType<typeof useNavigate>; isAdmin: boolean }) {
     return (
         <tr className={styles.tableRow}>
             <td className={styles.boldCell}>{inst.name}</td>
@@ -120,10 +128,18 @@ function InstitutionRow({ inst, navigate }: { inst: InstitutionsResponse; naviga
             <td>{inst.whatsapp_number || <span style={{ color: '#94a3b8' }}>—</span>}</td>
             <td><span className={`${styles.statusBadge} ${styles[inst.status]}`}>{inst.status.toUpperCase()}</span></td>
             <td>
-                <button className={styles.trackBtn}
-                    onClick={() => navigate(`/track?type=institution&query=${inst.institution_id || inst.id}`)}>
-                    <ExternalLink size={12} /> Track
-                </button>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                    <button className={styles.trackBtn}
+                        onClick={() => navigate(`/track?type=institution&query=${inst.institution_id || inst.id}`)}>
+                        <ExternalLink size={12} /> Track
+                    </button>
+                    {isAdmin && (
+                        <button className={styles.trackBtn} style={{ backgroundColor: '#f1f5f9', color: '#334155', borderColor: '#cbd5e1' }}
+                            onClick={() => navigate(`/approvals/${inst.id}?type=institution&tab=history`)}>
+                            <Eye size={12} /> View
+                        </button>
+                    )}
+                </div>
             </td>
         </tr>
     );
@@ -133,33 +149,37 @@ function InstitutionRow({ inst, navigate }: { inst: InstitutionsResponse; naviga
 export default function ApplicationsListPage() {
     const navigate = useNavigate();
 
+    // ── Evaluate Admin Context Status ─────────────────────────────────────────
+    const user = pb.authStore.model;
+    const isAdmin = !!user && (user.designation === 'admin' || user.collectionName === '_superusers');
+
     // ── Restore persisted state from sessionStorage ──────────────────────
-    const [activeTab,   setActiveTabState]  = useState<AppTab>(ss('apps_tab', 'individual'));
+    const [activeTab, setActiveTabState] = useState<AppTab>(ss('apps_tab', 'individual'));
 
-    const [indivSearch, setIndivSearch]     = useState<string>(ss('apps_i_search', ''));
-    const [indivCat,    setIndivCat]        = useState<string>(ss('apps_i_cat',    ''));
-    const [indivStatus, setIndivStatus]     = useState<string>(ss('apps_i_status', ''));
-    const [indivInst,   setIndivInst]       = useState<string>(ss('apps_i_inst',   ''));
-    const [indivBatch,  setIndivBatch]      = useState<BatchSize>(ss('apps_i_batch', 20));
+    const [indivSearch, setIndivSearch] = useState<string>(ss('apps_i_search', ''));
+    const [indivCat, setIndivCat] = useState<string>(ss('apps_i_cat', ''));
+    const [indivStatus, setIndivStatus] = useState<string>(ss('apps_i_status', ''));
+    const [indivInst, setIndivInst] = useState<string>(ss('apps_i_inst', ''));
+    const [indivBatch, setIndivBatch] = useState<BatchSize>(ss('apps_i_batch', 20));
 
-    const [institutions, setInstitutions]   = useState<{ id: string; name: string }[]>([]);
+    const [institutions, setInstitutions] = useState<{ id: string; name: string }[]>([]);
 
-    const [instSearch,  setInstSearch]      = useState<string>(ss('apps_inst_search', ''));
-    const [instStatus,  setInstStatus]      = useState<string>(ss('apps_inst_status', ''));
-    const [instBatch,   setInstBatch]       = useState<BatchSize>(ss('apps_inst_batch', 20));
+    const [instSearch, setInstSearch] = useState<string>(ss('apps_inst_search', ''));
+    const [instStatus, setInstStatus] = useState<string>(ss('apps_inst_status', ''));
+    const [instBatch, setInstBatch] = useState<BatchSize>(ss('apps_inst_batch', 20));
 
     // ── Display state ────────────────────────────────────────────────────
-    const [indivRows,   setIndivRows]       = useState<ParticipantsApplicationResponse[]>([]);
-    const [indivTotal,  setIndivTotal]      = useState(0);
-    const [indivLoaded, setIndivLoaded]     = useState(0);
+    const [indivRows, setIndivRows] = useState<ParticipantsApplicationResponse[]>([]);
+    const [indivTotal, setIndivTotal] = useState(0);
+    const [indivLoaded, setIndivLoaded] = useState(0);
 
-    const [instRows,    setInstRows]        = useState<InstitutionsResponse[]>([]);
-    const [instTotal,   setInstTotal]       = useState(0);
-    const [instLoaded,  setInstLoaded]      = useState(0);
+    const [instRows, setInstRows] = useState<InstitutionsResponse[]>([]);
+    const [instTotal, setInstTotal] = useState(0);
+    const [instLoaded, setInstLoaded] = useState(0);
 
-    const [loading,     setLoading]         = useState(false);
-    const [isSearching, setIsSearching]     = useState(false);
-    const [loadingMore, setLoadingMore]     = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [isSearching, setIsSearching] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
 
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -175,16 +195,14 @@ export default function ApplicationsListPage() {
     // ─── Helpers to check if a record matches current filters (for realtime) ──
     const indivMatchesFilter = useCallback((rec: ParticipantsApplicationResponse,
         search: string, cat: string, status: string): boolean => {
-        if (cat    && rec.category !== cat)    return false;
-        if (status && rec.status   !== status) return false;
+        if (cat && rec.category !== cat) return false;
+        if (status && rec.status !== status) return false;
         if (search.trim()) {
-            // const f = buildIndivSearchFilter(search.trim());
-            // Simple client-side check matching the same classifier logic
             const q = search.trim().toLowerCase();
             const upper = q.toUpperCase();
-            if (upper.startsWith('APL-'))  return rec.participant_id?.toLowerCase() === q;
-            if (upper.startsWith('INST-')) return false; // institution_ref join — skip client check, let it pass
-            if (q.includes('@'))           return rec.email?.toLowerCase() === q;
+            if (upper.startsWith('APL-')) return rec.participant_id?.toLowerCase() === q;
+            if (upper.startsWith('INST-')) return false;
+            if (q.includes('@')) return rec.email?.toLowerCase() === q;
             const digits = q.replace(/\D/g, '');
             if (digits === q && q.length > 10) return rec.aadhaar_number === q;
             if (digits === q && q.length >= 6) return rec.whatsapp_number === q;
@@ -200,7 +218,7 @@ export default function ApplicationsListPage() {
             const q = search.trim().toLowerCase();
             const upper = q.toUpperCase();
             if (upper.startsWith('INST-')) return rec.institution_id?.toLowerCase() === q;
-            if (q.includes('@'))           return rec.email?.toLowerCase() === q;
+            if (q.includes('@')) return rec.email?.toLowerCase() === q;
             const digits = q.replace(/\D/g, '');
             if (digits === q && q.length >= 6) return rec.whatsapp_number === q || (rec.phone_number || '') === q;
             return rec.name.toLowerCase().includes(q);
@@ -216,7 +234,7 @@ export default function ApplicationsListPage() {
         try {
             const filters: string[] = [];
             if (search.trim()) filters.push(buildIndivSearchFilter(search.trim()));
-            if (cat)    filters.push(`category = "${cat}"`);
+            if (cat) filters.push(`category = "${cat}"`);
             if (status) filters.push(`status = "${status}"`);
             if (instId) filters.push(`institution_ref = "${instId}"`);
 
@@ -302,21 +320,17 @@ export default function ApplicationsListPage() {
 
     // ─── Mount effect: load ────────────────────────────────────
     useEffect(() => {
-        // Fetch institutions
         pb.collection('institutions').getFullList({ fields: 'id,name', sort: 'name' })
             .then(data => setInstitutions(data.map(item => ({ id: item.id, name: item.name }))))
             .catch(err => console.error("Error fetching institutions:", err));
 
-        // Load from cache (or fetch if stale)
         initIndividuals(indivSearch, indivCat, indivStatus, indivInst, indivBatch);
         initInstitutions(instSearch, instStatus, instBatch);
 
-        // Allow filter effects to fire after first mount
         setTimeout(() => { isMounted.current = true; }, 0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // only once on mount
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-    // ── Smart realtime — no full re-fetch, do record-level updates ────
     const handleIndivEvent = (action: string, record: ParticipantsApplicationResponse) => {
         setIndivRows(prev => {
             let next: ParticipantsApplicationResponse[];
@@ -331,8 +345,6 @@ export default function ApplicationsListPage() {
                 next = [...prev];
                 next[idx] = record;
             } else {
-                // create — only prepend if it matches current filters
-                // Use the snapshot of current filter values via closure
                 next = prev;
                 setIndivSearch(search => {
                     setIndivCat(cat => {
@@ -348,11 +360,10 @@ export default function ApplicationsListPage() {
                     });
                     return search;
                 });
-                return prev; // return early, state set inside above
+                return prev;
             }
 
-            // Update cache
-            const key = indivKey('', '', '', ''); // invalidate broadly
+            const key = indivKey('', '', '', '');
             if (indivCache[key]) indivCache[key].timestamp = 0;
 
             return next;
@@ -373,7 +384,6 @@ export default function ApplicationsListPage() {
                 next = [...prev];
                 next[idx] = record;
             } else {
-                // create
                 setInstSearch(search => {
                     setInstStatus(status => {
                         if (instMatchesFilter(record, search, status)) {
@@ -395,38 +405,36 @@ export default function ApplicationsListPage() {
 
     useApplicationsListRealtime(handleIndivEvent, handleInstEvent);
 
-    // ─── Debounced re-fetch when individual filters change (skips mount) ──
     useEffect(() => {
         ssSet('apps_i_search', indivSearch);
-        ssSet('apps_i_cat',    indivCat);
+        ssSet('apps_i_cat', indivCat);
         ssSet('apps_i_status', indivStatus);
-        ssSet('apps_i_inst',   indivInst);
-        ssSet('apps_i_batch',  indivBatch);
+        ssSet('apps_i_inst', indivInst);
+        ssSet('apps_i_batch', indivBatch);
 
-        if (!isMounted.current) return; // skip first-mount fire
+        if (!isMounted.current) return;
         setIsSearching(true);
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
             fetchIndividuals(indivBatch, indivSearch, indivCat, indivStatus, indivInst);
         }, 400);
         return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [indivSearch, indivCat, indivStatus, indivInst, indivBatch]);
 
-    // ─── Debounced re-fetch when institution filters change (skips mount) ─
     useEffect(() => {
         ssSet('apps_inst_search', instSearch);
         ssSet('apps_inst_status', instStatus);
-        ssSet('apps_inst_batch',  instBatch);
+        ssSet('apps_inst_batch', instBatch);
 
-        if (!isMounted.current) return; // skip first-mount fire
+        if (!isMounted.current) return;
         setIsSearching(true);
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
             fetchInstitutions(instBatch, instSearch, instStatus);
         }, 400);
         return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [instSearch, instStatus, instBatch]);
 
 
@@ -450,12 +458,10 @@ export default function ApplicationsListPage() {
         }
     };
 
-    // ─── Derived ─────────────────────────────────────────────────────────
-    const currentTotal  = activeTab === 'individual' ? indivTotal  : instTotal;
+    const currentTotal = activeTab === 'individual' ? indivTotal : instTotal;
     const currentLoaded = activeTab === 'individual' ? indivLoaded : instLoaded;
-    const hasMore       = currentLoaded < currentTotal;
+    const hasMore = currentLoaded < currentTotal;
 
-    // ─── Render ───────────────────────────────────────────────────────────
     return (
         <div className={styles.pageContainer}>
 
@@ -589,7 +595,7 @@ export default function ApplicationsListPage() {
                                 </thead>
                                 <tbody>
                                     {indivRows.map(app => (
-                                        <IndividualRow key={app.id} app={app} navigate={navigate} />
+                                        <IndividualRow key={app.id} app={app} navigate={navigate} isAdmin={isAdmin} />
                                     ))}
                                 </tbody>
                             </table>
@@ -617,7 +623,7 @@ export default function ApplicationsListPage() {
                                 </thead>
                                 <tbody>
                                     {instRows.map(inst => (
-                                        <InstitutionRow key={inst.id} inst={inst} navigate={navigate} />
+                                        <InstitutionRow key={inst.id} inst={inst} navigate={navigate} isAdmin={isAdmin} />
                                     ))}
                                 </tbody>
                             </table>

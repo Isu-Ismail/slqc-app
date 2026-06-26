@@ -53,13 +53,13 @@ routerAdd("GET", "/api/public/track-institution", (e) => {
         const appList = [];
         for (let i = 0; i < applications.length; i++) {
             const app = applications[i];
-            
+
             let expandedApprover = null;
             const approvedBy = app.get("approved_by");
             if (approvedBy) {
                 try {
                     expandedApprover = $app.findRecordById("users", approvedBy);
-                } catch (_) {}
+                } catch (_) { }
             }
 
             appList.push({
@@ -119,7 +119,11 @@ routerAdd("GET", "/api/public/track-institution", (e) => {
                 id: institution.get("id"),
                 institution_id: institution.get("institution_id"),
                 name: institution.get("name"),
-                address: institution.get("address"),
+                street_address: institution.get("street_address"), // NEW
+                pincode: institution.get("pincode"),               // NEW
+                state_name: institution.get("state_name"),         // NEW
+                district_name: institution.get("district_name"),   // NEW
+                village_name: institution.get("village_name"),     // NEW
                 contact_person: institution.get("contact_person"),
                 email: institution.get("email"),
                 whatsapp_number: institution.get("whatsapp_number"),
@@ -132,6 +136,8 @@ routerAdd("GET", "/api/public/track-institution", (e) => {
                 rejection_reason: institution.get("rejection_reason"),
                 passcode: institution.get("passcode")
             },
+
+
             applications: appList
         });
 
@@ -146,7 +152,11 @@ routerAdd("POST", "/api/public/update-institution", (e) => {
         id: "",
         passcode: "",
         name: "",
-        address: "",
+        street_address: "",
+        pincode: "",
+        state_name: "",
+        district_name: "",
+        village_name: "",
         contact_person: "",
         email: "",
         whatsapp_number: "",
@@ -179,9 +189,11 @@ routerAdd("POST", "/api/public/update-institution", (e) => {
         }
 
         // List of fields that public institutions are allowed to edit
+        // Inside routerAdd("POST", "/api/public/update-institution", ...)
+        // Update the 'editableFields' list:
         const editableFields = [
-            "name", "address", "contact_person", "email", "whatsapp_number", "phone_number",
-            "instituition_location"
+            "name", "street_address", "pincode", "state_name", "district_name", "village_name",
+            "contact_person", "email", "whatsapp_number", "phone_number", "instituition_location"
         ];
 
         // Apply string field updates if present in data
@@ -204,7 +216,7 @@ routerAdd("POST", "/api/public/update-institution", (e) => {
                     if (files && files.length > 0) {
                         return files[0];
                     }
-                } catch (_) {}
+                } catch (_) { }
                 return null;
             };
 
@@ -229,7 +241,7 @@ routerAdd("POST", "/api/public/update-institution", (e) => {
                 tr.set("random_value", $security.randomString(10));
                 $app.save(tr);
             }
-        } catch (_) {}
+        } catch (_) { }
 
         // Fetch updated record to return
         const updated = $app.findRecordById("institutions", id);
@@ -299,7 +311,7 @@ routerAdd("GET", "/api/public/verify-institution", (e) => {
                     }
                 }
             }
-        } catch (_) {}
+        } catch (_) { }
 
         return e.json(200, {
             id: record.get("id"),
@@ -383,7 +395,7 @@ routerAdd("POST", "/api/public/institution/delete-application", (e) => {
                     }
                 }
             }
-        } catch (_) {}
+        } catch (_) { }
 
         if (!Array.isArray(appsVal)) {
             appsVal = [];
@@ -416,7 +428,7 @@ routerAdd("POST", "/api/public/institution/delete-application", (e) => {
                 tr.set("random_value", $security.randomString(10));
                 $app.save(tr);
             }
-        } catch (_) {}
+        } catch (_) { }
 
         return e.json(200, { success: true, message: "Application deleted successfully." });
 

@@ -511,7 +511,7 @@ export default function FinalistsPage() {
         return autoSortedFinalLeaderboard.indexOf(a) - autoSortedFinalLeaderboard.indexOf(b);
     });
 
-    const rankingsIssued = winnersData?.items?.some(item => (item.final_ranking || 0) > 0);
+    const rankingsIssued = !!winnersData?.items?.some(item => (item.final_ranking || 0) > 0);
 
     const getTieBreakerReason = (item: LeaderboardItem) => {
         const tiedGroup = autoSortedFinalLeaderboard.filter(

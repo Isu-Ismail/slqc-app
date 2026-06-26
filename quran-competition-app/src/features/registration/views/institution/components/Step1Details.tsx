@@ -4,8 +4,16 @@ import styles from '../InstitutionRegisterPage.module.css';
 interface Step1DetailsProps {
     name: string;
     setName: (val: string) => void;
-    address: string;
-    setAddress: (val: string) => void;
+    streetAddress: string;
+    setStreetAddress: (val: string) => void;
+    pincode: string;
+    setPincode: (val: string) => void;
+    stateName: string;
+    setStateName: (val: string) => void;
+    districtName: string;
+    setDistrictName: (val: string) => void;
+    villageName: string;
+    setVillageName: (val: string) => void;
     contactPerson: string;
     setContactPerson: (val: string) => void;
     email: string;
@@ -32,29 +40,49 @@ const generateCaptchaText = (): string => {
 };
 
 export default function Step1Details({
-    name,
-    setName,
-    address,
-    setAddress,
-    contactPerson,
-    setContactPerson,
-    email,
-    setEmail,
-    whatsapp,
-    setWhatsapp,
-    phone,
-    setPhone,
-    passcode,
-    setPasscode,
-    confirmPasscode,
-    setConfirmPasscode,
-    isVerified,
-    setIsVerified
+    name, setName,
+    streetAddress, setStreetAddress,
+    pincode, setPincode,
+    stateName, setStateName,
+    districtName, setDistrictName,
+    villageName, setVillageName,
+    contactPerson, setContactPerson,
+    email, setEmail,
+    whatsapp, setWhatsapp,
+    phone, setPhone,
+    passcode, setPasscode,
+    confirmPasscode, setConfirmPasscode,
+    isVerified, setIsVerified
 }: Step1DetailsProps) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const localityRef = useRef<HTMLDivElement | null>(null);
+
     const [captchaText, setCaptchaText] = useState<string>('');
     const [userAnswer, setUserAnswer] = useState<string>('');
 
+    // --- LIVE API LOCATION STATES ---
+    const [availableVillages, setAvailableVillages] = useState<string[]>([]);
+    const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+    const [pincodeError, setPincodeError] = useState<string>('');
+    const [isLocalityOpen, setIsLocalityOpen] = useState(false);
+
+    // Handle click outside to close the custom locality dropdown
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (localityRef.current && !localityRef.current.contains(event.target as Node)) {
+                setIsLocalityOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Filter villages based on user typing
+    const filteredVillages = availableVillages.filter(v =>
+        v.toLowerCase().includes(villageName.toLowerCase())
+    );
+
+    // --- CAPTCHA LOGIC ---
     const handleRefresh = () => {
         const text = generateCaptchaText();
         setCaptchaText(text);
@@ -62,9 +90,7 @@ export default function Step1Details({
         setIsVerified(false);
     };
 
-    useEffect(() => {
-        handleRefresh();
-    }, []);
+    useEffect(() => { handleRefresh(); }, []);
 
     const drawCaptcha = (text: string) => {
         const canvas = canvasRef.current;
@@ -111,19 +137,53 @@ export default function Step1Details({
     };
 
     useEffect(() => {
-        if (captchaText) {
-            drawCaptcha(captchaText);
-        }
+        if (captchaText) drawCaptcha(captchaText);
     }, [captchaText]);
 
     const handleAnswerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
         setUserAnswer(val);
+        setIsVerified(val.trim().toUpperCase() === captchaText);
+    };
 
-        if (val.trim().toUpperCase() === captchaText) {
-            setIsVerified(true);
-        } else {
-            setIsVerified(false);
+    // --- LIVE PINCODE FETCH LOGIC ---
+    const handlePincodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const code = e.target.value.replace(/\D/g, '');
+        setPincode(code);
+
+        // Reset dependent fields when the user types
+        setStateName('');
+        setDistrictName('');
+        setVillageName('');
+        setAvailableVillages([]);
+        setPincodeError('');
+
+        if (code.length === 6) {
+            setIsLoadingLocation(true);
+            try {
+                const response = await fetch(`https://api.postalpincode.in/pincode/${code}`);
+                const data = await response.json();
+
+                if (data && data[0] && data[0].Status === "Success") {
+                    const postOffices = data[0].PostOffice;
+
+                    if (postOffices && postOffices.length > 0) {
+                        setStateName(postOffices[0].State);
+                        setDistrictName(postOffices[0].District);
+
+                        // Extract unique village names
+                        const villages = Array.from(new Set(postOffices.map((po: any) => po.Name))) as string[];
+                        setAvailableVillages(villages);
+                    }
+                } else {
+                    setPincodeError("Invalid Pincode or no data found.");
+                }
+            } catch (error) {
+                console.error("Failed to fetch location data", error);
+                setPincodeError("Network error. Please try again.");
+            } finally {
+                setIsLoadingLocation(false);
+            }
         }
     };
 
@@ -141,31 +201,154 @@ export default function Step1Details({
                 />
             </div>
 
+            {/* --- ADDRESS SECTION --- */}
             <div className={styles.inputGroup}>
-                <label className={styles.label}>Full Address *</label>
-                <textarea
-                    className={styles.textarea}
-                    placeholder="Enter full postal address of the institution"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    required
-                />
-            </div>
-
-            <div className={styles.inputGroup}>
-                <label className={styles.label}>Contact Person Name *</label>
+                <label className={styles.label}>Door No, Building, & Street *</label>
                 <input
                     type="text"
                     className={styles.input}
-                    placeholder="Name of representative or admin"
-                    value={contactPerson}
-                    onChange={(e) => setContactPerson(e.target.value)}
+                    placeholder="e.g. 12B, School Street, North Zone"
+                    value={streetAddress}
+                    onChange={(e) => setStreetAddress(e.target.value)}
                     required
                 />
             </div>
 
-            <div className={styles.inputRow}>
+            <div className={styles.inputRow} style={{ display: 'flex', gap: '15px' }}>
+                <div className={styles.inputGroup} style={{ flex: 1 }}>
+                    <label className={styles.label}>Pincode *</label>
+                    <input
+                        type="text"
+                        className={styles.input}
+                        placeholder="6-digit pincode"
+                        maxLength={6}
+                        value={pincode}
+                        onChange={handlePincodeChange}
+                        required
+                    />
+                    {isLoadingLocation && <small style={{ color: '#666', marginTop: '4px' }}>Fetching location...</small>}
+                    {pincodeError && <small style={{ color: 'red', marginTop: '4px' }}>{pincodeError}</small>}
+                </div>
+
+                <div className={styles.inputGroup} style={{ flex: 1 }}>
+                    <label className={styles.label}>District</label>
+                    <input
+                        type="text"
+                        className={styles.input}
+                        value={districtName}
+                        placeholder="Auto-filled by Pincode"
+                        disabled
+                        style={{ backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
+                    />
+                </div>
+            </div>
+
+            <div className={styles.inputRow} style={{ display: 'flex', gap: '15px' }}>
+
+                <div className={styles.inputGroup} style={{ flex: 1 }} ref={localityRef}>
+                    <label className={styles.label}>Village / Locality *</label>
+
+                    {/* Wrap ONLY the input and dropdown in a relative container and force it to 100% width */}
+                    <div style={{ position: 'relative', width: '100%' }}>
+                        <input
+                            type="text"
+                            className={styles.input}
+                            placeholder={availableVillages.length === 0 ? "Enter pincode first" : "Search locality..."}
+                            value={villageName}
+                            onChange={(e) => {
+                                setVillageName(e.target.value);
+                                setIsLocalityOpen(true);
+                            }}
+                            onFocus={() => {
+                                if (availableVillages.length > 0) setIsLocalityOpen(true);
+                            }}
+                            disabled={availableVillages.length === 0}
+                            required
+                            autoComplete="off"
+                            style={{
+                                backgroundColor: availableVillages.length === 0 ? '#f0f0f0' : 'white',
+                                width: '100%',
+                                boxSizing: 'border-box' // Ensures padding does not break the 100% width
+                            }}
+                        />
+
+                        {isLocalityOpen && (
+                            <ul style={{
+                                position: 'absolute',
+                                top: 'calc(100% + 4px)',
+                                left: 0,
+                                width: '100%', // Forces the list to be exactly the width of the input wrapper
+                                boxSizing: 'border-box', // Prevents border width from overflowing
+                                margin: '0',
+                                padding: '0',
+                                listStyle: 'none',
+                                backgroundColor: '#fff',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '6px',
+                                maxHeight: '180px',
+                                overflowY: 'auto',
+                                zIndex: 1000,
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                            }}>
+                                {filteredVillages.length > 0 ? (
+                                    filteredVillages.map((village, index) => (
+                                        <li
+                                            key={index}
+                                            onClick={() => {
+                                                setVillageName(village);
+                                                setIsLocalityOpen(false);
+                                            }}
+                                            style={{
+                                                padding: '10px 12px',
+                                                cursor: 'pointer',
+                                                borderBottom: index === filteredVillages.length - 1 ? 'none' : '1px solid #f3f4f6',
+                                                fontSize: '14px',
+                                                transition: 'background-color 0.15s ease'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
+                                        >
+                                            {village}
+                                        </li>
+                                    ))
+                                ) : (
+                                    <li style={{ padding: '10px 12px', color: '#6b7280', fontSize: '14px' }}>
+                                        No matching locality found
+                                    </li>
+                                )}
+                            </ul>
+                        )}
+                    </div>
+                </div>
+
+                <div className={styles.inputGroup} style={{ flex: 1 }}>
+                    <label className={styles.label}>State</label>
+                    <input
+                        type="text"
+                        className={styles.input}
+                        value={stateName}
+                        placeholder="Auto-filled by Pincode"
+                        disabled
+                        style={{ backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
+                    />
+                </div>
+            </div>
+            {/* ----------------------- */}
+            <div className={styles.inputRow} style={{ display: 'flex', gap: '15px' }}>
                 <div className={styles.inputGroup}>
+                    <label className={styles.label}>Contact Person Name *</label>
+                    <input
+                        type="text"
+                        className={styles.input}
+                        placeholder="Name of representative or admin"
+                        value={contactPerson}
+                        onChange={(e) => setContactPerson(e.target.value)}
+                        required
+                    />
+                </div>
+
+
+                <div className={styles.inputGroup} >
                     <label className={styles.label}>Email Address *</label>
                     <input
                         type="email"
@@ -176,7 +359,9 @@ export default function Step1Details({
                         required
                     />
                 </div>
-                <div className={styles.inputGroup}>
+            </div>
+            <div className={styles.inputRow} style={{ display: 'flex', gap: '15px' }}>
+                <div className={styles.inputGroup} style={{ flex: 1 }}>
                     <label className={styles.label}>WhatsApp Number *</label>
                     <input
                         type="tel"
@@ -188,21 +373,23 @@ export default function Step1Details({
                         required
                     />
                 </div>
+
+
+                <div className={styles.inputGroup} style={{ flex: 1 }}>
+                    <label className={styles.label}>Phone Number (Optional)</label>
+                    <input
+                        type="tel"
+                        className={styles.input}
+                        placeholder="Alternate contact phone number"
+                        value={phone}
+                        maxLength={10}
+                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                    />
+                </div>
             </div>
 
-            <div className={styles.inputGroup}>
-                <label className={styles.label}>Phone Number (Optional)</label>
-                <input
-                    type="tel"
-                    className={styles.input}
-                    placeholder="Alternate contact phone number"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                />
-            </div>
-
-            <div className={styles.inputRow}>
-                <div className={styles.inputGroup}>
+            <div className={styles.inputRow} style={{ display: 'flex', gap: '15px' }}>
+                <div className={styles.inputGroup} style={{ flex: 1 }}>
                     <label className={styles.label}>Passcode *</label>
                     <input
                         type="password"
@@ -213,7 +400,7 @@ export default function Step1Details({
                         required
                     />
                 </div>
-                <div className={styles.inputGroup}>
+                <div className={styles.inputGroup} style={{ flex: 1 }}>
                     <label className={styles.label}>Confirm Passcode *</label>
                     <input
                         type="password"
@@ -235,17 +422,17 @@ export default function Step1Details({
                 </div>
                 <p className={styles.hint} style={{ margin: 0 }}>Solve the security code to prove you are a human representative:</p>
                 <div className={styles.captchaBody}>
-                    <canvas 
-                        ref={canvasRef} 
-                        width={160} 
-                        height={46} 
+                    <canvas
+                        ref={canvasRef}
+                        width={160}
+                        height={46}
                         className={styles.captchaCanvas}
                     />
 
                     {!isVerified && (
-                        <button 
-                            type="button" 
-                            className={styles.refreshBtn} 
+                        <button
+                            type="button"
+                            className={styles.refreshBtn}
                             onClick={handleRefresh}
                             title="Refresh Captcha"
                         >

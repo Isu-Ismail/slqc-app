@@ -41,6 +41,8 @@ export default function MarkEntryPage() {
     const [hasExistingMarks, setHasExistingMarks] = useState<boolean>(false);
     const [isLocked, setIsLocked] = useState<boolean>(true);
 
+    const isVenueIncharge = user?.designation === 'venue Incharge' || user?.designation === 'coordinators';
+
     // Initial load: Fetch valid venues to populate selection drop-down matrix
     useEffect(() => {
         const loadInitialConfig = async () => {
@@ -49,19 +51,34 @@ export default function MarkEntryPage() {
                     sort: 'name'
                 });
                 setVenues(records);
-                if (records.length > 0) {
-                    setSelectedVenue('all');
+                if (isVenueIncharge) {
+                    const assignedVenue = records.find(r => r.incharge === user?.id && r.round === currentRound);
+                    if (assignedVenue) {
+                        setSelectedVenue(assignedVenue.name);
+                    } else {
+                        setSelectedVenue('');
+                    }
+                } else {
+                    if (records.length > 0) {
+                        setSelectedVenue('all');
+                    }
                 }
             } catch (err) {
                 console.error('Failed to load layout venues config:', err);
             }
         };
         loadInitialConfig();
-    }, []);
+    }, [isVenueIncharge, user?.id]);
 
     // Load students status for selected venue and round
     const loadVenueData = async () => {
-        if (!selectedVenue) return;
+        if (!selectedVenue) {
+            setPendingStudents([]);
+            setCompletedStudents([]);
+            setSelectedStudent(null);
+            setScoringValues({});
+            return;
+        }
         setLoading(true);
         try {
             const data = await marksApi.getStudentsStatus(selectedVenue, currentRound);
@@ -379,6 +396,17 @@ export default function MarkEntryPage() {
         });
     };
 
+    const handleSetRound = (round: 'preliminary' | 'final') => {
+        setCurrentRound(round);
+        setSelectedStudent(null);
+        if (isVenueIncharge) {
+            const assignedVenue = venues.find(v => v.incharge === user?.id && v.round === round);
+            setSelectedVenue(assignedVenue ? assignedVenue.name : '');
+        } else {
+            setSelectedVenue('all');
+        }
+    };
+
     // Filter students for search bar auto-complete
     const allStudents = [...pendingStudents, ...completedStudents];
     const filteredSearchStudents = searchQuery.trim() !== ''
@@ -388,11 +416,11 @@ export default function MarkEntryPage() {
         )
         : [];
 
-    if (user?.designation !== 'admin' && user?.designation !== 'coordinators') {
+    if (user?.designation !== 'admin' && user?.designation !== 'coordinators' && user?.designation !== 'venue Incharge') {
         return (
             <div className={styles.restricted}>
                 <h2>Access Denied</h2>
-                <p>Only Administrators and designated Evaluators can view or append tournament scores.</p>
+                <p>Only Administrators, Evaluators, and Venue Incharges can view or append tournament scores.</p>
             </div>
         );
     }
@@ -425,14 +453,14 @@ export default function MarkEntryPage() {
                         <div style={{ display: 'flex', gap: '8px' }}>
                             <button
                                 type="button"
-                                onClick={() => { setCurrentRound('preliminary'); setSelectedStudent(null); setSelectedVenue('all'); }}
+                                onClick={() => handleSetRound('preliminary')}
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '8px', fontWeight: '700', border: '1px solid ' + (currentRound === 'preliminary' ? '#059669' : '#cbd5e1'), backgroundColor: currentRound === 'preliminary' ? '#f0fdf4' : '#ffffff', color: currentRound === 'preliminary' ? '#065f46' : '#475569', cursor: 'pointer', fontSize: '14px' }}
                             >
                                 <Zap size={15} /> Preliminary Round
                             </button>
                             <button
                                 type="button"
-                                onClick={() => { setCurrentRound('final'); setSelectedStudent(null); setSelectedVenue('all'); }}
+                                onClick={() => handleSetRound('final')}
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '8px', fontWeight: '700', border: '1px solid ' + (currentRound === 'final' ? '#059669' : '#cbd5e1'), backgroundColor: currentRound === 'final' ? '#f0fdf4' : '#ffffff', color: currentRound === 'final' ? '#065f46' : '#475569', cursor: 'pointer', fontSize: '14px' }}
                             >
                                 <Award size={15} /> Final Round
@@ -452,9 +480,11 @@ export default function MarkEntryPage() {
                                 <select
                                     value={selectedVenue}
                                     onChange={(e) => { setSelectedVenue(e.target.value); setSelectedStudent(null); }}
-                                    style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', minWidth: '180px', outline: 'none', fontSize: '14px', fontWeight: '600' }}
+                                    disabled={isVenueIncharge}
+                                    style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: isVenueIncharge ? '#f1f5f9' : '#ffffff', minWidth: '180px', outline: 'none', fontSize: '14px', fontWeight: '600', cursor: isVenueIncharge ? 'not-allowed' : 'default' }}
                                 >
-                                    <option value="all">All Venues</option>
+                                    {!isVenueIncharge && <option value="all">All Venues</option>}
+                                    {(!selectedVenue || selectedVenue === '') && <option value="">No Venue Allocated</option>}
                                     {venues
                                         .filter(v => v.round === currentRound)
                                         .map(v => (
@@ -464,12 +494,14 @@ export default function MarkEntryPage() {
                                 </select>
                             </div>
 
-                            <button
-                                onClick={() => setView('template_editor')}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 20px', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '14px', cursor: 'pointer', color: '#475569', fontWeight: '700', transition: 'all 0.2s' }}
-                            >
-                                <Sliders size={16} /> Configure Templates
-                            </button>
+                            {!isVenueIncharge && (
+                                <button
+                                    onClick={() => setView('template_editor')}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 20px', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '14px', cursor: 'pointer', color: '#475569', fontWeight: '700', transition: 'all 0.2s' }}
+                                >
+                                    <Sliders size={16} /> Configure Templates
+                                </button>
+                            )}
                         </div>
                     </div>
 

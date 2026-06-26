@@ -75,7 +75,11 @@ routerAdd("GET", "/api/admin/pending-approvals", (e) => {
                 item.email = r.get("email");
                 item.whatsapp_number = r.get("whatsapp_number");
                 item.phone_number = r.get("phone_number");
-                item.address = r.get("address");
+                item.street_address = r.get("street_address");
+                item.pincode = r.get("pincode");
+                item.state_name = r.get("state_name");
+                item.district_name = r.get("district_name");
+                item.village_name = r.get("village_name");
             }
 
             list.push(item);
@@ -90,7 +94,7 @@ routerAdd("GET", "/api/admin/pending-approvals", (e) => {
 
 // ── 1. Admin Approve Endpoint ────────────────────────────────────────────────
 routerAdd("POST", "/api/admin/approve", (e) => {
-    const recalculateStats = function($app) {
+    const recalculateStats = function ($app) {
         try {
             const allParticipants = $app.findRecordsByFilter("participants_application", "id != ''", "", 9999999, 0);
             const totalCount = allParticipants ? allParticipants.length : 0;
@@ -113,19 +117,19 @@ routerAdd("POST", "/api/admin/approve", (e) => {
                 const r = $app.findFirstRecordByData("metadata", "key", "total_applicant");
                 r.set("value", totalCount);
                 $app.save(r);
-            } catch (_) {}
+            } catch (_) { }
 
             try {
                 const r = $app.findFirstRecordByData("metadata", "key", "today_count");
                 r.set("value", todayCount);
                 $app.save(r);
-            } catch (_) {}
+            } catch (_) { }
 
             try {
                 const r = $app.findFirstRecordByData("metadata", "key", "institution_count");
                 r.set("value", instCount);
                 $app.save(r);
-            } catch (_) {}
+            } catch (_) { }
         } catch (err) {
             console.error("Failed to recalculate stats: " + err);
         }
@@ -185,7 +189,7 @@ routerAdd("POST", "/api/admin/approve", (e) => {
                     0,
                     { cat: cat }
                 );
-                
+
                 let maxId = startId - 1;
                 for (let i = 0; i < activeRecords.length; i++) {
                     const pidStr = activeRecords[i].get("participant_id");
@@ -259,7 +263,7 @@ routerAdd("POST", "/api/admin/approve", (e) => {
                 tr.set("random_value", $security.randomString(10));
                 $app.save(tr);
             }
-        } catch (_) {}
+        } catch (_) { }
 
         // Delete lock if present
         try {
@@ -267,7 +271,7 @@ routerAdd("POST", "/api/admin/approve", (e) => {
             if (locks && locks.length > 0) {
                 $app.delete(locks[0]);
             }
-        } catch (_) {}
+        } catch (_) { }
 
         // Enqueue approval confirmation email
         const email = record.get("email");
@@ -343,7 +347,7 @@ routerAdd("POST", "/api/admin/approve", (e) => {
 
 // ── 2. Admin Reject Endpoint ─────────────────────────────────────────────────
 routerAdd("POST", "/api/admin/reject", (e) => {
-    const recalculateStats = function($app) {
+    const recalculateStats = function ($app) {
         try {
             const allParticipants = $app.findRecordsByFilter("participants_application", "id != ''", "", 9999999, 0);
             const totalCount = allParticipants ? allParticipants.length : 0;
@@ -366,19 +370,19 @@ routerAdd("POST", "/api/admin/reject", (e) => {
                 const r = $app.findFirstRecordByData("metadata", "key", "total_applicant");
                 r.set("value", totalCount);
                 $app.save(r);
-            } catch (_) {}
+            } catch (_) { }
 
             try {
                 const r = $app.findFirstRecordByData("metadata", "key", "today_count");
                 r.set("value", todayCount);
                 $app.save(r);
-            } catch (_) {}
+            } catch (_) { }
 
             try {
                 const r = $app.findFirstRecordByData("metadata", "key", "institution_count");
                 r.set("value", instCount);
                 $app.save(r);
-            } catch (_) {}
+            } catch (_) { }
         } catch (err) {
             console.error("Failed to recalculate stats: " + err);
         }
@@ -432,7 +436,7 @@ routerAdd("POST", "/api/admin/reject", (e) => {
                 tr.set("random_value", $security.randomString(10));
                 $app.save(tr);
             }
-        } catch (_) {}
+        } catch (_) { }
 
         // Delete lock if present
         try {
@@ -440,7 +444,7 @@ routerAdd("POST", "/api/admin/reject", (e) => {
             if (locks && locks.length > 0) {
                 $app.delete(locks[0]);
             }
-        } catch (_) {}
+        } catch (_) { }
 
         // Enqueue rejection email
         const email = record.get("email");
@@ -558,7 +562,7 @@ routerAdd("POST", "/api/admin/toggle-lock", (e) => {
                 tr.set("random_value", $security.randomString(10));
                 $app.save(tr);
             }
-        } catch (_) {}
+        } catch (_) { }
 
         return e.json(200, {
             success: true,

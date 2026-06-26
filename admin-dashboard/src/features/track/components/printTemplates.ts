@@ -503,7 +503,7 @@ export function generateAttendanceSheetHTML(
             </table>
         </div>`;
     }).join('\n');
-
+    const currentYear = new Date().getFullYear();
     const serialNum = institution.institution_id || 'INST-01';
     const muallimName = institution.contact_person || '—';
     const muallimPhone = institution.phone_number || institution.whatsapp_number || '—';
@@ -516,7 +516,7 @@ export function generateAttendanceSheetHTML(
             
             <div class="main-border-box">
                 <div class="org-title">AL JAMIUL AZHAR JUM'AH MASJID</div>
-                <div class="event-title">STATE LEVEL HIFZ COMPETITION - 2026</div>
+                <div class="event-title">STATE LEVEL HIFZ COMPETITION - ${currentYear}</div>
                 <div class="reg-form-title">REGISTRATION FORM</div>
                 
                 <div class="inst-row">

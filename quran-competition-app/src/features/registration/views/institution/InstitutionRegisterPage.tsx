@@ -16,7 +16,6 @@ const isValidGoogleMapsLink = (url: string): boolean => {
     try {
         const trimmed = url.trim();
         if (!trimmed) return false;
-        // Check for common google maps host names, including maps.google, goo.gl/maps, maps.app.goo.gl, and share.google
         const pattern = /^(https?:\/\/)?(www\.)?(google\.[a-z]+(\.[a-z]+)?\/maps|maps\.google\.[a-z]+|maps\.app\.goo\.gl|goo\.gl\/maps|share\.google)/i;
         return pattern.test(trimmed);
     } catch {
@@ -27,18 +26,28 @@ const isValidGoogleMapsLink = (url: string): boolean => {
 export default function InstitutionRegisterPage() {
     const navigate = useNavigate();
 
-    // Form Inputs
+    // Form Inputs - Step 1
     const [name, setName] = useState('');
-    const [address, setAddress] = useState('');
+
+    // --- NEW STRUCTURED ADDRESS STATES ---
+    const [streetAddress, setStreetAddress] = useState('');
+    const [pincode, setPincode] = useState('');
+    const [stateName, setStateName] = useState('');
+    const [districtName, setDistrictName] = useState('');
+    const [villageName, setVillageName] = useState('');
+    // -------------------------------------
+
     const [contactPerson, setContactPerson] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     const [whatsapp, setWhatsapp] = useState('');
+    const [passcode, setPasscode] = useState('');
+    const [confirmPasscode, setConfirmPasscode] = useState('');
+
+    // Form Inputs - Step 2 & 3
     const [docFile, setDocFile] = useState<File | null>(null);
     const [buildingFile, setBuildingFile] = useState<File | null>(null);
     const [location, setLocation] = useState<string>('');
-    const [passcode, setPasscode] = useState('');
-    const [confirmPasscode, setConfirmPasscode] = useState('');
     const [currentStep, setCurrentStep] = useState<number>(1);
 
     // Common States
@@ -64,9 +73,9 @@ export default function InstitutionRegisterPage() {
     });
 
     const triggerAlert = (
-        message: string, 
-        title = 'Attention Required', 
-        type: 'success' | 'warning' = 'warning', 
+        message: string,
+        title = 'Attention Required',
+        type: 'success' | 'warning' = 'warning',
         extraData?: string,
         onTrack?: () => void
     ) => {
@@ -75,7 +84,8 @@ export default function InstitutionRegisterPage() {
 
     const handleNext = () => {
         if (currentStep === 1) {
-            if (!name.trim() || !address.trim() || !contactPerson.trim() || !email.trim() || !whatsapp.trim()) {
+            // Updated validation to check new structured address fields
+            if (!name.trim() || !streetAddress.trim() || !pincode.trim() || !villageName.trim() || !contactPerson.trim() || !email.trim() || !whatsapp.trim()) {
                 triggerAlert('Please fill in all required fields.', 'Validation Error');
                 return;
             }
@@ -114,7 +124,9 @@ export default function InstitutionRegisterPage() {
 
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!name.trim() || !address.trim() || !contactPerson.trim() || !email.trim() || !whatsapp.trim()) {
+
+        // Final pre-submit validation check
+        if (!name.trim() || !streetAddress.trim() || !pincode.trim() || !villageName.trim() || !contactPerson.trim() || !email.trim() || !whatsapp.trim()) {
             triggerAlert('Please fill in all required fields.', 'Validation Error');
             return;
         }
@@ -150,9 +162,14 @@ export default function InstitutionRegisterPage() {
 
         setLoading(true);
         try {
+            // Updated payload to match the new PocketBase schema
             const record = await institutionsApi.registerInstitution({
                 name: name.trim(),
-                address: address.trim(),
+                street_address: streetAddress.trim(),
+                pincode: pincode.trim(),
+                state_name: stateName.trim(),
+                district_name: districtName.trim(),
+                village_name: villageName.trim(),
                 contact_person: contactPerson.trim(),
                 email: email.trim(),
                 phone_number: phone.trim() || undefined,
@@ -184,8 +201,13 @@ export default function InstitutionRegisterPage() {
                 }
             );
 
+            // Clear form
             setName('');
-            setAddress('');
+            setStreetAddress('');
+            setPincode('');
+            setStateName('');
+            setDistrictName('');
+            setVillageName('');
             setContactPerson('');
             setEmail('');
             setPhone('');
@@ -201,7 +223,7 @@ export default function InstitutionRegisterPage() {
         } catch (error: any) {
             console.error('Institution registration error:', error);
             let errorMessage = 'Registration failed. Please check your database connection.';
-            
+
             if (error.response && error.response.data) {
                 const errorData = error.response.data;
                 const errorList: string[] = [];
@@ -225,7 +247,7 @@ export default function InstitutionRegisterPage() {
             } else if (error.message) {
                 errorMessage = error.message;
             }
-            
+
             triggerAlert(errorMessage, 'Registration Error');
         } finally {
             setLoading(false);
@@ -359,8 +381,8 @@ export default function InstitutionRegisterPage() {
                                 <span className={styles.stepIndicator}>Step {currentStep} of 3</span>
                             </div>
                             <div className={styles.progressBar}>
-                                <div 
-                                    className={styles.progressFill} 
+                                <div
+                                    className={styles.progressFill}
                                     style={{ width: `${(currentStep / 3) * 100}%` }}
                                 />
                             </div>
@@ -372,8 +394,20 @@ export default function InstitutionRegisterPage() {
                                     <Step1Details
                                         name={name}
                                         setName={setName}
-                                        address={address}
-                                        setAddress={setAddress}
+
+                                        // Passed the new structured props here
+                                        streetAddress={streetAddress}
+                                        setStreetAddress={setStreetAddress}
+                                        pincode={pincode}
+                                        setPincode={setPincode}
+                                        stateName={stateName}
+                                        setStateName={setStateName}
+                                        districtName={districtName}
+                                        setDistrictName={setDistrictName}
+                                        villageName={villageName}
+                                        setVillageName={setVillageName}
+                                        // -----------------------------------
+
                                         contactPerson={contactPerson}
                                         setContactPerson={setContactPerson}
                                         email={email}

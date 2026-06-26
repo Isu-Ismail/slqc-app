@@ -379,6 +379,7 @@ routerAdd("POST", "/api/public/submit-application", (e) => {
     const whatsapp = (body.whatsapp_number || "").trim();
     const guardianName = (body.guardian_name || "").trim();
     const guardianPhone = (body.guardian_phone || "").trim();
+    
 
     if (!regType || !fullName || !dob || !category || !gender || !whatsapp || !guardianName || !guardianPhone) {
         return e.json(400, { error: "Missing required application parameters." });

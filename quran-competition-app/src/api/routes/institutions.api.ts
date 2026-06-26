@@ -4,7 +4,13 @@ import type { InstitutionsResponse } from '../types';
 
 export interface RegisterInstitutionParams {
     name: string;
-    address: string;
+    // --- NEW STRUCTURED ADDRESS FIELDS ---
+    street_address: string;
+    pincode: string;
+    state_name: string;
+    district_name: string;
+    village_name: string;
+    // -------------------------------------
     contact_person: string;
     email: string;
     phone_number?: string;
@@ -20,7 +26,14 @@ export const institutionsApi = {
     registerInstitution: async (params: RegisterInstitutionParams): Promise<InstitutionsResponse> => {
         const formData = new FormData();
         formData.append('name', params.name);
-        formData.append('address', params.address);
+
+        // Append structured address
+        formData.append('street_address', params.street_address);
+        formData.append('pincode', params.pincode);
+        formData.append('state_name', params.state_name);
+        formData.append('district_name', params.district_name);
+        formData.append('village_name', params.village_name);
+
         formData.append('contact_person', params.contact_person);
         formData.append('email', params.email);
         if (params.phone_number) {
@@ -31,9 +44,9 @@ export const institutionsApi = {
             formData.append('passcode', params.password);
         }
         formData.append('status', 'pending'); // Defaults to pending approval
-        
+
         const safeName = params.name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
-        
+
         // Append document proof if present
         if (params.document) {
             const ext = params.document.name.split('.').pop() || 'jpg';
@@ -41,7 +54,7 @@ export const institutionsApi = {
             formData.append('document', renamed);
         }
 
-        // Append new fields
+        // Append building proof and location
         if (params.instituition_building_proof) {
             const ext = params.instituition_building_proof.name.split('.').pop() || 'jpg';
             const renamed = new File([params.instituition_building_proof], `${safeName}_building.${ext}`, { type: params.instituition_building_proof.type });
@@ -72,17 +85,25 @@ export const institutionsApi = {
     // Update an existing institution record
     updateInstitution: async (id: string, params: Partial<RegisterInstitutionParams> | FormData): Promise<InstitutionsResponse> => {
         let formData: FormData;
+
         if (params instanceof FormData) {
             formData = params;
         } else {
             formData = new FormData();
             if (params.name !== undefined) formData.append('name', params.name);
-            if (params.address !== undefined) formData.append('address', params.address);
+
+            // Append structured address for updates
+            if (params.street_address !== undefined) formData.append('street_address', params.street_address);
+            if (params.pincode !== undefined) formData.append('pincode', params.pincode);
+            if (params.state_name !== undefined) formData.append('state_name', params.state_name);
+            if (params.district_name !== undefined) formData.append('district_name', params.district_name);
+            if (params.village_name !== undefined) formData.append('village_name', params.village_name);
+
             if (params.contact_person !== undefined) formData.append('contact_person', params.contact_person);
             if (params.email !== undefined) formData.append('email', params.email);
             formData.append('phone_number', params.phone_number || '');
             if (params.whatsapp_number !== undefined) formData.append('whatsapp_number', params.whatsapp_number);
-            
+
             const nameToUse = params.name || 'institution';
             const safeName = nameToUse.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
 

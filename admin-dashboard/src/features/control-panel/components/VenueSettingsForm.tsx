@@ -14,6 +14,7 @@ interface Venue {
     slots?: any;
     allocatedCount?: number;
     judges?: string[];
+    incharge?: string;
     expand?: any;
 }
 
@@ -75,6 +76,10 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
             const vJudges = Array.isArray(v.judges) ? v.judges : [];
             return vJudges.some((j: any) => (j && typeof j === 'object' ? j.id : j) === judgeId);
         });
+    };
+
+    const isUserInchargeElsewhere = (userId: string) => {
+        return venues.some(v => v.id !== editingVenue?.id && v.incharge === userId);
     };
 
     const getAssignedVenueNameForJudge = (judgeId: string) => {
@@ -153,6 +158,8 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
     const [venueCategory, setVenueCategory] = useState('5_juz');
     const [venueRound, setVenueRound] = useState('preliminary');
     const [venueCapacityField, setVenueCapacityField] = useState<string>('18');
+    const [allIncharges, setAllIncharges] = useState<any[]>([]);
+    const [selectedIncharge, setSelectedIncharge] = useState<string>('');
 
     const loadVenuesAndAllocations = async () => {
         setLoading(true);
@@ -160,7 +167,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
             // Fetch venues
             const venueRecords = await pb.collection('venue_detail').getFullList({
                 sort: 'name',
-                expand: 'judges'
+                expand: 'judges,incharge'
             });
 
             // Fetch approved student counts per venue
@@ -185,6 +192,13 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
             });
             setAllJudges(judgesRecords);
 
+            // Fetch venue incharges & coordinators list
+            const inchargesRecords = await pb.collection('users').getFullList({
+                filter: 'designation = "venue Incharge" || designation = "coordinators"',
+                sort: 'name'
+            });
+            setAllIncharges(inchargesRecords);
+
             const formattedVenues: Venue[] = venueRecords.map(v => ({
                 id: v.id,
                 name: v.name,
@@ -195,6 +209,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                 slots: v.slots,
                 allocatedCount: counts[v.name] || 0,
                 judges: parseJudgesObjects(v.judges, judgesRecords),
+                incharge: v.incharge || '',
                 expand: v.expand
             }));
 
@@ -218,6 +233,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
         setVenueRound('preliminary');
         setVenueCapacityField('18');
         setSelectedJudges([]);
+        setSelectedIncharge('');
         setShowModal(true);
     };
 
@@ -229,6 +245,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
         setVenueRound(v.round || 'preliminary');
         setSelectedJudges(parseJudgesField(v.judges));
         setVenueCapacityField(String(v.capacity || 18));
+        setSelectedIncharge(v.incharge || '');
         setShowModal(true);
     };
 
@@ -306,7 +323,8 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                 round: venueRound,
                 capacity: totalCapacity,
                 slots: [],
-                judges: judgesDetails
+                judges: judgesDetails,
+                incharge: selectedIncharge || ''
             };
 
             let savedVenue;
@@ -796,6 +814,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                                     <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Capacity</th>
                                     <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Allocated Candidates</th>
                                     <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Assigned Judges</th>
+                                    <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569' }}>Incharge</th>
                                     <th style={{ padding: '12px 20px', fontWeight: 'bold', color: '#475569', textAlign: 'right' }}>Actions</th>
                                 </tr>
                             </thead>
@@ -833,6 +852,15 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                                         </td>
                                         <td style={{ padding: '14px 20px' }}>
                                             {getVenueJudgesDisplay(v)}
+                                        </td>
+                                        <td style={{ padding: '14px 20px', color: '#334155' }}>
+                                            {v.expand?.incharge ? (
+                                                <div>
+                                                    <span style={{ fontWeight: '600' }}>{v.expand.incharge.name || v.expand.incharge.email}</span>
+                                                </div>
+                                            ) : (
+                                                <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Unassigned</span>
+                                            )}
                                         </td>
                                         <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
@@ -949,6 +977,25 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                             </div>
 
                             <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>Venue Incharge</label>
+                                <select
+                                    value={selectedIncharge}
+                                    onChange={(e) => setSelectedIncharge(e.target.value)}
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', backgroundColor: '#fff' }}
+                                >
+                                    <option value="">-- No Incharge Selected --</option>
+                                    {allIncharges
+                                        .filter(user => !isUserInchargeElsewhere(user.id))
+                                        .map(user => (
+                                            <option key={user.id} value={user.id}>
+                                                {user.name} ({user.email})
+                                            </option>
+                                        ))
+                                    }
+                                </select>
+                            </div>
+
+                            <div>
                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>Assign Judges (can select multiple)</label>
 
                                 {/* Selected Judges Badges / Tickets */}
@@ -1011,7 +1058,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                                         <div style={{ color: '#94a3b8', fontSize: '13px', fontStyle: 'italic' }}>No judges registered in the system.</div>
                                     ) : (
                                         allJudges
-                                            .filter(j => venueRound === 'final' ? j.final_judge === true : j.final_judge !== true)
+                                            .filter(j => venueRound === 'final' ? j.final_judge === true : true)
                                             .map(j => {
                                                 const assignedElsewhere = isJudgeAssignedElsewhere(j.id);
                                                 const assignedVenueName = getAssignedVenueNameForJudge(j.id);
@@ -1164,7 +1211,7 @@ export default function VenueSettingsForm({ onAllocationComplete }: VenueSetting
                                     </label>
                                 ))}
                             </div>
-                            
+
                             <div>
                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>
                                     Administrator Password *

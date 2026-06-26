@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Lock, Edit, FileText, ChevronDown, ChevronUp, CheckCircle, XCircle, Unlock, RefreshCw } from 'lucide-react';
+import { Lock, Edit, FileText, ChevronDown, ChevronUp, Unlock, RefreshCw } from 'lucide-react';
 import { pb } from '../../../api/db';
 import { adminTrackApi } from '../../../api/track';
 import type { ParticipantsApplicationResponse, InstitutionsResponse } from '../../../api/track';
@@ -18,8 +18,16 @@ interface InstitutionDetailsProps {
     setIsInstEditMode: (val: boolean) => void;
     instEditName: string;
     setInstEditName: (val: string) => void;
-    instEditAddress: string;
-    setInstEditAddress: (val: string) => void;
+    instEditStreet: string;
+    setInstEditStreet: (val: string) => void;
+    instEditPincode: string;
+    setInstEditPincode: (val: string) => void;
+    instEditVillage: string;
+    setInstEditVillage: (val: string) => void;
+    instEditDistrict: string;
+    setInstEditDistrict: (val: string) => void;
+    instEditState: string;
+    setInstEditState: (val: string) => void;
     instEditContactPerson: string;
     setInstEditContactPerson: (val: string) => void;
     instEditEmail: string;
@@ -40,7 +48,6 @@ interface InstitutionDetailsProps {
     loading: boolean;
     getStatusClass: (status: string) => string;
     onViewIndividual: (app: ParticipantsApplicationResponse) => void;
-    onDeleteIndividual: (app: ParticipantsApplicationResponse) => void;
     onRefresh?: () => Promise<boolean>;
 }
 
@@ -50,8 +57,16 @@ export default function InstitutionDetails({
     setIsInstEditMode,
     instEditName,
     setInstEditName,
-    instEditAddress,
-    setInstEditAddress,
+    instEditStreet,
+    setInstEditStreet,
+    instEditPincode,
+    setInstEditPincode,
+    instEditVillage,
+    setInstEditVillage,
+    instEditDistrict,
+    setInstEditDistrict,
+    instEditState,
+    setInstEditState,
     instEditContactPerson,
     setInstEditContactPerson,
     instEditEmail,
@@ -72,7 +87,6 @@ export default function InstitutionDetails({
     loading,
     getStatusClass,
     onViewIndividual,
-    onDeleteIndividual,
     onRefresh
 }: InstitutionDetailsProps) {
     const instFileInputRef = useRef<HTMLInputElement>(null);
@@ -97,6 +111,10 @@ export default function InstitutionDetails({
         } finally {
             setIsRefetching(false);
         }
+    };
+    const getFileUrl = (recordId: string, filename: string) => {
+        // PocketBase file URL structure: /api/files/collectionName/recordId/filename
+        return `${import.meta.env.VITE_PB_URL}/api/files/institutions/${recordId}/${filename}`;
     };
 
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -149,12 +167,12 @@ export default function InstitutionDetails({
                             onClick={handleRefetch}
                             className={styles.btnSecondary}
                             disabled={loading || isRefetching}
-                            style={{ 
-                                padding: '4px 8px', 
-                                fontSize: '11px', 
-                                display: 'inline-flex', 
-                                alignItems: 'center', 
-                                gap: '4px', 
+                            style={{
+                                padding: '4px 8px',
+                                fontSize: '11px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
                                 height: '28px',
                                 backgroundColor: refetchSuccess ? '#ecfdf5' : undefined,
                                 color: refetchSuccess ? '#059669' : undefined,
@@ -262,9 +280,9 @@ export default function InstitutionDetails({
                             ) : (
                                 <div className={styles.filePreviewWrapper} style={{ paddingTop: '4px' }}>
                                     {institutionData.institution?.instituition_location ? (
-                                        <a 
-                                            href={institutionData.institution.instituition_location} 
-                                            target="_blank" 
+                                        <a
+                                            href={institutionData.institution.instituition_location}
+                                            target="_blank"
                                             rel="noopener noreferrer"
                                             className={styles.previewLink}
                                             style={{ fontSize: '13px' }}
@@ -282,9 +300,9 @@ export default function InstitutionDetails({
                             <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>Authenticity Document</label>
                             <div className={styles.filePreviewWrapper}>
                                 {!isInstEditMode && institutionData.institution?.document ? (
-                                    <a 
-                                        href={pb.files.getURL(institutionData.institution, institutionData.institution.document)} 
-                                        target="_blank" 
+                                    <a
+                                        href={getFileUrl(institutionData.institution.id, institutionData.institution.document)}
+                                        target="_blank"
                                         rel="noopener noreferrer"
                                         className={styles.previewLink}
                                         style={{ fontSize: '13px' }}
@@ -294,7 +312,7 @@ export default function InstitutionDetails({
                                 ) : (
                                     !isInstEditMode && <span className={styles.fileName} style={{ fontSize: '12px' }}>Not provided</span>
                                 )}
-                                
+
                                 {isInstEditMode && !institutionData.institution?.is_locked && (
                                     <div className={styles.fileUploadControl}>
                                         <input
@@ -308,8 +326,8 @@ export default function InstitutionDetails({
                                                 }
                                             }}
                                         />
-                                        <button 
-                                            type="button" 
+                                        <button
+                                            type="button"
                                             className={styles.btnUpload}
                                             onClick={() => instFileInputRef.current?.click()}
                                         >
@@ -327,9 +345,9 @@ export default function InstitutionDetails({
                             <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>Building Proof Photo</label>
                             <div className={styles.filePreviewWrapper}>
                                 {!isInstEditMode && institutionData.institution?.instituition_building_proof ? (
-                                    <a 
-                                        href={pb.files.getURL(institutionData.institution, institutionData.institution.instituition_building_proof)} 
-                                        target="_blank" 
+                                    <a
+                                        href={getFileUrl(institutionData.institution.id, institutionData.institution.instituition_building_proof)}
+                                        target="_blank"
                                         rel="noopener noreferrer"
                                         className={styles.previewLink}
                                         style={{ fontSize: '13px' }}
@@ -339,7 +357,7 @@ export default function InstitutionDetails({
                                 ) : (
                                     !isInstEditMode && <span className={styles.fileName} style={{ fontSize: '12px' }}>Not provided</span>
                                 )}
-                                
+
                                 {isInstEditMode && !institutionData.institution?.is_locked && (
                                     <div className={styles.fileUploadControl}>
                                         <input
@@ -353,8 +371,8 @@ export default function InstitutionDetails({
                                                 }
                                             }}
                                         />
-                                        <button 
-                                            type="button" 
+                                        <button
+                                            type="button"
                                             className={styles.btnUpload}
                                             onClick={() => instBuildingFileInputRef.current?.click()}
                                         >
@@ -368,14 +386,53 @@ export default function InstitutionDetails({
                             </div>
                         </div>
 
-                        <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                            <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>Full Address</label>
-                            <textarea
-                                className={styles.formInput}
-                                style={{ minHeight: '50px', fontSize: '13px', fontFamily: 'inherit', resize: 'vertical', padding: '6px 10px' }}
-                                value={isInstEditMode ? instEditAddress : institutionData.institution?.address}
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>Street Address</label>
+                            <input
+                                type="text" className={styles.formInput}
+                                value={isInstEditMode ? instEditStreet : (institutionData.institution?.street_address || '')}
                                 disabled={!isInstEditMode || institutionData.institution?.is_locked}
-                                onChange={(e) => setInstEditAddress(e.target.value)}
+                                onChange={(e) => setInstEditStreet(e.target.value)}
+                            />
+                        </div>
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>Pincode</label>
+                            <input
+                                type="text" className={styles.formInput}
+                                value={isInstEditMode ? instEditPincode : (institutionData.institution?.pincode || '')}
+                                disabled={!isInstEditMode || institutionData.institution?.is_locked}
+                                onChange={(e) => setInstEditPincode(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Row 2: 50/50 */}
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>District</label>
+                            <input
+                                type="text" className={styles.formInput}
+                                value={isInstEditMode ? instEditDistrict : (institutionData.institution?.district_name || '')}
+                                disabled={!isInstEditMode || institutionData.institution?.is_locked}
+                                onChange={(e) => setInstEditDistrict(e.target.value)}
+                            />
+                        </div>
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>Village / Locality</label>
+                            <input
+                                type="text" className={styles.formInput}
+                                value={isInstEditMode ? instEditVillage : (institutionData.institution?.village_name || '')}
+                                disabled={!isInstEditMode || institutionData.institution?.is_locked}
+                                onChange={(e) => setInstEditVillage(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Row 3: Full Width */}
+                        <div className={styles.formGroup} style={{ gridColumn: 'span 2' }}>
+                            <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>State</label>
+                            <input
+                                type="text" className={styles.formInput}
+                                value={isInstEditMode ? instEditState : (institutionData.institution?.state_name || '')}
+                                disabled={!isInstEditMode || institutionData.institution?.is_locked}
+                                onChange={(e) => setInstEditState(e.target.value)}
                             />
                         </div>
                     </div>
@@ -384,21 +441,25 @@ export default function InstitutionDetails({
                         <div className={styles.detailsActions} style={{ margin: '16px 0', borderBottom: 'none' }}>
                             {isInstEditMode ? (
                                 <>
-                                    <button 
-                                        className={styles.btnSecondary} 
+                                    <button
+                                        className={styles.btnSecondary}
                                         style={{ padding: '6px 12px', fontSize: '13px' }}
                                         onClick={() => setIsInstEditMode(false)}
                                         disabled={loading}
                                     >
                                         Cancel
                                     </button>
-                                    <button 
-                                        className={styles.btnPrimary} 
+                                    <button
+                                        className={styles.btnPrimary}
                                         style={{ padding: '6px 12px', fontSize: '13px' }}
                                         onClick={handleSaveInstitutionChanges}
                                         disabled={loading || !(
                                             (instEditName || '').toString().trim() !== (institutionData.institution?.name || '').toString().trim() ||
-                                            (instEditAddress || '').toString().trim() !== (institutionData.institution?.address || '').toString().trim() ||
+                                            (instEditStreet || '').toString().trim() !== (institutionData.institution?.street_address || '').toString().trim() ||
+                                            (instEditPincode || '').toString().trim() !== (institutionData.institution?.pincode || '').toString().trim() ||
+                                            (instEditVillage || '').toString().trim() !== (institutionData.institution?.village_name || '').toString().trim() ||
+                                            (instEditDistrict || '').toString().trim() !== (institutionData.institution?.district_name || '').toString().trim() ||
+                                            (instEditState || '').toString().trim() !== (institutionData.institution?.state_name || '').toString().trim() ||
                                             (instEditContactPerson || '').toString().trim() !== (institutionData.institution?.contact_person || '').toString().trim() ||
                                             (instEditEmail || '').toString().trim() !== (institutionData.institution?.email || '').toString().trim() ||
                                             (instEditWhatsapp || '').toString().trim() !== (institutionData.institution?.whatsapp_number || '').toString().trim() ||
@@ -412,8 +473,8 @@ export default function InstitutionDetails({
                                     </button>
                                 </>
                             ) : (
-                                <button 
-                                    className={styles.btnPrimary} 
+                                <button
+                                    className={styles.btnPrimary}
                                     style={{ padding: '6px 12px', fontSize: '13px' }}
                                     onClick={() => setIsInstEditMode(true)}
                                 >
@@ -425,27 +486,13 @@ export default function InstitutionDetails({
 
                     <div className={styles.detailsActions} style={{ marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '16px', flexWrap: 'wrap' }}>
                         <div style={{ display: 'flex', gap: '12px', flex: 1 }}>
-                            <button 
-                                className={styles.btnPrimary} 
-                                style={{ backgroundColor: '#10b981', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '13px' }}
-                                onClick={() => setModalState({ type: 'approve' })}
-                                disabled={isUpdatingStatus || loading || isInstEditMode}
-                            >
-                                <CheckCircle size={14} /> <span className={styles.btnText}>Approve &amp; Lock</span>
-                            </button>
-                            <button 
-                                className={styles.btnSecondary} 
-                                style={{ color: '#ef4444', borderColor: '#ef4444', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '13px' }}
-                                onClick={() => setModalState({ type: 'reject' })}
-                                disabled={isUpdatingStatus || loading || isInstEditMode}
-                            >
-                                <XCircle size={14} /> <span className={styles.btnText}>Reject</span>
-                            </button>
+
+
                         </div>
                         <div>
                             {institutionData.institution?.is_locked ? (
-                                <button 
-                                    className={styles.btnSecondary} 
+                                <button
+                                    className={styles.btnSecondary}
                                     style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '13px' }}
                                     onClick={() => setModalState({ type: 'unlock' })}
                                     disabled={isUpdatingStatus || loading}
@@ -453,8 +500,8 @@ export default function InstitutionDetails({
                                     <Unlock size={14} /> <span className={styles.btnText}>Unlock Application</span>
                                 </button>
                             ) : (
-                                <button 
-                                    className={styles.btnSecondary} 
+                                <button
+                                    className={styles.btnSecondary}
                                     style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '13px' }}
                                     onClick={() => setModalState({ type: 'lock' })}
                                     disabled={isUpdatingStatus || loading}
@@ -576,13 +623,6 @@ export default function InstitutionDetails({
                                             >
                                                 View / Edit
                                             </button>
-                                            <button
-                                                className={styles.tableActionBtn}
-                                                style={{ padding: '4px 8px', fontSize: '12px', backgroundColor: '#fee2e2', color: '#ef4444', borderColor: '#fca5a5' }}
-                                                onClick={() => onDeleteIndividual(app)}
-                                            >
-                                                Delete
-                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -609,14 +649,7 @@ export default function InstitutionDetails({
             {modalState.type !== null && (
                 <div className={styles.imgModalOverlay} onClick={() => setModalState({ type: null })}>
                     <div className={styles.customModal} onClick={e => e.stopPropagation()}>
-                        {modalState.type === 'approve' && (
-                            <>
-                                <h3>Confirm Approval</h3>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: '0 0 16px 0' }}>
-                                    Are you sure you want to approve this institution? This will lock the application.
-                                </p>
-                            </>
-                        )}
+
                         {modalState.type === 'lock' && (
                             <>
                                 <h3>Confirm Lock</h3>
@@ -633,26 +666,13 @@ export default function InstitutionDetails({
                                 </p>
                             </>
                         )}
-                        {modalState.type === 'reject' && (
-                            <>
-                                <h3>Reject Institution</h3>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: '0 0 12px 0' }}>Please provide a reason for rejecting this institution.</p>
-                                <input 
-                                    autoFocus
-                                    type="text" 
-                                    placeholder="e.g. Invalid document" 
-                                    className={styles.rejectInput}
-                                    value={rejectReason}
-                                    onChange={(e) => setRejectReason(e.target.value)}
-                                />
-                            </>
-                        )}
+
                         <div className={styles.modalActions}>
                             <button className={styles.btnSecondary} onClick={() => setModalState({ type: null })}>Cancel</button>
-                            <button 
-                                className={modalState.type === 'reject' ? styles.btnSecondary : styles.btnPrimary} 
-                                style={modalState.type === 'reject' ? { color: '#ef4444', borderColor: '#ef4444' } : {}}
-                                onClick={submitAction} 
+                            <button
+                                className={modalState.type === 'lock' ? styles.btnSecondary : styles.btnPrimary}
+                                style={modalState.type === 'lock' ? { color: '#ef4444', borderColor: '#ef4444' } : {}}
+                                onClick={submitAction}
                                 disabled={isUpdatingStatus}
                             >
                                 {isUpdatingStatus ? 'Processing...' : 'Confirm'}

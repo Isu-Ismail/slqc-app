@@ -80,7 +80,11 @@ routerAdd("GET", "/api/admin/track-institution", (e) => {
                 id: institution.get("id"),
                 institution_id: institution.get("institution_id"),
                 name: institution.get("name"),
-                address: institution.get("address"),
+                street_address: institution.get("street_address"), // NEW
+                pincode: institution.get("pincode"),               // NEW
+                state_name: institution.get("state_name"),         // NEW
+                district_name: institution.get("district_name"),   // NEW
+                village_name: institution.get("village_name"),     // NEW
                 contact_person: institution.get("contact_person"),
                 email: institution.get("email"),
                 whatsapp_number: institution.get("whatsapp_number"),
@@ -95,6 +99,8 @@ routerAdd("GET", "/api/admin/track-institution", (e) => {
                 incharge: institution.get("incharge"),
                 incharge_number: institution.get("incharge_number")
             },
+
+
             applications: appList
         });
 
