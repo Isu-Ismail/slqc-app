@@ -11,6 +11,7 @@ interface Participant {
     allocated_order: number;
     final_venue?: string;
     final_order?: number;
+    arrival_status?: string; // Explicitly defining field support matching backend response
     expand?: { institution_ref?: { name: string } };
 }
 
@@ -69,9 +70,12 @@ export default function ParticipantTable({
                         const currentVenueVal = editAllocations[c.id]?.venue ?? venueVal;
                         const currentOrderVal = editAllocations[c.id]?.order ?? orderVal;
 
+                        // Check if the current student candidate item has been checked in as absent
+                        const isAbsent = c.arrival_status === 'absent';
+
                         return (
-                            <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                <td style={{ padding: '14px 20px', fontWeight: 'bold', color: '#1e293b' }}>
+                            <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: isAbsent ? '#fff5f5' : 'transparent' }}>
+                                <td style={{ padding: '14px 20px', fontWeight: 'bold', color: isAbsent ? '#94a3b8' : '#1e293b' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         {isVenueEditMode && isAdmin && (
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginRight: '6px' }}>
@@ -94,13 +98,31 @@ export default function ParticipantTable({
                                             </div>
                                         )}
                                         <span style={{ minWidth: '24px', color: '#64748b' }}>{orderVal || index + 1}.</span>
-                                        <span>{c.full_name}</span>
+                                        <span style={{ textDecoration: isAbsent ? 'line-through' : 'none' }}>{c.full_name}</span>
+
+                                        {/* Dynamic Inline Red Absent Badge Placement Row */}
+                                        {isAbsent && (
+                                            <span style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                padding: '2px 8px',
+                                                fontSize: '11px',
+                                                fontWeight: 700,
+                                                borderRadius: '9999px',
+                                                backgroundColor: '#fee2e2',
+                                                color: '#ef4444',
+                                                border: '1px solid #fca5a5',
+                                                marginLeft: '4px'
+                                            }}>
+                                                ABSENT
+                                            </span>
+                                        )}
                                     </div>
                                 </td>
-                                <td style={{ padding: '14px 20px', color: '#475569' }}>
+                                <td style={{ padding: '14px 20px', color: isAbsent ? '#cbd5e1' : '#475569' }}>
                                     {c.expand?.institution_ref?.name || <span style={{ color: '#94a3b8' }}>—</span>}
                                 </td>
-                                <td style={{ padding: '14px 20px', color: '#059669', fontWeight: 'bold' }}>
+                                <td style={{ padding: '14px 20px', color: isAbsent ? '#cbd5e1' : '#059669', fontWeight: 'bold' }}>
                                     {isVenueEditMode && isAdmin ? (
                                         <input
                                             type="number"
@@ -120,13 +142,13 @@ export default function ParticipantTable({
                                         borderRadius: '12px',
                                         fontSize: '12px',
                                         fontWeight: 500,
-                                        backgroundColor: '#e0f2fe',
-                                        color: '#0369a1'
+                                        backgroundColor: isAbsent ? '#f1f5f9' : '#e0f2fe',
+                                        color: isAbsent ? '#94a3b8' : '#0369a1'
                                     }}>
                                         {c.category === '5_juz' ? '5 Juz' : c.category === '15_juz' ? '15 Juz' : '30 Juz'}
                                     </span>
                                 </td>
-                                <td style={{ padding: '14px 20px', color: '#475569' }}>
+                                <td style={{ padding: '14px 20px', color: isAbsent ? '#cbd5e1' : '#475569' }}>
                                     {c.juzz_options ? getCompactJuzLabel(c.juzz_options) : (c.selected_juz || <span style={{ color: '#94a3b8' }}>—</span>)}
                                 </td>
                                 {isAdmin && isVenueEditMode && (
@@ -138,6 +160,7 @@ export default function ParticipantTable({
                                                 style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '100%', maxWidth: '180px' }}
                                             >
                                                 <option value="">No Venue / Unallocated</option>
+                                                <option value="none">Unallocated (Absent)</option>
                                                 {venues.filter(v => v.category === c.category && (isFinalRound ? v.round === 'final' : v.round !== 'final')).map(v => (
                                                     <option key={v.id} value={v.name}>{v.name}</option>
                                                 ))}

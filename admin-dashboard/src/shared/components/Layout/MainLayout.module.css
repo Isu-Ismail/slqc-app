@@ -39,7 +39,8 @@
 }
 
 .logoSvg {
-    color: #10b981; /* Emerald color for Arabic theme */
+    color: #10b981;
+    /* Emerald color for Arabic theme */
     width: 38px;
     height: 38px;
 }
@@ -79,8 +80,10 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 12px;
-    border-radius: 8px;
+    /* Reduced vertical padding from 8px to 6px to lower the height */
+    padding: 8px 16px;
+    /* Changed border-radius from 8px to 9999px to create a perfect oval pill shape */
+    border-radius: 9999px;
     color: var(--text);
     text-decoration: none;
     font-size: 14px;
@@ -95,7 +98,8 @@
 }
 
 .navLinkActive {
-    background-color: rgba(16, 185, 129, 0.12); /* Light green with high opacity */
+    background-color: rgba(16, 185, 129, 0.12);
+    /* Light green with high opacity */
     color: #059669;
     font-weight: 600;
 }
@@ -268,10 +272,12 @@
         transform: scale(0.95);
         box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7);
     }
+
     70% {
         transform: scale(1);
         box-shadow: 0 0 0 6px rgba(234, 179, 8, 0);
     }
+
     100% {
         transform: scale(0.95);
         box-shadow: 0 0 0 0 rgba(234, 179, 8, 0);
@@ -283,10 +289,12 @@
         transform: scale(0.95);
         box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
     }
+
     70% {
         transform: scale(1);
         box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
     }
+
     100% {
         transform: scale(0.95);
         box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
@@ -357,10 +365,12 @@
         transform: scale(0.95);
         box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
     }
+
     70% {
         transform: scale(1);
         box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
     }
+
     100% {
         transform: scale(0.95);
         box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
@@ -368,8 +378,13 @@
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 /* Mobile Responsiveness */
@@ -377,29 +392,29 @@
     .sidebar {
         transform: translateX(-100%);
     }
-    
+
     .sidebarOpen {
         transform: translateX(0);
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
     }
-    
+
     .mainWrapper {
         margin-left: 0;
         width: 100%;
     }
-    
+
     .topbar {
         padding: 0 20px;
     }
-    
+
     .content {
         padding: 24px 16px;
     }
-    
+
     .burgerButton {
         display: flex;
     }
-    
+
     .backdropVisible {
         display: block;
     }
@@ -416,6 +431,7 @@
     margin-bottom: 8px;
     font-weight: bold;
 }
+
 .logoutButton:hover {
     background: #dc2626;
 }
@@ -546,6 +562,7 @@
         opacity: 0;
         transform: translateY(4px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -570,7 +587,7 @@
     .translateChevron {
         display: none !important;
     }
-    
+
     .translateBtn {
         padding: 8px !important;
     }
@@ -580,11 +597,11 @@
         background-color: #ffffff !important;
         border-bottom: 1px solid var(--border);
     }
-    
+
     .topbarActions {
         gap: 8px !important;
     }
-    
+
     .btnTranslateAction {
         padding: 6px 10px !important;
         font-size: 12px !important;
@@ -623,6 +640,7 @@
 }
 
 @media (max-width: 1024px) {
+
     .sidebarTranslate .translateLabel,
     .sidebarTranslate .translateChevron {
         display: inline !important;

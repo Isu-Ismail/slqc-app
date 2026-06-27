@@ -87,7 +87,7 @@ export const FORM_FIELDS_CONFIG: FieldDefinition[] = [
     { key: 'full_name', label: 'Full Name', type: 'text', required: true, gridSpan: 2, section: 'candidate', showInPrint: true, showInDetails: true, editable: true },
     { key: 'father_name', label: 'Father Name', type: 'text', required: true, gridSpan: 1, section: 'candidate', showInPrint: true, showInDetails: true, editable: true },
     { key: 'father_number', label: 'Father Mobile', type: 'tel', required: false, validationType: 'phone', gridSpan: 1, section: 'candidate', showInPrint: true, showInDetails: true, editable: true },
-    { key: 'aadhaar_number', label: 'Aadhaar Number', type: 'text', required: true, validationType: 'aadhaar', gridSpan: 2, section: 'candidate', showInPrint: true, showInDetails: true, editable: true },
+    { key: 'aadhaar_number', label: 'Aadhaar Number', type: 'text', required: false, validationType: 'aadhaar', gridSpan: 2, section: 'candidate', showInPrint: true, showInDetails: true, editable: true },
     { key: 'dob', label: 'Date of Birth', type: 'date', required: true, gridSpan: 1, section: 'candidate', showInPrint: true, showInDetails: true, editable: true },
     { key: 'gender', label: 'Gender', type: 'select', required: true, gridSpan: 1, section: 'candidate', showInPrint: true, showInDetails: true, editable: true, options: [{ label: 'Male', value: 'male' }, { label: 'Female', value: 'female' }] },
     { key: 'category', label: 'Category', type: 'select', required: true, customFormRender: true, section: 'candidate', showInPrint: true, showInDetails: true, editable: true },

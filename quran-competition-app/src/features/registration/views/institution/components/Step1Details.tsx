@@ -147,11 +147,12 @@ export default function Step1Details({
     };
 
     // --- LIVE PINCODE FETCH LOGIC ---
+    // --- LIVE PINCODE FETCH LOGIC ---
     const handlePincodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const code = e.target.value.replace(/\D/g, '');
         setPincode(code);
 
-        // Reset dependent fields when the user types
+        // Reset dependent fields when the user types a new code
         setStateName('');
         setDistrictName('');
         setVillageName('');
@@ -171,16 +172,21 @@ export default function Step1Details({
                         setStateName(postOffices[0].State);
                         setDistrictName(postOffices[0].District);
 
-                        // Extract unique village names
+                        // Extract unique village/locality names safely
                         const villages = Array.from(new Set(postOffices.map((po: any) => po.Name))) as string[];
                         setAvailableVillages(villages);
+
+                        // Automatically open dropdown since valid locations are found
+                        setIsLocalityOpen(true);
                     }
                 } else {
-                    setPincodeError("Invalid Pincode or no data found.");
+                    // API returned success structure but no records matched. Fall back to manual input.
+                    setPincodeError("Pincode details not found in database. Please enter details manually.");
                 }
             } catch (error) {
                 console.error("Failed to fetch location data", error);
-                setPincodeError("Network error. Please try again.");
+                // API network downtime fallback notice
+                setPincodeError("Could not auto-fetch location. Please enter your address details manually.");
             } finally {
                 setIsLoadingLocation(false);
             }
@@ -226,110 +232,104 @@ export default function Step1Details({
                         onChange={handlePincodeChange}
                         required
                     />
-                    {isLoadingLocation && <small style={{ color: '#666', marginTop: '4px' }}>Fetching location...</small>}
-                    {pincodeError && <small style={{ color: 'red', marginTop: '4px' }}>{pincodeError}</small>}
+                    {isLoadingLocation && <small style={{ color: '#0d9488', marginTop: '4px', display: 'block' }}>⚡ Fetching locations...</small>}
+                    {pincodeError && <small style={{ color: '#ef4444', marginTop: '4px', display: 'block', fontWeight: '500' }}>{pincodeError}</small>}
                 </div>
 
                 <div className={styles.inputGroup} style={{ flex: 1 }}>
-                    <label className={styles.label}>District</label>
+                    <label className={styles.label}>District *</label>
                     <input
                         type="text"
                         className={styles.input}
                         value={districtName}
-                        placeholder="Auto-filled by Pincode"
-                        disabled
-                        style={{ backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
+                        onChange={(e) => setDistrictName(e.target.value)}
+                        placeholder="District Name"
+                        required
+                        // Only disable if currently loading, allowing manual entry as fallback
+                        disabled={isLoadingLocation}
+                        style={{ backgroundColor: isLoadingLocation ? '#f1f5f9' : '#ffffff' }}
                     />
                 </div>
             </div>
 
             <div className={styles.inputRow} style={{ display: 'flex', gap: '15px' }}>
-
                 <div className={styles.inputGroup} style={{ flex: 1 }} ref={localityRef}>
                     <label className={styles.label}>Village / Locality *</label>
-
-                    {/* Wrap ONLY the input and dropdown in a relative container and force it to 100% width */}
                     <div style={{ position: 'relative', width: '100%' }}>
                         <input
                             type="text"
                             className={styles.input}
-                            placeholder={availableVillages.length === 0 ? "Enter pincode first" : "Search locality..."}
+                            placeholder="Enter or search locality..."
                             value={villageName}
                             onChange={(e) => {
                                 setVillageName(e.target.value);
-                                setIsLocalityOpen(true);
+                                if (availableVillages.length > 0) setIsLocalityOpen(true);
                             }}
                             onFocus={() => {
                                 if (availableVillages.length > 0) setIsLocalityOpen(true);
                             }}
-                            disabled={availableVillages.length === 0}
+                            disabled={isLoadingLocation}
                             required
                             autoComplete="off"
-                            style={{
-                                backgroundColor: availableVillages.length === 0 ? '#f0f0f0' : 'white',
-                                width: '100%',
-                                boxSizing: 'border-box' // Ensures padding does not break the 100% width
-                            }}
+                            style={{ backgroundColor: isLoadingLocation ? '#f1f5f9' : '#ffffff', width: '100%', boxSizing: 'border-box' }}
                         />
 
-                        {isLocalityOpen && (
+                        {/* Search Suggestions Dropdown Overlay */}
+                        {isLocalityOpen && filteredVillages.length > 0 && (
                             <ul style={{
                                 position: 'absolute',
                                 top: 'calc(100% + 4px)',
                                 left: 0,
-                                width: '100%', // Forces the list to be exactly the width of the input wrapper
-                                boxSizing: 'border-box', // Prevents border width from overflowing
+                                width: '100%',
+                                boxSizing: 'border-box',
                                 margin: '0',
-                                padding: '0',
+                                padding: '4px',
                                 listStyle: 'none',
                                 backgroundColor: '#fff',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
+                                border: '1px solid #cbd5e1',
+                                borderRadius: '8px',
                                 maxHeight: '180px',
                                 overflowY: 'auto',
                                 zIndex: 1000,
-                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
                             }}>
-                                {filteredVillages.length > 0 ? (
-                                    filteredVillages.map((village, index) => (
-                                        <li
-                                            key={index}
-                                            onClick={() => {
-                                                setVillageName(village);
-                                                setIsLocalityOpen(false);
-                                            }}
-                                            style={{
-                                                padding: '10px 12px',
-                                                cursor: 'pointer',
-                                                borderBottom: index === filteredVillages.length - 1 ? 'none' : '1px solid #f3f4f6',
-                                                fontSize: '14px',
-                                                transition: 'background-color 0.15s ease'
-                                            }}
-                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
-                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
-                                        >
-                                            {village}
-                                        </li>
-                                    ))
-                                ) : (
-                                    <li style={{ padding: '10px 12px', color: '#6b7280', fontSize: '14px' }}>
-                                        No matching locality found
+                                {filteredVillages.map((village, index) => (
+                                    <li
+                                        key={index}
+                                        onClick={() => {
+                                            setVillageName(village);
+                                            setIsLocalityOpen(false);
+                                        }}
+                                        style={{
+                                            padding: '8px 12px',
+                                            cursor: 'pointer',
+                                            fontSize: '14px',
+                                            borderRadius: '6px',
+                                            color: '#334155',
+                                            transition: 'background-color 0.15s ease'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
+                                    >
+                                        {village}
                                     </li>
-                                )}
+                                ))}
                             </ul>
                         )}
                     </div>
                 </div>
 
                 <div className={styles.inputGroup} style={{ flex: 1 }}>
-                    <label className={styles.label}>State</label>
+                    <label className={styles.label}>State *</label>
                     <input
                         type="text"
                         className={styles.input}
                         value={stateName}
-                        placeholder="Auto-filled by Pincode"
-                        disabled
-                        style={{ backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
+                        onChange={(e) => setStateName(e.target.value)}
+                        placeholder="State Name"
+                        required
+                        disabled={isLoadingLocation}
+                        style={{ backgroundColor: isLoadingLocation ? '#f1f5f9' : '#ffffff' }}
                     />
                 </div>
             </div>

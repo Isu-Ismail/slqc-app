@@ -1,204 +1,78 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+// src/App.tsx
+import { BrowserRouter, Routes, Route, Outlet, Navigate } from 'react-router-dom';
+import { pb } from './api/db';
+
 import LoginPage from './features/auth/LoginPage';
-import AdminDashboardPage from './features/dashboard/AdminDashboardPage';
-import ControlPanelPage from './features/control-panel/ControlPanelPage';
-import OrganisersPage from './features/organisers/OrganisersPage';
-import VenuePanelPage from './features/venue-panel/VenuePanelPage';
-import TrackPage from './features/track/TrackPage';
+import MainLayout from './shared/components/Layout/MainLayout';
+import DashboardPage from './features/dashboard/AdminDashboardPage';
+import StatsPage from './features/stats/StatsDashboardPage';
 import ApprovalsListPage from './features/approvals/ApprovalsListPage';
 import ApprovalReviewPage from './features/approvals/ApprovalReviewPage';
 import ApplicationsListPage from './features/applications/ApplicationsListPage';
-import JudgesPage from './features/judges/JudgesPage';
 import ArrivalCheckingPage from './features/arrivals/ArrivalCheckingPage';
-import StatsDashboardPage from './features/stats/StatsDashboardPage';
-import MainLayout from './shared/components/Layout/MainLayout';
+import TrackPage from './features/track/TrackPage';
+import VenuePanelPage from './features/venue-panel/VenuePanelPage';
 import MarkEntryPage from './features/mark-entry/MarkEntryPage';
 import MarksheetUploadPage from './features/mark-entry/MarksheetUploadPage';
-import { pb } from './api/db';
 import FinalistsPage from './features/finalists/FinalistsPage';
 import HistoryPage from './features/history/HistoryPage';
+import OrganisersPage from './features/organisers/OrganisersPage';
+import JudgesPage from './features/judges/JudgesPage';
+import ControlPanelPage from './features/control-panel/ControlPanelPage';
 
-function RequireAuth({ children }: { children: React.ReactNode }) {
-    if (!pb.authStore.isValid) {
-        return <Navigate to="/login" replace />;
-    }
-    return children;
+// Simple Route Guards using Outlet wrapper
+function RequireAuth() {
+    const isLoggedIn = pb.authStore.isValid;
+    return isLoggedIn ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
-function RequireAdmin({ children }: { children: React.ReactNode }) {
-    if (!pb.authStore.isValid) {
-        return <Navigate to="/login" replace />;
-    }
+function RequireAdmin() {
     const user = pb.authStore.model;
     const isAdmin = user?.designation === 'admin' || !user?.collectionId;
-    if (!isAdmin) {
-        return <Navigate to="/" replace />;
-    }
-    return children;
+    return pb.authStore.isValid && isAdmin ? <Outlet /> : <Navigate to="/" replace />;
 }
 
-function App() {
+export default function App() {
     return (
+        // Restored the critical basename subpath prefix parameter here
         <BrowserRouter basename="/slqc-admin">
             <Routes>
+                {/* Public Routes outside MainLayout wrapper */}
                 <Route path="/login" element={<LoginPage />} />
 
-                {/* Protected Routes inside MainLayout */}
-                <Route
-                    path="/"
-                    element={
-                        <RequireAuth>
-                            <MainLayout>
-                                <AdminDashboardPage />
-                            </MainLayout>
-                        </RequireAuth>
-                    }
-                />
-                <Route
-                    path="/stats"
-                    element={
-                        <RequireAuth>
-                            <MainLayout>
-                                <StatsDashboardPage />
-                            </MainLayout>
-                        </RequireAuth>
-                    }
-                />
-                <Route
-                    path="/track"
-                    element={
-                        <RequireAuth>
-                            <MainLayout>
-                                <TrackPage />
-                            </MainLayout>
-                        </RequireAuth>
-                    }
-                />
-                <Route
-                    path="/venue-panel"
-                    element={
-                        <RequireAuth>
-                            <MainLayout>
-                                <VenuePanelPage />
-                            </MainLayout>
-                        </RequireAuth>
-                    }
-                />
+                {/* Secure Route Trees Sharing a Single MainLayout Instance State */}
+                <Route element={<RequireAuth />}>
+                    <Route element={<MainLayout />}>
 
-                <Route
-                    path="/control-panel"
-                    element={
-                        <RequireAdmin>
-                            <MainLayout>
-                                <ControlPanelPage />
-                            </MainLayout>
-                        </RequireAdmin>
-                    }
-                />
-                <Route
-                    path="/organisers"
-                    element={
-                        <RequireAdmin>
-                            <MainLayout>
-                                <OrganisersPage />
-                            </MainLayout>
-                        </RequireAdmin>
-                    }
-                />
-                <Route
-                    path="/judges"
-                    element={
-                        <RequireAdmin>
-                            <MainLayout>
-                                <JudgesPage />
-                            </MainLayout>
-                        </RequireAdmin>
-                    }
-                />
-                <Route
-                    path="/approvals"
-                    element={
-                        <RequireAuth>
-                            <MainLayout>
-                                <ApprovalsListPage />
-                            </MainLayout>
-                        </RequireAuth>
-                    }
-                />
-                <Route
-                    path="/approvals/:id"
-                    element={
-                        <RequireAuth>
-                            <MainLayout>
-                                <ApprovalReviewPage />
-                            </MainLayout>
-                        </RequireAuth>
-                    }
-                />
-                <Route
-                    path="/applications"
-                    element={
-                        <RequireAuth>
-                            <MainLayout>
-                                <ApplicationsListPage />
-                            </MainLayout>
-                        </RequireAuth>
-                    }
-                />
-                <Route
-                    path="/arrival-checking"
-                    element={
-                        <RequireAuth>
-                            <MainLayout>
-                                <ArrivalCheckingPage />
-                            </MainLayout>
-                        </RequireAuth>
-                    }
-                />
-                <Route
-                    path="/mark-entry"
-                    element={
-                        <RequireAuth>
-                            <MainLayout>
-                                <MarkEntryPage />
-                            </MainLayout>
-                        </RequireAuth>
-                    }
-                />
-                <Route
-                    path="/marksheet-upload"
-                    element={
-                        <RequireAuth>
-                            <MainLayout>
-                                <MarksheetUploadPage />
-                            </MainLayout>
-                        </RequireAuth>
-                    }
-                />
-                <Route
-                    path="/finalist-selection"
-                    element={
-                        <RequireAuth>
-                            <MainLayout>
-                                <FinalistsPage />
-                            </MainLayout>
-                        </RequireAuth>
-                    }
-                />
-                <Route
-                    path="/history"
-                    element={
-                        <RequireAuth>
-                            <MainLayout>
-                                <HistoryPage />
-                            </MainLayout>
-                        </RequireAuth>
-                    }
-                />
+                        {/* Routes accessible by all authorized logged-in profiles */}
+                        <Route path="/" element={<DashboardPage />} />
+                        <Route path="/stats" element={<StatsPage />} />
+                        <Route path="/approvals" element={<ApprovalsListPage />} />
+                        <Route path="/approvals/:id" element={<ApprovalReviewPage />} />
+                        <Route path="/applications" element={<ApplicationsListPage />} />
+                        <Route path="/arrival-checking" element={<ArrivalCheckingPage />} />
+                        <Route path="/track" element={<TrackPage />} />
+                        <Route path="/mark-entry" element={<MarkEntryPage />} />
+                        <Route path="/marksheet-upload" element={<MarksheetUploadPage />} />
+                        <Route path="/venue-panel" element={<VenuePanelPage />} />
+
+
+
+                        {/* Restricted Admin Sub-Group Nested perfectly inside the layout context */}
+                        <Route element={<RequireAdmin />}>
+                            <Route path="/history" element={<HistoryPage />} />
+                            <Route path="/finalist-selection" element={<FinalistsPage />} />
+                            <Route path="/organisers" element={<OrganisersPage />} />
+                            <Route path="/judges" element={<JudgesPage />} />
+                            <Route path="/control-panel" element={<ControlPanelPage />} />
+                        </Route>
+
+                    </Route>
+                </Route>
+
+                {/* Fallback Catch-All Redirect */}
+                <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </BrowserRouter>
     );
 }
-
-export default App;

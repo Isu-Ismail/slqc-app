@@ -36,7 +36,8 @@ $app.onServe().bindFunc((e) => {
         "institution_rules",
         "applications_per_institute",
         "application_print_template",
-        "stat"
+        "stat",
+        "competition_title"
     ];
 
     try {

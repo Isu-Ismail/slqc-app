@@ -375,3 +375,69 @@ routerAdd("GET", "/api/admin/print-institution-students", (e) => {
     }
 });
 
+routerAdd("GET", "/api/admin/print-venue-list", (e) => {
+    const authRecord = e.auth;
+    const isSuperuser = authRecord && authRecord.collection().name === "_superusers";
+    const isAdmin = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "admin";
+    const isCoordinator = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "coordinators";
+
+    if (!isSuperuser && !isAdmin && !isCoordinator) {
+        return e.json(403, { error: "Unauthorized. Admin or coordinator access required." });
+    }
+
+    const info = e.requestInfo();
+    const venue = (info.query.venue || "").trim();
+    const round = (info.query.round || "preliminary").trim();
+
+    if (!venue) {
+        return e.json(400, { error: "Missing venue parameter" });
+    }
+
+    try {
+        let filter = "status = 'approved' && allocated_venue = {:venue}";
+        let sort = "allocated_order";
+        if (round === "final") {
+            filter = "status = 'approved' && final_venue = {:venue}";
+            sort = "final_order";
+        }
+
+        const params = { venue: venue };
+        const records = $app.findRecordsByFilter("participants_application", filter, sort, 2000, 0, params);
+        const list = [];
+
+        records.forEach(record => {
+            let expandedInst = null;
+            const instRef = record.get("institution_ref");
+            if (instRef) {
+                try {
+                    expandedInst = $app.findRecordById("institutions", instRef);
+                } catch (_) { }
+            }
+
+            // Cleaned response body layout payload mapping fields matching your columns
+            list.push({
+                id: record.get("id"),
+                participant_id: record.get("participant_id"),
+                full_name: record.get("full_name"),
+                category: record.get("category"),
+                juzz_options: record.get("juzz_options"),
+                selected_juz: record.get("selected_juz"),
+                allocated_venue: round === "final" ? record.get("final_venue") : record.get("allocated_venue"),
+                allocated_order: round === "final" ? record.get("final_order") : record.get("allocated_order"),
+
+                // EXPLICITLY RETRIEVING THE CRITICAL ARRIVAL STATUS VALUE FOR THE TEMPLATE FILTERS
+                arrival_status: record.get("arrival_status") || "none",
+
+                expand: {
+                    institution_ref: expandedInst ? {
+                        name: expandedInst.get("name")
+                    } : null
+                }
+            });
+        });
+
+        return e.json(200, list);
+    } catch (err) {
+        return e.json(500, { error: "Failed to get venue participants: " + err });
+    }
+});

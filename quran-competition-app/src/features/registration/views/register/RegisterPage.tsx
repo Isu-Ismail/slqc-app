@@ -1,4 +1,7 @@
+// src/features/registration/views/register/RegisterPage.tsx
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
 
 import Step1Type from '../../components/Step1Type';
 import Step2Details from '../../components/Step2Details';
@@ -86,6 +89,7 @@ const getInitialFormData = (): RegistrationFormData => {
 };
 
 export default function RegisterPage() {
+    const navigate = useNavigate();
     const [currentStep, setCurrentStep] = useState<number>(1);
     const [isCaptchaVerified, setIsCaptchaVerified] = useState<boolean>(false);
     const [alertModal, setAlertModal] = useState<{
@@ -94,6 +98,7 @@ export default function RegisterPage() {
         title?: string;
         type?: 'success' | 'warning';
         extraData?: string;
+        onTrack?: () => void;
     }>({
         isOpen: false,
         message: '',
@@ -106,8 +111,8 @@ export default function RegisterPage() {
     const [rulesAccepted, setRulesAccepted] = useState<boolean>(false);
     const { participantStatus: status, checkingStatus } = useRegistrationStatus();
 
-    const triggerAlert = (message: string, title?: string, type: 'success' | 'warning' = 'warning', extraData?: string) => {
-        setAlertModal({ isOpen: true, message, title, type, extraData });
+    const triggerAlert = (message: string, title?: string, type: 'success' | 'warning' = 'warning', extraData?: string, onTrack?: () => void) => {
+        setAlertModal({ isOpen: true, message, title, type, extraData, onTrack });
     };
 
     const closeAlert = () => {
@@ -126,7 +131,6 @@ export default function RegisterPage() {
     };
 
     const handleNext = () => {
-        // Basic validation before going to next step
         if (currentStep === 1) {
             if (formData.registration_type === 'institution') {
                 if (!formData.institution_id.trim()) {
@@ -145,26 +149,24 @@ export default function RegisterPage() {
         } else if (currentStep === 2) {
             for (const field of FORM_FIELDS_CONFIG) {
                 if (field.key === 'aadhaar_number' && formData.no_aadhaar) {
-                    continue; // Skip Aadhaar number verification/presence if they don't have one
+                    continue;
                 }
 
                 const val = (formData as any)[field.key];
                 const valStr = val !== undefined && val !== null ? String(val).trim() : '';
 
-                // Required check
                 if (field.required && !valStr) {
                     if (field.key === 'juz_options') {
                         if (getJuzCodesForCategory(formData.category).length > 0) {
                             triggerAlert('Please select a Juz option before proceeding.', 'Juz Option Required');
                             return;
                         }
-                    } else if (field.key !== 'selected_juz') {
+                    } else if (field.key !== 'selected_juz' && field.key !== 'address') {
                         triggerAlert(`Please enter a value for "${field.label}".`, 'Incomplete Fields');
                         return;
                     }
                 }
 
-                // Format validations
                 if (valStr && field.validationType) {
                     if (field.validationType === 'aadhaar') {
                         if (!validators.isValidAadhaar(valStr)) {
@@ -227,6 +229,7 @@ export default function RegisterPage() {
                 guardian_name: formData.guardian_name,
                 guardian_phone: formData.guardian_phone,
                 requires_accommodation: formData.requires_accommodation,
+                address: formData.address,
                 aadhaar_front: formData.no_aadhaar ? undefined : formData.aadhaar_front || undefined,
                 birthcertificate_photo: formData.no_aadhaar ? formData.birthcertificate_photo || undefined : formData.birthcertificate_photo || undefined,
                 candidate_photo: formData.candidate_photo,
@@ -234,11 +237,16 @@ export default function RegisterPage() {
                 juz_options: formData.juz_options || undefined
             });
 
+            // Triggering the alert securely mapping tracking hooks completely
             triggerAlert(
                 'Application submitted successfully! You can track your status on the status page.',
                 'Registration Success',
                 'success',
-                record.id
+                record.id,
+                () => {
+                    closeAlert();
+                    navigate(`/track?type=individual&query=${record.id}&dob=${formData.dob}`);
+                }
             );
 
             // Reset form
@@ -269,12 +277,10 @@ export default function RegisterPage() {
             });
             sessionStorage.removeItem(CACHE_KEY);
             setCurrentStep(1);
-            // Replace your handleFinalSubmit error catch block inside RegisterPage.tsx with this logic:
         } catch (e: any) {
             console.error('Submission failed:', e);
             let errorMessage = 'Submission failed. Please check your database connection.';
 
-            // Matches the custom JSON errors thrown by your hook
             if (e.response && e.response.data) {
                 const errorData = e.response.data;
 
@@ -361,21 +367,10 @@ export default function RegisterPage() {
                     }}>
                         <Clock size={40} />
                     </div>
-                    <h2 style={{
-                        fontSize: '22px',
-                        fontWeight: '700',
-                        color: 'var(--text-h)',
-                        margin: '0 0 10px 0'
-                    }}>
+                    <h2 style={{ fontSize: '22px', fontWeight: '700', color: 'var(--text-h)', margin: '0 0 10px 0' }}>
                         Registration Period Pending
                     </h2>
-                    <p style={{
-                        fontSize: '14px',
-                        color: 'var(--text)',
-                        lineHeight: '1.6',
-                        margin: '0 auto',
-                        maxWidth: '460px'
-                    }}>
+                    <p style={{ fontSize: '14px', color: 'var(--text)', lineHeight: '1.6', margin: '0 auto', maxWidth: '460px' }}>
                         Thank you for your interest! The candidate registration phase for the State Level Quran Competition has not started yet. Please check the schedules on the main timeline page or return once the registration period begins.
                     </p>
                 </div>
@@ -411,21 +406,10 @@ export default function RegisterPage() {
                     }}>
                         <Ban size={40} />
                     </div>
-                    <h2 style={{
-                        fontSize: '22px',
-                        fontWeight: '700',
-                        color: '#ef4444',
-                        margin: '0 0 10px 0'
-                    }}>
+                    <h2 style={{ fontSize: '22px', fontWeight: '700', color: '#ef4444', margin: '0 0 10px 0' }}>
                         Registration Period Closed
                     </h2>
-                    <p style={{
-                        fontSize: '14px',
-                        color: 'var(--text)',
-                        lineHeight: '1.6',
-                        margin: '0 auto',
-                        maxWidth: '460px'
-                    }}>
+                    <p style={{ fontSize: '14px', color: 'var(--text)', lineHeight: '1.6', margin: '0 auto', maxWidth: '460px' }}>
                         The registration window for candidate applications has officially concluded. We are no longer accepting new submissions. We sincerely thank everyone for their interest. If you have already registered, you can track your status on the status page.
                     </p>
                 </div>
@@ -441,7 +425,6 @@ export default function RegisterPage() {
                     <span className={styles.stepIndicator}>Step {currentStep} of 3</span>
                 </div>
 
-                {/* Progress Bar UI */}
                 <div className={styles.progressBar}>
                     <div
                         className={styles.progressFill}
@@ -489,13 +472,13 @@ export default function RegisterPage() {
                 </div>
             </div>
 
-            {/* Custom Alert Modal */}
             <AlertModal
                 isOpen={alertModal.isOpen}
                 title={alertModal.title}
                 message={alertModal.message}
                 type={alertModal.type}
                 extraData={alertModal.extraData}
+                onTrack={alertModal.onTrack}
                 onClose={closeAlert}
             />
         </div>

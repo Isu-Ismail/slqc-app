@@ -10,6 +10,8 @@ import InstitutionDetails from './components/InstitutionDetails';
 import { FORM_FIELDS_CONFIG, getJuzCodesForCategory, JUZ_OPTIONS } from '../../config/fieldsConfig';
 import { pb } from '../../api/db';
 import { useIndividualRealtime, useInstitutionRealtime } from '../../realtime/track';
+import { metadataApi } from '../../api/metadata';
+import { validateCategorySelection } from '../../shared/utils/categoryValidator';
 
 const isValidGoogleMapsLink = (url: string): boolean => {
     try {
@@ -57,6 +59,23 @@ export default function TrackPage() {
     const updateEditField = (key: string, value: any) => {
         setEditData(prev => ({ ...prev, [key]: value }));
     };
+
+    // App Metadata (event date + age criteria for validation)
+    const [appMetadata, setAppMetadata] = useState<{ event_date: string; event_age_criteria: any; age_buffer_months: number }>({
+        event_date: '', event_age_criteria: null, age_buffer_months: 3
+    });
+
+    useEffect(() => {
+        metadataApi.getAllMetadata().then(records => {
+            const get = (key: string) => records.find(r => r.key === key)?.value ?? null;
+            const rawCriteria = get('event_age_criteria');
+            setAppMetadata({
+                event_date: String(get('event_date') || ''),
+                event_age_criteria: typeof rawCriteria === 'string' ? JSON.parse(rawCriteria) : rawCriteria,
+                age_buffer_months: Number(get('age_buffer_months') || 3)
+            });
+        }).catch(() => { /* silently ignore — validation falls back to defaults */ });
+    }, []);
 
     const initializeEditData = (record: any) => {
         const data: Record<string, any> = {};
@@ -341,7 +360,20 @@ export default function TrackPage() {
     const handleSaveIndividualChanges = async () => {
         if (!individualRecord) return;
 
-        // Dynamic Validation
+        // Category + Age Validation
+        const categoryValidation = validateCategorySelection(
+            editData.category,
+            editData.dob || individualRecord.dob,
+            appMetadata.event_date,
+            appMetadata.event_age_criteria,
+            appMetadata.age_buffer_months
+        );
+        if (!categoryValidation.allowed) {
+            triggerAlert(`Cannot save: ${categoryValidation.message}`, 'Category Restriction');
+            return;
+        }
+
+        // Dynamic Field Validation
         for (const field of FORM_FIELDS_CONFIG) {
             const val = editData[field.key];
             const valStr = val !== undefined && val !== null ? String(val).trim() : '';
@@ -648,6 +680,7 @@ export default function TrackPage() {
                         getBirthCertificateUrl={getBirthCertificateUrl}
                         getCandidatePhotoUrl={getCandidatePhotoUrl}
                         onRefresh={() => handleSearchIndividual(individualQuery, true)}
+                        appMetadata={appMetadata}
                     />
                 )}
 

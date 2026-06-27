@@ -57,7 +57,7 @@ export default function VenuePanelPage() {
     const [printing, setPrinting] = useState(false);
     const [editAllocations, setEditAllocations] = useState<Record<string, { venue: string; order: number }>>({});
     const [isVenueEditMode, setIsVenueEditMode] = useState(false);
-    
+
     // Sanity checker states
     const [showSanityModal, setShowSanityModal] = useState(false);
     const [sanityCandidates, setSanityCandidates] = useState<any[]>([]);
@@ -122,7 +122,13 @@ export default function VenuePanelPage() {
     const handlePrintList = async () => {
         setPrinting(true);
         try {
-            const res = await venuesApi.printVenueList(activeTab, currentVenue?.round || 'preliminary');
+            const rawRes = await venuesApi.printVenueList(activeTab, currentVenue?.round || 'preliminary');
+
+            // FILTER OUT ABSENT STUDENTS COMPLETELY BEFORE SENDING TO TEMPLATE
+            const res = (rawRes || []).filter(c =>
+                c.arrival_status !== 'absent' && c.arrival_status !== 'none' && c.status !== 'absent'
+            );
+
             let judgesList: any[] = [];
             if (currentVenue?.judges) {
                 if (Array.isArray(currentVenue.judges)) {
@@ -158,8 +164,15 @@ export default function VenuePanelPage() {
         setPrinting(true);
         try {
             const round = (currentVenue.round === 'final' ? 'final' : 'preliminary') as 'preliminary' | 'final';
-            const res = await venuesApi.printVenueList(activeTab, round);
-            if (!res || res.length === 0) { alert('No candidates found.'); return; }
+            const rawRes = await venuesApi.printVenueList(activeTab, round);
+            if (!rawRes || rawRes.length === 0) { alert('No candidates found.'); return; }
+
+            // FILTER OUT ABSENT STUDENTS COMPLETELY BEFORE SENDING TO MARKSHEET CARD ENGINE
+            const res = (rawRes || []).filter(c =>
+                c.arrival_status !== 'absent' && c.arrival_status !== 'none' && c.status !== 'absent'
+            );
+            if (res.length === 0) { alert('No present candidates found to print marksheets for.'); return; }
+
             let judgesList: any[] = [];
             if (currentVenue.judges) {
                 if (Array.isArray(currentVenue.judges)) {
@@ -185,8 +198,8 @@ export default function VenuePanelPage() {
             let criteriaList: any[] = [];
             try {
                 const data = await marksApi.getTemplate(round, category);
-                const cols = Array.isArray(data.columns) 
-                    ? data.columns 
+                const cols = Array.isArray(data.columns)
+                    ? data.columns
                     : (data.columns?.criteria || []);
                 criteriaList = cols;
                 if (!criteriaList || criteriaList.length === 0) {
@@ -215,9 +228,9 @@ export default function VenuePanelPage() {
             const venueRecords = await pb.collection('venue_detail').getFullList({ sort: 'name', expand: 'judges' });
             const students = await pb.collection('participants_application').getFullList({ fields: 'allocated_venue,final_venue,status', filter: 'status = "approved"' });
             const counts: Record<string, number> = {};
-            students.forEach(s => { 
-                if (s.allocated_venue) counts[s.allocated_venue] = (counts[s.allocated_venue] || 0) + 1; 
-                if (s.final_venue) counts[s.final_venue] = (counts[s.final_venue] || 0) + 1; 
+            students.forEach(s => {
+                if (s.allocated_venue) counts[s.allocated_venue] = (counts[s.allocated_venue] || 0) + 1;
+                if (s.final_venue) counts[s.final_venue] = (counts[s.final_venue] || 0) + 1;
             });
             const formattedVenues: Venue[] = venueRecords.map(v => ({
                 id: v.id,
@@ -243,7 +256,7 @@ export default function VenuePanelPage() {
         loadVenues();
     };
 
-    useEffect(() => { loadVenues(); }, [] );
+    useEffect(() => { loadVenues(); }, []);
 
     const loadCandidatesForVenue = async (venueName: string, forceRefresh: boolean = false) => {
         if (!forceRefresh && cache[venueName]) return;

@@ -371,6 +371,45 @@
     accent-color: var(--accent);
 }
 
+.checkboxLabelActive {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.checkboxLabelActive input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+}
+
+.checkboxLabelDisabled {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: not-allowed;
+    font-size: 14px;
+    color: var(--text-muted, #6b7280);
+    font-weight: 600;
+    opacity: 0.6;
+}
+
+.checkboxLabelDisabled input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+}
+
+.bannerIcon {
+    flex-shrink: 0;
+    opacity: 0.85;
+}
+
+
 .filePreviewWrapper {
     display: flex;
     align-items: center;

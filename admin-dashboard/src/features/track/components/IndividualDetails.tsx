@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { pb } from '../../../api/db';
 import { Lock, Edit, Printer, Unlock } from 'lucide-react';
 import { adminTrackApi } from '../../../api/track';
@@ -9,6 +9,8 @@ import { CATEGORIES_CONFIG, getJuzCodesForCategory, getJuzLabel, getCategoryLabe
 import printStyles from './PrintPreviewModal.module.css';
 import PrintPreviewModal from './PrintPreviewModal';
 import { generateIndividualFormHTML } from './printTemplates';
+import ConfirmModal from '../../../shared/components/Modal/ConfirmModal';
+import { validateCategorySelection } from '../../../shared/utils/categoryValidator';
 
 interface IndividualDetailsProps {
     individualRecord: ParticipantsApplicationResponse;
@@ -29,6 +31,7 @@ interface IndividualDetailsProps {
     getBirthCertificateUrl: (record: ParticipantsApplicationResponse) => string;
     getCandidatePhotoUrl: (record: ParticipantsApplicationResponse) => string;
     onRefresh?: () => Promise<boolean>;
+    appMetadata?: { event_date: string; event_age_criteria: any; age_buffer_months: number };
 }
 
 export default function IndividualDetails({
@@ -49,7 +52,8 @@ export default function IndividualDetails({
     getAadhaarUrl,
     getBirthCertificateUrl,
     getCandidatePhotoUrl,
-    onRefresh
+    onRefresh,
+    appMetadata
 }: IndividualDetailsProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const birthCertInputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +62,78 @@ export default function IndividualDetails({
     const [isPrintLoading, setIsPrintLoading] = useState(false);
     const [isRefetching, setIsRefetching] = useState(false);
     const [refetchSuccess, setRefetchSuccess] = useState(false);
+
+    const [alertModal, setAlertModal] = useState<{ isOpen: boolean; title: string; message: string; type: 'alert' | 'success' }>({
+        isOpen: false, title: '', message: '', type: 'alert'
+    });
+    const triggerAlert = (message: string, title = 'Attention Required', type: 'alert' | 'success' = 'alert') => {
+        setAlertModal({ isOpen: true, title, message, type });
+    };
+
+    // Address sub-state for split fields
+    const [street, setStreet] = useState('');
+    const [pincodeLocal, setPincodeLocal] = useState('');
+    const [villageLocal, setVillageLocal] = useState('');
+    const [districtLocal, setDistrictLocal] = useState('');
+    const [stateLocal, setStateLocal] = useState('');
+    const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+    const [pincodeError, setPincodeError] = useState('');
+
+    const prevEditModeRef = useRef(isEditMode);
+
+    // Initialise address sub-fields when entering edit mode
+    useEffect(() => {
+        if (isEditMode && !prevEditModeRef.current) {
+            const raw = editData.address || individualRecord.address || '';
+            const parts = raw.split(',').map((p: string) => p.trim());
+            setStreet(parts[0] || '');
+            setVillageLocal(parts[1] || '');
+            setDistrictLocal(parts[2] || '');
+            setStateLocal(parts[3] || '');
+            setPincodeLocal(parts[4] || '');
+        }
+        prevEditModeRef.current = isEditMode;
+    }, [isEditMode, individualRecord.address]);
+
+    // Keep combined address in sync with sub-fields
+    useEffect(() => {
+        if (isEditMode) {
+            const combined = [street, villageLocal, districtLocal, stateLocal, pincodeLocal]
+                .map(s => s.trim())
+                .filter(Boolean)
+                .join(', ');
+            if (combined !== editData.address) {
+                updateEditField('address', combined);
+            }
+        }
+    }, [street, villageLocal, districtLocal, stateLocal, pincodeLocal, isEditMode]);
+
+    const handlePincodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const code = e.target.value.replace(/\D/g, '');
+        setPincodeLocal(code);
+        setStateLocal(''); setDistrictLocal('');
+        setPincodeError('');
+        if (code.length === 6) {
+            setIsLoadingLocation(true);
+            try {
+                const response = await fetch(`https://api.postalpincode.in/pincode/${code}`);
+                const data = await response.json();
+                if (data && data[0] && data[0].Status === 'Success') {
+                    const postOffices = data[0].PostOffice;
+                    if (postOffices && postOffices.length > 0) {
+                        setStateLocal(postOffices[0].State);
+                        setDistrictLocal(postOffices[0].District);
+                    }
+                } else {
+                    setPincodeError('Invalid Pincode.');
+                }
+            } catch {
+                setPincodeError('Could not fetch address. Enter manually.');
+            } finally {
+                setIsLoadingLocation(false);
+            }
+        }
+    };
 
     const handleRefetch = async () => {
         if (!onRefresh) return;
@@ -96,7 +172,7 @@ export default function IndividualDetails({
                 updated = await adminTrackApi.updateLockStatus(individualRecord.id, 'individual', false);
             } else if (modalState.type === 'reject') {
                 if (!rejectReason.trim()) {
-                    alert('Please provide a reason for rejection.');
+                    triggerAlert('Please provide a reason for rejection.', 'Reason Required');
                     setIsUpdatingStatus(false);
                     return;
                 }
@@ -109,7 +185,7 @@ export default function IndividualDetails({
                 setRejectReason('');
             }
         } catch (e: any) {
-            alert(e.message || 'Status update failed.');
+            triggerAlert(e.message || 'Status update failed.', 'Update Failed');
         } finally {
             setIsUpdatingStatus(false);
         }
@@ -232,7 +308,7 @@ export default function IndividualDetails({
                                 <input
                                     type="text"
                                     className={styles.formInput}
-                                    value={individualRecord.allocated_order || '—'}
+                                    value={individualRecord.allocated_order != null && individualRecord.allocated_order !== 0 ? String(individualRecord.allocated_order) : '—'}
                                     disabled={true}
                                 />
                             </div>
@@ -271,6 +347,20 @@ export default function IndividualDetails({
                                             value={value}
                                             onChange={(e) => {
                                                 const nextCat = e.target.value;
+                                                // Live age validation
+                                                if (appMetadata?.event_date) {
+                                                    const v = validateCategorySelection(
+                                                        nextCat,
+                                                        editData.dob || individualRecord.dob,
+                                                        appMetadata.event_date,
+                                                        appMetadata.event_age_criteria,
+                                                        appMetadata.age_buffer_months
+                                                    );
+                                                    if (!v.allowed) {
+                                                        triggerAlert(v.message || 'Cannot switch to this category.', 'Category Not Allowed');
+                                                        return;
+                                                    }
+                                                }
                                                 updateEditField('category', nextCat);
                                                 const juzCodes = getJuzCodesForCategory(nextCat);
                                                 if (juzCodes.length === 1) {
@@ -385,6 +475,89 @@ export default function IndividualDetails({
                                         />
                                         <span>Requires Accommodation</span>
                                     </label>
+                                </div>
+                            );
+                        }
+
+                        if (field.type === 'textarea' && field.key === 'address') {
+                            if (!isEditMode) {
+                                // View mode: parse and show split fields
+                                const raw = (individualRecord.address || '');
+                                const parts = raw.split(',').map((p: string) => p.trim());
+                                const vs = parts[0] || '', vv = parts[1] || '', vd = parts[2] || '', vst = parts[3] || '', vp = parts[4] || '';
+                                return (
+                                    <div key={field.key} className={`${styles.formGroup} ${styles.fullWidth}`} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                            <div>
+                                                <label className={styles.formLabel}>Door No, Building &amp; Street Road</label>
+                                                <input type="text" className={styles.formInput} value={vs} disabled placeholder="N/A" />
+                                            </div>
+                                            <div>
+                                                <label className={styles.formLabel}>Pincode</label>
+                                                <input type="text" className={styles.formInput} value={vp} disabled placeholder="N/A" />
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                            <div>
+                                                <label className={styles.formLabel}>Village / Locality</label>
+                                                <input type="text" className={styles.formInput} value={vv} disabled placeholder="N/A" />
+                                            </div>
+                                            <div>
+                                                <label className={styles.formLabel}>District</label>
+                                                <input type="text" className={styles.formInput} value={vd} disabled placeholder="N/A" />
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                            <div>
+                                                <label className={styles.formLabel}>State</label>
+                                                <input type="text" className={styles.formInput} value={vst} disabled placeholder="N/A" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // Edit mode: split pincode-driven fields
+                            return (
+                                <div key={field.key} className={`${styles.formGroup} ${styles.fullWidth}`} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                        <div>
+                                            <label className={styles.formLabel}>Door No, Building &amp; Street Road <span style={{ color: '#ef4444' }}>*</span></label>
+                                            <input type="text" className={styles.formInput} value={street}
+                                                disabled={!isEditable} placeholder="e.g. 12/3 Main Street"
+                                                onChange={e => setStreet(e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className={styles.formLabel}>Pincode <span style={{ color: '#ef4444' }}>*</span></label>
+                                            <input type="text" className={styles.formInput} value={pincodeLocal}
+                                                disabled={!isEditable} placeholder="6-digit pincode"
+                                                onChange={handlePincodeChange} maxLength={6} />
+                                            {isLoadingLocation && <span style={{ fontSize: '11px', color: '#64748b' }}>Fetching location…</span>}
+                                            {pincodeError && <span style={{ fontSize: '11px', color: '#ef4444' }}>{pincodeError}</span>}
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                        <div>
+                                            <label className={styles.formLabel}>Village / Locality <span style={{ color: '#ef4444' }}>*</span></label>
+                                            <input type="text" className={styles.formInput} value={villageLocal}
+                                                disabled={!isEditable} placeholder="Village or Locality"
+                                                onChange={e => setVillageLocal(e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className={styles.formLabel}>District <span style={{ color: '#ef4444' }}>*</span></label>
+                                            <input type="text" className={styles.formInput} value={districtLocal}
+                                                disabled={!isEditable} placeholder="District"
+                                                onChange={e => setDistrictLocal(e.target.value)} />
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                        <div>
+                                            <label className={styles.formLabel}>State <span style={{ color: '#ef4444' }}>*</span></label>
+                                            <input type="text" className={styles.formInput} value={stateLocal}
+                                                disabled={!isEditable} placeholder="State"
+                                                onChange={e => setStateLocal(e.target.value)} />
+                                        </div>
+                                    </div>
                                 </div>
                             );
                         }
@@ -715,7 +888,7 @@ export default function IndividualDetails({
                                 }
                             } catch (err) {
                                 console.error('Failed to fetch print details:', err);
-                                alert('Failed to retrieve print details. Please try again.');
+                                triggerAlert('Failed to retrieve print details. Please try again.', 'Print Error');
                             } finally {
                                 setIsPrintLoading(false);
                             }
@@ -770,6 +943,14 @@ export default function IndividualDetails({
                     </div>
                 )}
             </div>
+            <ConfirmModal
+                isOpen={alertModal.isOpen}
+                title={alertModal.title}
+                message={alertModal.message}
+                type={alertModal.type}
+                onConfirm={() => setAlertModal(prev => ({ ...prev, isOpen: false }))}
+                onClose={() => setAlertModal(prev => ({ ...prev, isOpen: false }))}
+            />
         </>
     );
 }

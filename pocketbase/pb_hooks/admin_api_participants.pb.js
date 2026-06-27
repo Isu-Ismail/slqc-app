@@ -19,20 +19,20 @@ routerAdd("GET", "/api/admin/track-individual", (e) => {
 
     try {
         let record;
-        
+
         // 1. Search by participant_id
         if (query.toUpperCase().indexOf("APL-") === 0 || /^\d{3,4}$/.test(query)) {
             try {
                 const records = $app.findRecordsByFilter("participants_application", "participant_id = {:query}", "", 1, 0, { query: query });
                 if (records && records.length > 0) record = records[0];
-            } catch (_) {}
+            } catch (_) { }
         }
-        
+
         // 2. Try by record ID
         if (!record && query.length === 15) {
             try {
                 record = $app.findRecordById("participants_application", query);
-            } catch (_) {}
+            } catch (_) { }
         }
 
         // 3. Search by Aadhaar
@@ -40,7 +40,7 @@ routerAdd("GET", "/api/admin/track-individual", (e) => {
             try {
                 const records = $app.findRecordsByFilter("participants_application", "aadhaar_number = {:query}", "", 1, 0, { query: query });
                 if (records && records.length > 0) record = records[0];
-            } catch (_) {}
+            } catch (_) { }
         }
 
         // 4. Search by Name (partial match)
@@ -48,7 +48,7 @@ routerAdd("GET", "/api/admin/track-individual", (e) => {
             try {
                 const records = $app.findRecordsByFilter("participants_application", "full_name ~ {:query}", "", 1, 0, { query: query });
                 if (records && records.length > 0) record = records[0];
-            } catch (_) {}
+            } catch (_) { }
         }
 
         if (!record) {
@@ -61,7 +61,7 @@ routerAdd("GET", "/api/admin/track-individual", (e) => {
         if (instRef) {
             try {
                 expandedInst = $app.findRecordById("institutions", instRef);
-            } catch (_) {}
+            } catch (_) { }
         }
 
         const responseData = {
@@ -99,7 +99,7 @@ routerAdd("GET", "/api/admin/track-individual", (e) => {
         if (approvedBy) {
             try {
                 expandedApprover = $app.findRecordById("users", approvedBy);
-            } catch (_) {}
+            } catch (_) { }
         }
 
         responseData.expand = {
@@ -132,145 +132,7 @@ routerAdd("GET", "/api/admin/track-individual", (e) => {
 // ── 7. Secure admin print application details ───────────────────────────────
 
 
-// ── 8. Admin print venue list ────────────────────────────────────────────────
-routerAdd("GET", "/api/admin/print-venue-list", (e) => {
-    const authRecord = e.auth;
-    const isSuperuser = authRecord && authRecord.collection().name === "_superusers";
-    const isAdmin = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "admin";
-    const isCoordinator = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "coordinators";
 
-    if (!isSuperuser && !isAdmin && !isCoordinator) {
-        return e.json(403, { error: "Unauthorized. Admin or coordinator access required." });
-    }
-
-    const info = e.requestInfo();
-    const venue = (info.query.venue || "").trim();
-    const round = (info.query.round || "preliminary").trim();
-
-    if (!venue) {
-        return e.json(400, { error: "Missing venue parameter" });
-    }
-
-    try {
-        let filter = "status = 'approved' && allocated_venue = {:venue}";
-        let sort = "allocated_order";
-        if (round === "final") {
-            filter = "status = 'approved' && final_venue = {:venue}";
-            sort = "final_order";
-        }
-        
-        const params = { venue: venue };
-        const records = $app.findRecordsByFilter("participants_application", filter, sort, 2000, 0, params);
-        const list = [];
-
-        records.forEach(record => {
-            let expandedInst = null;
-            const instRef = record.get("institution_ref");
-            if (instRef) {
-                try {
-                    expandedInst = $app.findRecordById("institutions", instRef);
-                } catch (_) {}
-            }
-
-            list.push({
-                id: record.get("id"),
-                participant_id: record.get("participant_id"),
-                full_name: record.get("full_name"),
-                father_name: record.get("father_name"),
-                guardian_name: record.get("guardian_name"),
-                category: record.get("category"),
-                juzz_options: record.get("juzz_options"),
-                selected_juz: record.get("selected_juz"),
-                allocated_venue: round === "final" ? record.get("final_venue") : record.get("allocated_venue"),
-                allocated_order: round === "final" ? record.get("final_order") : record.get("allocated_order"),
-                whatsapp_number: record.get("whatsapp_number"),
-                guardian_phone: record.get("guardian_phone"),
-                candidate_photo: record.get("candidate_photo"),
-                collectionId: record.collection().id,
-                collectionName: record.collection().name,
-                expand: {
-                    institution_ref: expandedInst ? {
-                        name: expandedInst.get("name")
-                    } : null
-                }
-            });
-        });
-
-        return e.json(200, list);
-    } catch (err) {
-        return e.json(500, { error: "Failed to get venue participants: " + err });
-    }
-});
-
-// ── 9. Admin generate ID cards list ──────────────────────────────────────────
-routerAdd("GET", "/api/admin/generate-ids", (e) => {
-    const authRecord = e.auth;
-    const isSuperuser = authRecord && authRecord.collection().name === "_superusers";
-    const isAdmin = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "admin";
-    const isCoordinator = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "coordinators";
-
-    if (!isSuperuser && !isAdmin && !isCoordinator) {
-        return e.json(403, { error: "Unauthorized. Admin or coordinator access required." });
-    }
-
-    const info = e.requestInfo();
-    const venue = (info.query.venue || "").trim();
-    const round = (info.query.round || "preliminary").trim();
-
-    if (!venue) {
-        return e.json(400, { error: "Missing venue parameter" });
-    }
-
-    try {
-        let filter = "status = 'approved' && allocated_venue = {:venue}";
-        let sort = "allocated_order";
-        if (round === "final") {
-            filter = "status = 'approved' && final_venue = {:venue}";
-            sort = "final_order";
-        }
-        
-        const params = { venue: venue };
-        const records = $app.findRecordsByFilter("participants_application", filter, sort, 2000, 0, params);
-        const list = [];
-
-        records.forEach(record => {
-            let expandedInst = null;
-            const instRef = record.get("institution_ref");
-            if (instRef) {
-                try {
-                    expandedInst = $app.findRecordById("institutions", instRef);
-                } catch (_) {}
-            }
-
-            list.push({
-                id: record.get("id"),
-                participant_id: record.get("participant_id"),
-                full_name: record.get("full_name"),
-                father_name: record.get("father_name"),
-                guardian_name: record.get("guardian_name"),
-                category: record.get("category"),
-                juzz_options: record.get("juzz_options"),
-                selected_juz: record.get("selected_juz"),
-                allocated_venue: round === "final" ? record.get("final_venue") : record.get("allocated_venue"),
-                allocated_order: round === "final" ? record.get("final_order") : record.get("allocated_order"),
-                whatsapp_number: record.get("whatsapp_number"),
-                guardian_phone: record.get("guardian_phone"),
-                candidate_photo: record.get("candidate_photo"),
-                collectionId: record.collection().id,
-                collectionName: record.collection().name,
-                expand: {
-                    institution_ref: expandedInst ? {
-                        name: expandedInst.get("name")
-                    } : null
-                }
-            });
-        });
-
-        return e.json(200, list);
-    } catch (err) {
-        return e.json(500, { error: "Failed to get venue participants for ID: " + err });
-    }
-});
 
 routerAdd("POST", "/api/admin/batch-arrival-status", (e) => {
     const authRecord = e.auth;
@@ -287,7 +149,7 @@ routerAdd("POST", "/api/admin/batch-arrival-status", (e) => {
         const info = e.requestInfo();
         const data = info.data || {};
         updates = data.updates || null;
-    } catch (_) {}
+    } catch (_) { }
 
     if (!updates || !Array.isArray(updates)) {
         try {
@@ -296,7 +158,7 @@ routerAdd("POST", "/api/admin/batch-arrival-status", (e) => {
             });
             e.bindBody(body);
             updates = body.updates;
-        } catch (_) {}
+        } catch (_) { }
     }
 
     if (!updates || !Array.isArray(updates)) {
@@ -324,7 +186,7 @@ routerAdd("POST", "/api/admin/batch-arrival-status", (e) => {
             const tr = $app.findFirstRecordByData("trigger_collection", "column_name", "participants_application");
             tr.set("random_value", $security.randomString(10));
             $app.save(tr);
-        } catch (_) {}
+        } catch (_) { }
 
         return e.json(200, { success: true, message: "Arrival statuses updated successfully." });
     } catch (err) {

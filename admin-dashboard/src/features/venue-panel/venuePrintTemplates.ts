@@ -1,6 +1,29 @@
 
+import { pb } from "../../api/db";
 
-const COMPETITION_TITLE = 'Quran Hifz Competition 2026';
+const currentYear = new Date().getFullYear();
+
+// Fallback initial layout in case the database connection fails or is slow
+export let COMPETITION_TITLE = `
+    <div style="font-size: 18px; font-family: Arial, sans-serif; font-weight: bold; letter-spacing: 0.5px;">QURAN HIFZ COMPETITION ${currentYear}</div>
+`;
+
+// Self-executing data fetch from PocketBase metadata collection
+(async () => {
+    try {
+        const record = await pb.collection('metadata').getFirstListItem('key="competition_title"');
+        if (record && record.value) {
+            // Replaces all occurrences of '{year}' stored in the DB with the system's current year
+            COMPETITION_TITLE = record.value.replace(/{year}/g, currentYear.toString());
+        }
+    } catch (error) {
+        console.error("Failed to fetch dynamic multi-line competition_title from metadata collection:", error);
+    }
+})();
+
+// 2. Self-executing function to dynamically fetch and update the title immediately
+
+
 
 
 
@@ -25,12 +48,12 @@ export function generateVenueListHTML(venueName: string, candidates: any[], _ven
 
         return `
             <tr>
-                <td style="padding: 8px 6px; border: 1px solid #94a3b8; text-align: center; font-weight: bold;">${c.allocated_order || index + 1}</td>
-                <td style="padding: 8px 6px; border: 1px solid #94a3b8; font-weight: bold;">${c.full_name}</td>
-                <td style="padding: 8px 6px; border: 1px solid #94a3b8; font-family: monospace; font-size: 12px; text-align: center;">${c.participant_id || c.id}</td>
-                <td style="padding: 8px 6px; border: 1px solid #94a3b8; font-size: 13px;">${instName}</td>
-                <td style="padding: 8px 6px; border: 1px solid #94a3b8; text-align: center; font-size: 13px;">${categoryLabel} (${juzOptionLabel})</td>
-                <td style="padding: 8px 6px; border: 1px solid #94a3b8; width: 150px;"></td>
+                <td style="padding: 10px 6px; border: 1px solid #000000; text-align: center; font-weight: bold; font-size: 12px; color: #000000;">${c.allocated_order || index + 1}</td>
+                <td style="padding: 10px 6px; border: 1px solid #000000; font-weight: bold; font-size: 12px; color: #000000;">${c.full_name}</td>
+                <td style="padding: 10px 6px; border: 1px solid #000000; font-family: monospace; font-size: 11px; text-align: center; color: #000000;">${c.participant_id || c.id}</td>
+                <td style="padding: 10px 6px; border: 1px solid #000000; font-size: 12px; color: #000000;">${instName}</td>
+                <td style="padding: 10px 6px; border: 1px solid #000000; text-align: center; font-size: 12px; color: #000000;">${categoryLabel} (${juzOptionLabel})</td>
+                <td style="padding: 10px 6px; border: 1px solid #000000; width: 150px; height: 38px;"></td>
             </tr>
         `;
     }).join('');
@@ -47,21 +70,25 @@ export function generateVenueListHTML(venueName: string, candidates: any[], _ven
                 body {
                     font-family: Arial, sans-serif;
                     padding: 20px;
-                    color: #333;
+                    color: #000000;
+                    background-color: #ffffff;
                 }
                 .header {
                     text-align: center;
-                    margin-bottom: 15px;
+                    margin-bottom: 20px;
                 }
                 .header h1 {
                     margin: 0;
-                    font-size: 20px;
-                    color: #111;
+                    font-size: 22px;
+                    color: #000000;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
                 }
                 .header h2 {
                     margin: 5px 0 0 0;
                     font-size: 15px;
-                    color: #666;
+                    color: #000000;
+                    font-weight: normal;
                 }
                 table {
                     width: 100%;
@@ -69,16 +96,18 @@ export function generateVenueListHTML(venueName: string, candidates: any[], _ven
                     margin-top: 10px;
                 }
                 th {
-                    background-color: #f3f4f6;
-                    color: #374151;
+                    color: #000000;
                     font-weight: bold;
-                    padding: 8px 6px;
-                    text-align: left;
-                    font-size: 13px;
-                    border: 1px solid #94a3b8;
+                    padding: 10px 6px;
+                    font-size: 12px;
+                    border: 1px solid #000000;
                 }
                 @media print {
-                    body { padding: 0; }
+                    body { 
+                        padding: 0; 
+                        -webkit-print-color-adjust: exact; 
+                        print-color-adjust: exact; 
+                    }
                 }
             </style>
         </head>
@@ -89,20 +118,20 @@ export function generateVenueListHTML(venueName: string, candidates: any[], _ven
                     <h2>Venue Allocation & Attendance - ${venueName}</h2>
                 </div>
                 
-                <table class="meta-info-table" style="width: 100%; margin-bottom: 12px; font-size: 12px; border-collapse: collapse;">
+                <table class="meta-info-table" style="width: 100%; margin-bottom: 20px; font-size: 13px; border-collapse: collapse;">
                     <tr>
-                        <td style="padding: 3px 0; width: 33%;"><strong>Venue:</strong> ${venueName}</td>
-                        <td style="padding: 3px 0; width: 33%; text-align: center;"><strong>Date:</strong> __________________</td>
-                        <td style="padding: 3px 0; width: 33%; text-align: right;"><strong>Total Candidates:</strong> ${candidates.length}</td>
+                        <td style="padding: 4px 0; width: 33%;"><strong>Venue:</strong> ${venueName}</td>
+                        <td style="padding: 4px 0; width: 33%; text-align: center;"><strong>Date:</strong> __________________</td>
+                        <td style="padding: 4px 0; width: 33%; text-align: right;"><strong>Total Candidates:</strong> ${candidates.length}</td>
                     </tr>
                 </table>
 
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 11px;">
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 11px;">
                     <thead>
                         <tr>
-                            <th style="border: 1px solid #000; padding: 5px; text-align: left; background: none; font-size: 11px; color: #000; font-weight: bold;">Judge Details</th>
-                            <th style="border: 1px solid #000; padding: 5px; text-align: left; background: none; font-size: 11px; color: #000; font-weight: bold; width: 30%;">Phone Number</th>
-                            <th style="border: 1px solid #000; padding: 5px; text-align: center; background: none; font-size: 11px; color: #000; font-weight: bold; width: 180px;">Signature</th>
+                            <th style="border: 1px solid #000000; padding: 8px 6px; text-align: left; background-color: #e5e7eb; font-size: 11px; color: #000000; font-weight: bold;">Judge Details</th>
+                            <th style="border: 1px solid #000000; padding: 8px 6px; text-align: left; background-color: #e5e7eb; font-size: 11px; color: #000000; font-weight: bold; width: 30%;">Phone Number</th>
+                            <th style="border: 1px solid #000000; padding: 8px 6px; text-align: center; background-color: #e5e7eb; font-size: 11px; color: #000000; font-weight: bold; width: 180px;">Signature</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -111,17 +140,17 @@ export function generateVenueListHTML(venueName: string, candidates: any[], _ven
             if (list.length > 0) {
                 return list.map((j: any, idx: number) => `
                                     <tr>
-                                        <td style="border: 1px solid #000; padding: 6px; font-weight: bold; font-size: 11px;">Judge ${idx + 1}: ${j.name}</td>
-                                        <td style="border: 1px solid #000; padding: 6px; font-family: monospace; font-size: 11px;">${j.phone_number}</td>
-                                        <td style="border: 1px solid #000; padding: 6px; height: 35px;"></td>
+                                        <td style="border: 1px solid #000000; padding: 8px 6px; font-weight: bold; font-size: 12px; color: #000000;">Judge ${idx + 1}: ${j.name}</td>
+                                        <td style="border: 1px solid #000000; padding: 8px 6px; font-family: monospace; font-size: 12px; color: #000000;">${j.phone_number}</td>
+                                        <td style="border: 1px solid #000000; padding: 8px 6px; height: 42px;"></td>
                                     </tr>
                                 `).join('');
             } else {
                 return `
                                     <tr>
-                                        <td style="border: 1px solid #000; padding: 6px; font-style: italic; font-size: 11px;">No judges assigned.</td>
-                                        <td style="border: 1px solid #000; padding: 6px; font-size: 11px;">—</td>
-                                        <td style="border: 1px solid #000; padding: 6px; height: 35px; text-align: center; font-size: 10px; color: #64748b;">Signature: __________________</td>
+                                        <td style="border: 1px solid #000000; padding: 8px 6px; font-style: italic; font-size: 12px; color: #000000;">No judges assigned.</td>
+                                        <td style="border: 1px solid #000000; padding: 8px 6px; font-size: 12px; color: #000000;">—</td>
+                                        <td style="border: 1px solid #000000; padding: 8px 6px; height: 42px; text-align: center; font-size: 11px; color: #000000;">Signature: __________________</td>
                                     </tr>
                                 `;
             }
@@ -132,16 +161,16 @@ export function generateVenueListHTML(venueName: string, candidates: any[], _ven
                 <table>
                     <thead>
                         <tr>
-                            <th style="width: 50px; text-align: center; border: 1px solid #94a3b8;">Order</th>
-                            <th style="border: 1px solid #94a3b8;">Participant Name</th>
-                            <th style="width: 100px; border: 1px solid #94a3b8; text-align: center;">Register ID</th>
-                            <th style="border: 1px solid #94a3b8;">Institution</th>
-                            <th style="width: 140px; text-align: center; border: 1px solid #94a3b8;">Category & Juz</th>
-                            <th style="width: 150px; text-align: center; border: 1px solid #94a3b8;">Candidate Signature</th>
+                            <th style="width: 50px; text-align: center; border: 1px solid #000000; background: none;">Order</th>
+                            <th style="border: 1px solid #000000; text-align: left; background: none;">Participant Name</th>
+                            <th style="width: 100px; border: 1px solid #000000; text-align: center; background: none;">Register ID</th>
+                            <th style="border: 1px solid #000000; text-align: left; background: none;">Institution</th>
+                            <th style="width: 140px; text-align: center; border: 1px solid #000000; background: none;">Category & Juz</th>
+                            <th style="width: 150px; text-align: center; border: 1px solid #000000; background: none;">Candidate Signature</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${rows || '<tr><td colspan="6" style="text-align: center; padding: 20px;">No candidates allocated to this venue.</td></tr>'}
+                        ${rows || '<tr><td colspan="6" style="text-align: center; padding: 25px; border: 1px solid #000000; font-size: 13px;">No candidates allocated to this venue.</td></tr>'}
                     </tbody>
                 </table>
             </div>
@@ -150,204 +179,7 @@ export function generateVenueListHTML(venueName: string, candidates: any[], _ven
     `;
 }
 
-export function generateMarksheetHTML(venueName: string, candidates: any[], judges: any[] = []): string {
-    const rows = candidates.map((c, index) => {
-        const categoryLabel = c.category === '5_juz' ? '5 Juz' : c.category === '15_juz' ? '15 Juz' : '30 Juz';
-        const juzOptionLabel = getCompactJuzLabel(c.juzz_options || c.selected_juz);
 
-        return `
-            <tr>
-                <td style="padding: 6px 4px; border: 1px solid #000; text-align: center; font-weight: bold; font-size: 11px;">${index + 1}</td>
-                <td style="padding: 6px 6px; border: 1px solid #000; font-weight: bold; font-size: 11px; text-transform: uppercase;">${c.full_name}</td>
-                <td style="padding: 6px 4px; border: 1px solid #000; font-family: monospace; font-size: 10px; text-align: center;">${c.participant_id || c.id}</td>
-                <td style="padding: 6px 4px; border: 1px solid #000; text-align: center; font-size: 11px; font-weight: 500;">${categoryLabel} (${juzOptionLabel})</td>
-                <td style="border: 1px solid #000; width: 65px;"></td>
-                <td style="border: 1px solid #000; width: 65px;"></td>
-                <td style="border: 1px solid #000; width: 65px;"></td>
-                <td style="border: 1px solid #000; width: 65px;"></td>
-                <td style="border: 1px solid #000; width: 80px;"></td>
-            </tr>
-        `;
-    }).join('');
-
-    return `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Marksheet - ${venueName}</title>
-            <style>
-                * {
-                    margin: 0;
-                    padding: 0;
-                    box-sizing: border-box;
-                }
-                body {
-                    font-family: Arial, sans-serif;
-                    padding: 15mm;
-                    color: #000;
-                    background-color: #fff;
-                }
-                .header-container {
-                    text-align: center;
-                    margin-bottom: 15px;
-                }
-                .comp-title {
-                    font-size: 18px;
-                    font-weight: bold;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }
-                .sheet-title {
-                    font-size: 14px;
-                    font-weight: bold;
-                    margin-top: 4px;
-                    color: #333;
-                }
-                .meta-table {
-                    width: 100%;
-                    margin-bottom: 12px;
-                    font-size: 11px;
-                    border-collapse: collapse;
-                }
-                .meta-table td {
-                    padding: 2px 0;
-                }
-                table.marks-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                }
-                table.marks-table th {
-                    border: 1px solid #000;
-                    background-color: #f3f4f6;
-                    font-weight: bold;
-                    padding: 8px 4px;
-                    text-align: center;
-                    font-size: 11px;
-                }
-                table.marks-table td {
-                    height: 32px;
-                }
-                .signatures-section {
-                    margin-top: 40px;
-                    display: grid;
-                    grid-template-columns: repeat(3, 1fr);
-                    gap: 30px;
-                    text-align: center;
-                    font-size: 11px;
-                    page-break-inside: avoid;
-                }
-                .sig-line {
-                    border-top: 1px solid #000;
-                    margin-top: 40px;
-                    padding-top: 5px;
-                }
-                @page {
-                    size: A4 portrait;
-                    margin: 10mm 15mm;
-                }
-                @media print {
-                    body { padding: 0; }
-                    .marks-table th {
-                        background-color: #f3f4f6 !important;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="header-container">
-                <div class="comp-title">${COMPETITION_TITLE}</div>
-                <div class="sheet-title">JUDGES MARKSHEET - ${venueName}</div>
-            </div>
-            
-            <table class="meta-table">
-                <tr>
-                    <td style="width: 33%;"><strong>Venue:</strong> ${venueName}</td>
-                    <td style="width: 33%; text-align: center;"><strong>Date:</strong> ____________________</td>
-                    <td style="width: 33%; text-align: right;"><strong>Total Candidates:</strong> ${candidates.length}</td>
-                </tr>
-            </table>
-
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 11px;">
-                <thead>
-                    <tr>
-                        <th style="border: 1px solid #000; padding: 5px; text-align: left; background: none; font-size: 11px; color: #000; font-weight: bold;">Judge Details</th>
-                        <th style="border: 1px solid #000; padding: 5px; text-align: left; background: none; font-size: 11px; color: #000; font-weight: bold; width: 30%;">Phone Number</th>
-                        <th style="border: 1px solid #000; padding: 5px; text-align: center; background: none; font-size: 11px; color: #000; font-weight: bold; width: 180px;">Signature</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${(() => {
-            const list = Array.isArray(judges) ? judges : (judges ? [judges] : []);
-            if (list.length > 0) {
-                return list.map((j: any, idx: number) => `
-                                <tr>
-                                    <td style="border: 1px solid #000; padding: 6px; font-weight: bold; font-size: 11px;">Judge ${idx + 1}: ${j.name}</td>
-                                    <td style="border: 1px solid #000; padding: 6px; font-family: monospace; font-size: 11px;">${j.phone_number}</td>
-                                    <td style="border: 1px solid #000; padding: 6px; height: 35px;"></td>
-                                </tr>
-                            `).join('');
-            } else {
-                return `
-                                <tr>
-                                    <td style="border: 1px solid #000; padding: 6px; font-style: italic; font-size: 11px;">No judges assigned.</td>
-                                    <td style="border: 1px solid #000; padding: 6px; font-size: 11px;">—</td>
-                                    <td style="border: 1px solid #000; padding: 6px; height: 35px; text-align: center; font-size: 10px; color: #64748b;">Signature: __________________</td>
-                                </tr>
-                            `;
-            }
-        })()}
-                </tbody>
-            </table>
-
-            <table class="marks-table">
-                <thead>
-                    <tr>
-                        <th style="width: 35px;">S.No</th>
-                        <th>Participant Name</th>
-                        <th style="width: 90px;">Register ID</th>
-                        <th style="width: 110px;">Category & Juz</th>
-                        <th style="width: 65px;">Tajweed /<br>Qirat<br>(20 M)</th>
-                        <th style="width: 65px;">Hifz /<br>Memory<br>(60 M)</th>
-                        <th style="width: 65px;">Quranic<br>Quiz<br>(20 M)</th>
-                        <th style="width: 65px;">Total<br>Marks<br>(100 M)</th>
-                        <th style="width: 80px;">Judge<br>Signature</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rows || '<tr><td colspan="9" style="text-align: center; padding: 20px;">No candidates allocated.</td></tr>'}
-                </tbody>
-            </table>
-
-            <div class="signatures-section" style="display: grid; grid-template-columns: repeat(${Math.max(1, judges.length || 3)}, 1fr); gap: 30px; text-align: center; font-size: 11px; margin-top: 40px; page-break-inside: avoid;">
-                ${(() => {
-            const list = Array.isArray(judges) ? judges : (judges ? [judges] : []);
-            if (list.length > 0) {
-                return list.map((j: any) => `
-                            <div>
-                                <div class="sig-line"><strong>${j.name}</strong> Signature</div>
-                            </div>
-                        `).join('');
-            } else {
-                return `
-                            <div>
-                                <div class="sig-line">Judge 1 Signature</div>
-                            </div>
-                            <div>
-                                <div class="sig-line">Judge 2 Signature</div>
-                            </div>
-                            <div>
-                                <div class="sig-line">Judge 3 Signature</div>
-                            </div>
-                        `;
-            }
-        })()}
-            </div>
-        </body>
-        </html>
-    `;
-}
 
 
 export function generateVenueMarksheetHTML(
@@ -393,10 +225,10 @@ export function generateVenueMarksheetHTML(
                         
                         <!-- Middle Title -->
                         <div class="ms-center-title">
-                            <div class="ms-bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
-                            <div class="ms-main-heading">QURAN HIFZ COMPETITION 2026</div>
+                             <div class="ms-bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
+                            <div class="ms-main-heading">Quran Hifz Competion - ${currentYear}</div>
                             <div class="ms-round-heading">${round === 'final' ? 'FINAL ROUND' : 'PRELIMINARY ROUND'}</div>
-                            <div class="ms-category-banner">JUZ MARK SHEET - ${category === '5_juz' ? '5' : category === '15_juz' ? '15' : '30'}</div>
+                            <div class="ms-category-banner">MARK SHEET - ${category === '5_juz' ? '5 Juzz' : category === '15_juz' ? '15 Juzz' : '30 Juzz'}</div>
                         </div>
                         
                         <!-- Judge Box -->
@@ -419,12 +251,12 @@ export function generateVenueMarksheetHTML(
                             <colgroup>
                                 <col style="width: 75px;" />
                                 ${criteria.map(col => {
-                                    let cols = '';
-                                    for (let q = 0; q < (col.numQuestions || 1); q++) {
-                                        cols += '<col />';
-                                    }
-                                    return cols;
-                                }).join('')}
+                let cols = '';
+                for (let q = 0; q < (col.numQuestions || 1); q++) {
+                    cols += '<col />';
+                }
+                return cols;
+            }).join('')}
                             </colgroup>
                             <thead>
                                 <tr>

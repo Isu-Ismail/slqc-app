@@ -3282,7 +3282,7 @@
         ],
         "indexes": [
             "CREATE INDEX `idx_Ye8yyQQ534` ON `participants_application` (\n  `status`,\n  `approved_by`,\n  `allocated_venue`,\n  `selected_juz`,\n  `category`,\n  `updated`,\n  `created`,\n  `juzz_options`\n)",
-            "CREATE UNIQUE INDEX `idx_ZIdwPgYalO` ON `participants_application` (\n  `full_name`,\n  `participant_id`,\n  `whatsapp_number`\n)"
+            "CREATE UNIQUE INDEX `idx_ZIdwPgYalO` ON `participants_application` (\n  `participant_id`,\n  `whatsapp_number`\n)"
         ],
         "system": false
     },
