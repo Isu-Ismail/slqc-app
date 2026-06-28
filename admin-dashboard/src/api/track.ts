@@ -78,6 +78,11 @@ export interface ParticipantsApplicationResponse extends RecordModel {
     selected_juz?: string;
     juz_options?: string;
     address?: string;
+    street_address?: string;
+    village_name?: string;
+    district_name?: string;
+    state_name?: string;
+    pincode?: number;
 }
 
 export interface InstitutionsResponse extends RecordModel {
@@ -163,17 +168,28 @@ export const adminTrackApi = {
 
 
     updateApplication: async (id: string, payload: FormData | Record<string, any>): Promise<ParticipantsApplicationResponse> => {
-        const result = await pb.collection('participants_application').update<ParticipantsApplicationResponse>(id, payload, {
-            expand: 'approved_by,institution_ref'
+        if (payload instanceof FormData) {
+            payload.set('id', id);
+        } else {
+            payload.id = id;
+        }
+
+        const result = await pb.send<ParticipantsApplicationResponse>('/api/admin/update-participant', {
+            method: 'POST',
+            body: payload
         });
         invalidateTrackCache(id);
         return result;
     },
 
     updateInstitution: async (id: string, formData: FormData): Promise<InstitutionsResponse> => {
-        const result = await pb.collection('institutions').update<InstitutionsResponse>(id, formData);
+        formData.set('id', id);
+        const result = await pb.send<any>('/api/admin/update-institution', {
+            method: 'POST',
+            body: formData
+        });
         invalidateTrackCache(id);
-        return result;
+        return result.institution;
     },
 
     updateStatusAndLock: async (

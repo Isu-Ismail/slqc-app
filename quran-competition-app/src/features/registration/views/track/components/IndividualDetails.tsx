@@ -1,10 +1,10 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import { Lock, Edit, Printer } from 'lucide-react';
 import { pb } from '../../../../../api/db';
 import type { ParticipantsApplicationResponse } from '../../../../../api/types';
 import { useRegistrationStatus } from '../../../../../shared/context/StatusContext';
 import styles from '../TrackPage.module.css';
-import { CATEGORIES_CONFIG, getJuzCodesForCategory, getJuzLabel, getCategoryLabel, FORM_FIELDS_CONFIG } from '../../../../../config/fieldsConfig';
+import { CATEGORIES_CONFIG, getJuzCodesForCategory, getJuzLabel, getCategoryLabel, JUZ_OPTIONS } from '../../../../../config/fieldsConfig';
 import PrintPreviewModal, { generateIndividualFormHTML } from './PrintPreviewModal';
 import { validateCategorySelection } from '../../../../../utils/categoryValidator';
 import AlertModal from '../../../../../shared/components/Modal/AlertModal';
@@ -106,6 +106,62 @@ export default function IndividualDetails({
 
     const isLoading = parentLoading || localLoading;
 
+    const hasChanges = useMemo(() => {
+        if (editAadhaarFile || editBirthCertificateFile || editCandidatePhotoFile) return true;
+        const keysToCheck = [
+            'full_name', 'father_name', 'father_number', 'aadhaar_number',
+            'dob', 'gender', 'category', 'juz_options', 'selected_juz',
+            'whatsapp_number', 'email', 'guardian_name', 'guardian_phone',
+            'requires_accommodation', 'street_address', 'village_name',
+            'district_name', 'state_name', 'pincode'
+        ];
+        for (const key of keysToCheck) {
+            let dbVal = (individualRecord as any)[key];
+            let editVal = editData[key];
+            
+            if (key === 'dob' && dbVal) {
+                dbVal = dbVal.split(' ')[0];
+            }
+            if (key === 'juz_options' && !dbVal) {
+                const matched = JUZ_OPTIONS.find(o => o.label === individualRecord.selected_juz);
+                if (matched) dbVal = matched.code;
+            }
+            if (key === 'requires_accommodation') {
+                const dbBool = !!dbVal;
+                const editBool = editVal === true || editVal === 'true';
+                if (dbBool !== editBool) return true;
+                continue;
+            }
+            
+            const normDb = (dbVal === undefined || dbVal === null) ? '' : String(dbVal).trim();
+            const normEdit = (editVal === undefined || editVal === null) ? '' : String(editVal).trim();
+            
+            if (normDb !== normEdit) return true;
+        }
+        return false;
+    }, [editData, individualRecord, editAadhaarFile, editBirthCertificateFile, editCandidatePhotoFile]);
+
+    const isFormValid = useMemo(() => {
+        const requiredKeys = [
+            'full_name', 'father_name', 'dob', 'whatsapp_number',
+            'street_address', 'village_name', 'district_name', 'state_name', 'pincode',
+            'guardian_name', 'guardian_phone'
+        ];
+        for (const key of requiredKeys) {
+            const val = editData[key] ?? (individualRecord as any)[key];
+            if (val === undefined || val === null || String(val).trim() === '') {
+                return false;
+            }
+        }
+        if (!(individualRecord as any).no_aadhaar) {
+            const aadhaar = editData.aadhaar_number ?? individualRecord.aadhaar_number;
+            if (!aadhaar || String(aadhaar).trim() === '') {
+                return false;
+            }
+        }
+        return true;
+    }, [editData, individualRecord]);
+
     // Handle clicks outside the custom locality list wrapper
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -122,28 +178,23 @@ export default function IndividualDetails({
     // Initialize address segments upon edit activation
     useEffect(() => {
         if (isEditMode && !prevEditModeRef.current) {
-            const rawAddress = editData.address || individualRecord.address || '';
-            const parts = rawAddress.split(',').map((p: string) => p.trim());
-
-            setStreet(parts[0] || '');
-            setVillageNameLocal(parts[1] || '');
-            setDistrictLocal(parts[2] || '');
-            setStateNameLocal(parts[3] || '');
-            setPincodeLocal(parts[4] || '');
+            setStreet(editData.street_address || individualRecord.street_address || '');
+            setVillageNameLocal(editData.village_name || individualRecord.village_name || '');
+            setDistrictLocal(editData.district_name || individualRecord.district_name || '');
+            setStateNameLocal(editData.state_name || individualRecord.state_name || '');
+            setPincodeLocal(editData.pincode ? String(editData.pincode) : (individualRecord.pincode ? String(individualRecord.pincode) : ''));
         }
         prevEditModeRef.current = isEditMode;
-    }, [isEditMode, individualRecord.address]);
+    }, [isEditMode, individualRecord]);
 
-    // Automatically reassemble segments into a single comma-joined address string and sync back to parent state
+    // Automatically reassemble segments and sync back to parent state
     useEffect(() => {
         if (isEditMode) {
-            const combined = [street, villageLocal, districtLocal, stateLocal, pincodeLocal]
-                .map(s => s.trim())
-                .filter(Boolean)
-                .join(', ');
-            if (combined !== editData.address) {
-                updateEditField('address', combined);
-            }
+            updateEditField('street_address', street);
+            updateEditField('village_name', villageLocal);
+            updateEditField('district_name', districtLocal);
+            updateEditField('state_name', stateLocal);
+            updateEditField('pincode', pincodeLocal);
         }
     }, [street, villageLocal, districtLocal, stateLocal, pincodeLocal, isEditMode]);
 
@@ -208,7 +259,11 @@ export default function IndividualDetails({
             formDataPayload.append('guardian_name', editData.guardian_name ?? individualRecord.guardian_name);
             formDataPayload.append('guardian_phone', editData.guardian_phone ?? individualRecord.guardian_phone);
             formDataPayload.append('requires_accommodation', String(editData.requires_accommodation ?? individualRecord.requires_accommodation));
-            formDataPayload.append('address', editData.address ?? individualRecord.address ?? '');
+            formDataPayload.append('street_address', editData.street_address ?? individualRecord.street_address ?? '');
+            formDataPayload.append('village_name', editData.village_name ?? individualRecord.village_name ?? '');
+            formDataPayload.append('district_name', editData.district_name ?? individualRecord.district_name ?? '');
+            formDataPayload.append('state_name', editData.state_name ?? individualRecord.state_name ?? '');
+            formDataPayload.append('pincode', editData.pincode ?? individualRecord.pincode ?? '');
             formDataPayload.append('rejection_reason', editData.rejection_reason ?? individualRecord.rejection_reason ?? '');
 
             if (individualRecord.status === 'rejected') {
@@ -337,6 +392,11 @@ export default function IndividualDetails({
 
     const handlePointerUp = () => {
         setIsDragging(false);
+    };
+
+    // Helper to evaluate value to display
+    const getVal = (key: string) => {
+        return isEditMode ? (editData[key] ?? '') : ((individualRecord as any)[key] ?? '');
     };
 
     return (
@@ -473,306 +533,333 @@ export default function IndividualDetails({
                         </div>
                     )}
 
-                    {/* Dynamic fields from config */}
-                    {FORM_FIELDS_CONFIG.map((field) => {
-                        let value = isEditMode ? (editData[field.key] ?? '') : ((individualRecord as any)[field.key] ?? '');
-                        if (value === 0) value = '';
+                    {/* Full Name */}
+                    <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                        <label className={styles.formLabel}>Full Name {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
+                        <input
+                            type="text"
+                            className={styles.formInput}
+                            value={getVal('full_name')}
+                            disabled={!isEditMode || individualRecord.is_locked}
+                            onChange={(e) => updateEditField('full_name', e.target.value)}
+                        />
+                    </div>
 
-                        const isEditable = field.editable && isEditMode && !individualRecord.is_locked;
+                    {/* Father Name */}
+                    <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>Father Name {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
+                        <input
+                            type="text"
+                            className={styles.formInput}
+                            value={getVal('father_name')}
+                            disabled={!isEditMode || individualRecord.is_locked}
+                            onChange={(e) => updateEditField('father_name', e.target.value)}
+                        />
+                    </div>
 
-                        if (field.key === 'address') {
-                            if (!isEditMode) {
-                                const parts = (value as string).split(',').map((p: string) => p.trim());
-                                const viewStreet = parts[0] || '';
-                                const viewVillage = parts[1] || '';
-                                const viewDistrict = parts[2] || '';
-                                const viewState = parts[3] || '';
-                                const viewPincode = parts[4] || '';
+                    {/* Father Mobile */}
+                    <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>Father Mobile</label>
+                        <input
+                            type="text"
+                            className={styles.formInput}
+                            value={getVal('father_number')}
+                            disabled={!isEditMode || individualRecord.is_locked}
+                            onChange={(e) => updateEditField('father_number', e.target.value)}
+                        />
+                    </div>
 
-                                return (
-                                    <div key={field.key} className={`${styles.formGroup} ${styles.fullWidth}`} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', width: '100%' }}>
-                                            <div>
-                                                <label className={styles.formLabel}>Door No, Building, &amp; Street Road</label>
-                                                <input type="text" className={styles.formInput} value={viewStreet} disabled={true} placeholder="N/A" />
-                                            </div>
-                                            <div>
-                                                <label className={styles.formLabel}>Pincode</label>
-                                                <input type="text" className={styles.formInput} value={viewPincode} disabled={true} placeholder="N/A" />
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', width: '100%' }}>
-                                            <div>
-                                                <label className={styles.formLabel}>Village / Locality</label>
-                                                <input type="text" className={styles.formInput} value={viewVillage} disabled={true} placeholder="N/A" />
-                                            </div>
-                                            <div>
-                                                <label className={styles.formLabel}>District</label>
-                                                <input type="text" className={styles.formInput} value={viewDistrict} disabled={true} placeholder="N/A" />
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', width: '100%' }}>
-                                            <div>
-                                                <label className={styles.formLabel}>State</label>
-                                                <input type="text" className={styles.formInput} value={viewState} disabled={true} placeholder="N/A" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            }
+                    {/* Aadhaar Number */}
+                    <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                        <label className={styles.formLabel}>Aadhaar Number</label>
+                        <input
+                            type="text"
+                            className={styles.formInput}
+                            value={getVal('aadhaar_number')}
+                            disabled={!isEditMode || individualRecord.is_locked}
+                            onChange={(e) => updateEditField('aadhaar_number', e.target.value)}
+                        />
+                    </div>
 
+                    {/* Date of Birth */}
+                    <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>Date of Birth {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
+                        <input
+                            type="date"
+                            className={styles.formInput}
+                            value={getVal('dob') ? getVal('dob').substring(0, 10) : ''}
+                            disabled={!isEditMode || individualRecord.is_locked}
+                            onChange={(e) => updateEditField('dob', e.target.value)}
+                        />
+                    </div>
 
-                            return (
-                                <div key={field.key} className={`${styles.formGroup} ${field.gridSpan === 2 ? styles.fullWidth : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', width: '100%' }}>
-                                        <div>
-                                            <label className={styles.formLabel}>Door No, Building, &amp; Street Road *</label>
-                                            <input type="text" className={styles.formInput} placeholder="e.g. 1564 Palla" value={street} onChange={(e) => setStreet(e.target.value)} required />
-                                        </div>
+                    {/* Gender */}
+                    <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>Gender {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
+                        {isEditMode && !individualRecord.is_locked ? (
+                            <select className={styles.formSelect} value={getVal('gender')} onChange={(e) => updateEditField('gender', e.target.value)}>
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                            </select>
+                        ) : (
+                            <input type="text" className={styles.formInput} value={getVal('gender')} disabled={true} />
+                        )}
+                    </div>
 
-                                        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
-                                            <label className={styles.formLabel}>Pincode *</label>
-                                            <input type="text" className={styles.formInput} placeholder="6-digit pincode" maxLength={6} value={pincodeLocal} onChange={handlePincodeChange} required />
-                                            {isLoadingLocation && <small style={{ color: '#0d9488', position: 'absolute', top: 'calc(100% + 2px)', left: '4px', fontSize: '11px', fontWeight: '500' }}>⚡ Fetching details...</small>}
-                                            {pincodeError && <small style={{ color: '#ef4444', position: 'absolute', top: 'calc(100% + 2px)', left: '4px', fontSize: '11px', fontWeight: '500' }}>{pincodeError}</small>}
-                                        </div>
-                                    </div>
+                    {/* Category */}
+                    <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>Category {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
+                        {isEditMode && !individualRecord.is_locked ? (
+                            <select
+                                className={styles.formSelect}
+                                value={getVal('category')}
+                                onChange={(e) => {
+                                    const nextCat = e.target.value;
+                                    const birthDate = editData.dob || individualRecord.dob || '';
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', width: '100%' }} ref={localityRef}>
-                                        <div style={{ position: 'relative' }}>
-                                            <label className={styles.formLabel}>Village / Locality *</label>
-                                            <input
-                                                type="text"
-                                                className={styles.formInput}
-                                                placeholder="Search locality..."
-                                                value={villageLocal}
-                                                disabled={isLoadingLocation}
-                                                onChange={(e) => {
-                                                    setVillageNameLocal(e.target.value);
-                                                    if (availableVillages.length > 0) setIsLocalityOpen(true);
-                                                }}
-                                                onFocus={() => {
-                                                    if (availableVillages.length > 0) setIsLocalityOpen(true);
-                                                }}
-                                                required
-                                                autoComplete="off"
-                                            />
-                                            {isLocalityOpen && filteredVillages.length > 0 && (
-                                                <ul style={{
-                                                    position: 'absolute',
-                                                    top: 'calc(100% + 4px)',
-                                                    left: 0,
-                                                    width: '100%',
-                                                    margin: '0',
-                                                    padding: '4px',
-                                                    listStyle: 'none',
-                                                    backgroundColor: '#fff',
-                                                    border: '1px solid #cbd5e1',
-                                                    borderRadius: '6px',
-                                                    maxHeight: '140px',
-                                                    overflowY: 'auto',
-                                                    zIndex: 100,
-                                                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
-                                                }}>
-                                                    {filteredVillages.map((village, idx) => (
-                                                        <li
-                                                            key={idx}
-                                                            onClick={() => {
-                                                                setVillageNameLocal(village);
-                                                                setIsLocalityOpen(false);
-                                                            }}
-                                                            style={{ padding: '8px 12px', cursor: 'pointer', borderRadius: '4px' }}
-                                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
-                                                        >
-                                                            {village}
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            )}
-                                        </div>
+                                    const validation = validateCategorySelection(
+                                        nextCat,
+                                        birthDate,
+                                        metadata.event_date,
+                                        metadata.event_age_criteria,
+                                        Number(metadata.age_buffer_months || 3),
+                                        individualRecord.registration_type as 'individual' | 'institution',
+                                        (individualRecord.expand as any)?.institution_ref?.applications,
+                                        metadata.applications_per_institute
+                                    );
 
-                                        <div>
-                                            <label className={styles.formLabel}>District *</label>
-                                            <input type="text" className={styles.formInput} value={districtLocal} placeholder="District" onChange={(e) => setDistrictLocal(e.target.value)} disabled={!isEditable || isLoadingLocation} required />
-                                        </div>
-                                    </div>
+                                    if (!validation.allowed) {
+                                        triggerAlert(validation.message || 'Cannot switch to this category.', 'Category Not Allowed');
+                                        return;
+                                    }
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', width: '100%' }}>
-                                        <div>
-                                            <label className={styles.formLabel}>State *</label>
-                                            <input type="text" className={styles.formInput} value={stateLocal} placeholder="State" onChange={(e) => setStateNameLocal(e.target.value)} disabled={!isEditable || isLoadingLocation} required />
-                                        </div>
-                                    </div>
+                                    updateEditField('category', nextCat);
+                                    const juzCodes = getJuzCodesForCategory(nextCat);
+                                    if (juzCodes.length === 1) {
+                                        updateEditField('juz_options', juzCodes[0].code);
+                                        updateEditField('selected_juz', juzCodes[0].label);
+                                    } else {
+                                        updateEditField('juz_options', '');
+                                        updateEditField('selected_juz', '');
+                                    }
+                                }}
+                            >
+                                <option value="">Select Category</option>
+                                {CATEGORIES_CONFIG.map((cat) => (
+                                    <option key={cat.key} value={cat.key}>{cat.label}</option>
+                                ))}
+                            </select>
+                        ) : (
+                            <input type="text" className={styles.formInput} value={getCategoryLabel(getVal('category'))} disabled={true} />
+                        )}
+                    </div>
+
+                    {/* Juz Option Range */}
+                    {isEditMode ? (
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel}>Selected Juz Range <span style={{ color: '#ef4444' }}>*</span></label>
+                            <select
+                                className={styles.formSelect}
+                                value={getVal('juz_options')}
+                                onChange={(e) => {
+                                    const code = e.target.value;
+                                    updateEditField('juz_options', code);
+                                    updateEditField('selected_juz', getJuzLabel(code));
+                                }}
+                            >
+                                <option value="">Select Option</option>
+                                {getJuzCodesForCategory(getVal('category')).map((opt) => (
+                                    <option key={opt.code} value={opt.code}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                    ) : (
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel}>Selected Juz Range</label>
+                            <input
+                                type="text"
+                                className={styles.formInput}
+                                value={getJuzLabel(individualRecord.juz_options || '') || individualRecord.selected_juz || 'N/A'}
+                                disabled={true}
+                            />
+                        </div>
+                    )}
+
+                    {/* WhatsApp Number */}
+                    <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>WhatsApp Number {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
+                        <input
+                            type="text"
+                            className={styles.formInput}
+                            value={getVal('whatsapp_number')}
+                            disabled={!isEditMode || individualRecord.is_locked}
+                            onChange={(e) => updateEditField('whatsapp_number', e.target.value)}
+                        />
+                    </div>
+
+                    {/* Email */}
+                    <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>Email Address</label>
+                        <input
+                            type="email"
+                            className={styles.formInput}
+                            value={getVal('email')}
+                            disabled={!isEditMode || individualRecord.is_locked}
+                            onChange={(e) => updateEditField('email', e.target.value)}
+                        />
+                    </div>
+
+                    {/* Address Fields split region */}
+                    {!isEditMode ? (
+                        <div className={`${styles.formGroup} ${styles.fullWidth}`} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', width: '100%' }}>
+                                <div>
+                                    <label className={styles.formLabel}>Door No, Building, &amp; Street Road</label>
+                                    <input type="text" className={styles.formInput} value={individualRecord.street_address || ''} disabled={true} placeholder="N/A" />
                                 </div>
-                            );
-                        }
-
-                        if (field.key === 'category') {
-                            return (
-                                <div key={field.key} className={`${styles.formGroup} ${field.gridSpan === 2 ? styles.fullWidth : ''}`}>
-                                    <label className={styles.formLabel}>{field.label} {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
-                                    {isEditable ? (
-                                        <select
-                                            className={styles.formSelect}
-                                            value={value}
-                                            onChange={(e) => {
-                                                const nextCat = e.target.value;
-                                                const birthDate = editData.dob || individualRecord.dob || '';
-
-                                                const validation = validateCategorySelection(
-                                                    nextCat,
-                                                    birthDate,
-                                                    metadata.event_date,
-                                                    metadata.event_age_criteria,
-                                                    Number(metadata.age_buffer_months || 3),
-                                                    individualRecord.registration_type as 'individual' | 'institution',
-                                                    (individualRecord.expand as any)?.institution_ref?.applications,
-                                                    metadata.applications_per_institute
-                                                );
-
-                                                if (!validation.allowed) {
-                                                    triggerAlert(validation.message || 'Cannot switch to this category.', 'Category Not Allowed');
-                                                    return;
-                                                }
-
-                                                updateEditField('category', nextCat);
-                                                const juzCodes = getJuzCodesForCategory(nextCat);
-                                                if (juzCodes.length === 1) {
-                                                    updateEditField('juz_options', juzCodes[0].code);
-                                                    updateEditField('selected_juz', juzCodes[0].label);
-                                                } else {
-                                                    updateEditField('juz_options', '');
-                                                    updateEditField('selected_juz', '');
-                                                }
-                                            }}
-                                        >
-                                            <option value="">Select Category</option>
-                                            {CATEGORIES_CONFIG.map((cat) => (
-                                                <option key={cat.key} value={cat.key}>{cat.label}</option>
-                                            ))}
-                                        </select>
-                                    ) : (
-                                        <input type="text" className={styles.formInput} value={getCategoryLabel(value)} disabled={true} />
-                                    )}
+                                <div>
+                                    <label className={styles.formLabel}>Pincode</label>
+                                    <input type="text" className={styles.formInput} value={individualRecord.pincode ? String(individualRecord.pincode) : ''} disabled={true} placeholder="N/A" />
                                 </div>
-                            );
-                        }
-
-                        if (field.key === 'juz_options') {
-                            if (!isEditMode) return null;
-                            const currentCategory = editData.category;
-                            const juzOptions = getJuzCodesForCategory(currentCategory);
-                            return (
-                                <div key={field.key} className={`${styles.formGroup} ${field.gridSpan === 2 ? styles.fullWidth : ''}`}>
-                                    <label className={styles.formLabel}>Selected Juz Range <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select
-                                        className={styles.formSelect}
-                                        value={value}
-                                        onChange={(e) => {
-                                            const code = e.target.value;
-                                            updateEditField('juz_options', code);
-                                            updateEditField('selected_juz', getJuzLabel(code));
-                                        }}
-                                    >
-                                        <option value="">Select Option</option>
-                                        {juzOptions.map((opt) => (
-                                            <option key={opt.code} value={opt.code}>{opt.label}</option>
-                                        ))}
-                                    </select>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', width: '100%' }}>
+                                <div>
+                                    <label className={styles.formLabel}>Village / Locality</label>
+                                    <input type="text" className={styles.formInput} value={individualRecord.village_name || ''} disabled={true} placeholder="N/A" />
                                 </div>
-                            );
-                        }
+                                <div>
+                                    <label className={styles.formLabel}>District</label>
+                                    <input type="text" className={styles.formInput} value={individualRecord.district_name || ''} disabled={true} placeholder="N/A" />
+                                </div>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', width: '100%' }}>
+                                <div>
+                                    <label className={styles.formLabel}>State</label>
+                                    <input type="text" className={styles.formInput} value={individualRecord.state_name || ''} disabled={true} placeholder="N/A" />
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className={`${styles.formGroup} ${styles.fullWidth}`} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', width: '100%' }}>
+                                <div>
+                                    <label className={styles.formLabel}>Door No, Building, &amp; Street Road *</label>
+                                    <input type="text" className={styles.formInput} placeholder="e.g. 1564 Palla" value={street} onChange={(e) => setStreet(e.target.value)} required />
+                                </div>
 
-                        if (field.key === 'selected_juz') {
-                            if (isEditMode) return null;
-                            return (
-                                <div key={field.key} className={`${styles.formGroup} ${field.gridSpan === 2 ? styles.fullWidth : ''}`}>
-                                    <label className={styles.formLabel}>Selected Juz Range</label>
+                                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
+                                    <label className={styles.formLabel}>Pincode *</label>
+                                    <input type="text" className={styles.formInput} placeholder="6-digit pincode" maxLength={6} value={pincodeLocal} onChange={handlePincodeChange} required />
+                                    {isLoadingLocation && <small style={{ color: '#0d9488', position: 'absolute', top: 'calc(100% + 2px)', left: '4px', fontSize: '11px', fontWeight: '500' }}>⚡ Fetching details...</small>}
+                                    {pincodeError && <small style={{ color: '#ef4444', position: 'absolute', top: 'calc(100% + 2px)', left: '4px', fontSize: '11px', fontWeight: '500' }}>{pincodeError}</small>}
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', width: '100%' }} ref={localityRef}>
+                                <div style={{ position: 'relative' }}>
+                                    <label className={styles.formLabel}>Village / Locality *</label>
                                     <input
                                         type="text"
                                         className={styles.formInput}
-                                        value={getJuzLabel(individualRecord.juz_options || '') || individualRecord.selected_juz || 'N/A'}
-                                        disabled={true}
+                                        placeholder="Search locality..."
+                                        value={villageLocal}
+                                        disabled={isLoadingLocation}
+                                        onChange={(e) => {
+                                            setVillageNameLocal(e.target.value);
+                                            if (availableVillages.length > 0) setIsLocalityOpen(true);
+                                        }}
+                                        onFocus={() => {
+                                            if (availableVillages.length > 0) setIsLocalityOpen(true);
+                                        }}
+                                        required
+                                        autoComplete="off"
                                     />
-                                </div>
-                            );
-                        }
-
-                        if (field.key === 'gender') {
-                            return (
-                                <div key={field.key} className={`${styles.formGroup} ${field.gridSpan === 2 ? styles.fullWidth : ''}`}>
-                                    <label className={styles.formLabel}>Gender {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
-                                    {isEditable ? (
-                                        <select className={styles.formSelect} value={value} onChange={(e) => updateEditField('gender', e.target.value)}>
-                                            <option value="male">Male</option>
-                                            <option value="female">Female</option>
-                                        </select>
-                                    ) : (
-                                        <input type="text" className={styles.formInput} value={value} disabled={true} />
+                                    {isLocalityOpen && filteredVillages.length > 0 && (
+                                        <ul style={{
+                                            position: 'absolute',
+                                            top: 'calc(100% + 4px)',
+                                            left: 0,
+                                            width: '100%',
+                                            margin: '0',
+                                            padding: '4px',
+                                            listStyle: 'none',
+                                            backgroundColor: '#fff',
+                                            border: '1px solid #cbd5e1',
+                                            borderRadius: '6px',
+                                            maxHeight: '140px',
+                                            overflowY: 'auto',
+                                            zIndex: 100,
+                                            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
+                                        }}>
+                                            {filteredVillages.map((village, idx) => (
+                                                <li
+                                                    key={idx}
+                                                    onClick={() => {
+                                                        setVillageNameLocal(village);
+                                                        setIsLocalityOpen(false);
+                                                    }}
+                                                    style={{ padding: '8px 12px', cursor: 'pointer', borderRadius: '4px' }}
+                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
+                                                >
+                                                    {village}
+                                                </li>
+                                            ))}
+                                        </ul>
                                     )}
                                 </div>
-                            );
-                        }
 
-                        if (field.key === 'requires_accommodation') {
-                            const checkboxLabelStyle = (active: boolean, locked: boolean) => {
-                                if (locked) return styles.checkboxLabelDisabled;
-                                return active ? styles.checkboxLabelActive : styles.checkboxLabel;
-                            };
-
-                            return (
-                                <div key={field.key} className={`${styles.formGroup} ${styles.fullWidthCheckbox}`}>
-                                    <label className={checkboxLabelStyle(isEditMode, individualRecord.is_locked)}>
-                                        <input
-                                            type="checkbox"
-                                            checked={!!value}
-                                            disabled={!isEditable}
-                                            onChange={(e) => updateEditField('requires_accommodation', e.target.checked)}
-                                        />
-                                        <span>Requires Accommodation</span>
-                                    </label>
+                                <div>
+                                    <label className={styles.formLabel}>District *</label>
+                                    <input type="text" className={styles.formInput} value={districtLocal} placeholder="District" onChange={(e) => setDistrictLocal(e.target.value)} disabled={isLoadingLocation} required />
                                 </div>
-                            );
-                        }
-
-                        if (field.type === 'textarea') {
-                            const isDisabled = !isEditable;
-                            return (
-                                <div key={field.key} className={`${styles.formGroup} ${field.gridSpan === 2 ? styles.fullWidth : ''}`}>
-                                    <label className={styles.formLabel}>
-                                        {field.label} {isEditMode && field.required && <span style={{ color: '#ef4444' }}>*</span>}
-                                    </label>
-                                    <textarea
-                                        className={styles.formInput}
-                                        style={{ minHeight: '60px', fontFamily: 'inherit', resize: 'vertical' }}
-                                        value={value}
-                                        disabled={isDisabled}
-                                        placeholder={field.placeholder || 'N/A'}
-                                        onChange={(e) => updateEditField(field.key, e.target.value)}
-                                    />
-                                </div>
-                            );
-                        }
-
-                        const isDisabled = !isEditable;
-
-                        return (
-                            <div key={field.key} className={`${styles.formGroup} ${field.gridSpan === 2 ? styles.fullWidth : ''}`}>
-                                <label className={styles.formLabel}>
-                                    {field.label} {isEditMode && field.required && <span style={{ color: '#ef4444' }}>*</span>}
-                                </label>
-                                <input
-                                    type={field.type === 'tel' ? 'text' : field.type}
-                                    className={styles.formInput}
-                                    value={field.type === 'date' && typeof value === 'string' ? value.substring(0, 10) : value}
-                                    disabled={isDisabled}
-                                    placeholder={field.placeholder || 'N/A'}
-                                    onChange={(e) => updateEditField(field.key, e.target.value)}
-                                />
                             </div>
-                        );
-                    })}
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', width: '100%' }}>
+                                <div>
+                                    <label className={styles.formLabel}>State *</label>
+                                    <input type="text" className={styles.formInput} value={stateLocal} placeholder="State" onChange={(e) => setStateNameLocal(e.target.value)} disabled={isLoadingLocation} required />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Guardian Name */}
+                    <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>Guardian Name {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
+                        <input
+                            type="text"
+                            className={styles.formInput}
+                            value={getVal('guardian_name')}
+                            disabled={!isEditMode || individualRecord.is_locked}
+                            onChange={(e) => updateEditField('guardian_name', e.target.value)}
+                        />
+                    </div>
+
+                    {/* Guardian Phone */}
+                    <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>Guardian Phone {isEditMode && <span style={{ color: '#ef4444' }}>*</span>}</label>
+                        <input
+                            type="text"
+                            className={styles.formInput}
+                            value={getVal('guardian_phone')}
+                            disabled={!isEditMode || individualRecord.is_locked}
+                            onChange={(e) => updateEditField('guardian_phone', e.target.value)}
+                        />
+                    </div>
+
+                    {/* Requires Accommodation */}
+                    <div className={`${styles.formGroup} ${styles.fullWidthCheckbox}`}>
+                        <label className={isEditMode && !individualRecord.is_locked ? styles.checkboxLabelActive : styles.checkboxLabel}>
+                            <input
+                                type="checkbox"
+                                checked={!!getVal('requires_accommodation')}
+                                disabled={!isEditMode || individualRecord.is_locked}
+                                onChange={(e) => updateEditField('requires_accommodation', e.target.checked)}
+                            />
+                            <span>Requires Accommodation</span>
+                        </label>
+                    </div>
 
                     {(() => {
                         const institutionRef = (individualRecord.expand as any)?.institution_ref;
@@ -861,7 +948,7 @@ export default function IndividualDetails({
                 {isEditMode && !individualRecord.is_locked && (
                     <div className={styles.detailsActions} style={{ borderTop: '1px solid var(--border)', paddingTop: '20px', marginTop: '20px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                         <button type="button" className={styles.btnSecondary} onClick={() => setIsEditMode(false)} disabled={isLoading}>Cancel</button>
-                        <button type="button" className={styles.btnPrimary} onClick={handleSaveIndividualChangesLocal} disabled={isLoading}>{isLoading ? 'Saving...' : 'Save Changes'}</button>
+                        <button type="button" className={styles.btnPrimary} onClick={handleSaveIndividualChangesLocal} disabled={isLoading || !hasChanges || !isFormValid}>{isLoading ? 'Saving...' : 'Save Changes'}</button>
                     </div>
                 )}
 

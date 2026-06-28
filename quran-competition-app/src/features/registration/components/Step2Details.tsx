@@ -4,10 +4,10 @@ import type { RegistrationFormData } from '../views/register/RegisterPage';
 import { validators } from '../../../utils/validators';
 import { useRegistrationStatus } from '../../../shared/context/StatusContext';
 import { checkAgeEligibility, checkCategoryAvailability } from '../../../utils/ageChecker';
-import{validateCategorySelection} from '../../../utils/categoryValidator';
+import { validateCategorySelection } from '../../../utils/categoryValidator';
 
 import styles from './Step2Details.module.css';
-import { CATEGORIES_CONFIG, getJuzCodesForCategory, getJuzLabel, FORM_FIELDS_CONFIG } from '../../../config/fieldsConfig';
+import { CATEGORIES_CONFIG, getJuzCodesForCategory, getJuzLabel } from '../../../config/fieldsConfig';
 
 interface Step2Props {
     formData: RegistrationFormData;
@@ -22,13 +22,6 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
     const [errors, setErrors] = useState<ValidationErrors>({});
     const { metadata } = useRegistrationStatus();
     const localityRef = useRef<HTMLDivElement | null>(null);
-
-    // ─── LOCAL STATE ACCUMULATORS FOR THE SPLIT ADDRESS FIELD ───────────────────
-    const [street, setStreet] = useState('');
-    const [pincodeLocal, setPincodeLocal] = useState('');
-    const [districtLocal, setDistrictLocal] = useState('');
-    const [villageLocal, setVillageNameLocal] = useState('');
-    const [stateLocal, setStateNameLocal] = useState('');
 
     const [availableVillages, setAvailableVillages] = useState<string[]>([]);
     const [isLoadingLocation, setIsLoadingLocation] = useState(false);
@@ -46,31 +39,17 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // ─── PIPING COMBINED STRING BACK INTO PROP WITHOUT CHANGING API ENGINES ───
-    useEffect(() => {
-        const combinedAddress = [
-            street.trim(),
-            villageLocal.trim(),
-            districtLocal.trim(),
-            stateLocal.trim(),
-            pincodeLocal.trim()
-        ].filter(Boolean).join(', ');
-
-        // Pass to parent registration state object property key directly
-        updateForm('address' as any, combinedAddress);
-    }, [street, villageLocal, districtLocal, stateLocal, pincodeLocal]);
-
     const filteredVillages = availableVillages.filter(v =>
-        v.toLowerCase().includes(villageLocal.toLowerCase())
+        v.toLowerCase().includes((formData.village_name || '').toLowerCase())
     );
 
     const handlePincodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const code = e.target.value.replace(/\D/g, '');
-        setPincodeLocal(code);
+        updateForm('pincode', code);
 
-        setStateNameLocal('');
-        setDistrictLocal('');
-        setVillageNameLocal('');
+        updateForm('state_name', '');
+        updateForm('district_name', '');
+        updateForm('village_name', '');
         setAvailableVillages([]);
         setPincodeError('');
 
@@ -83,8 +62,8 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
                 if (data && data[0] && data[0].Status === "Success") {
                     const postOffices = data[0].PostOffice;
                     if (postOffices && postOffices.length > 0) {
-                        setStateNameLocal(postOffices[0].State);
-                        setDistrictLocal(postOffices[0].District);
+                        updateForm('state_name', postOffices[0].State);
+                        updateForm('district_name', postOffices[0].District);
                         const villages = Array.from(new Set(postOffices.map((po: any) => po.Name))) as string[];
                         setAvailableVillages(villages);
                         setIsLocalityOpen(true);
@@ -134,7 +113,7 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
         );
     }, [formData.dob, eventDate, ageCriteria, ageBuffer]);
 
-    // Insert this replacement hook inside your Step2Details component
+    // Validate Category selection when DOB or Category changes
     useEffect(() => {
         if (formData.category && formData.dob) {
             const validation = validateCategorySelection(
@@ -159,47 +138,34 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
     }, [formData.dob, formData.category, eligibility, formData.registration_type, formData.institution_applications, limitConfig, updateForm]);
 
     const validateField = (key: string, value: any) => {
-        const fieldConfig = FORM_FIELDS_CONFIG.find(f => f.key === key);
-        if (!fieldConfig) return;
-
-        // Skip standard rendering loops for the address string field block completely
-        if (key === 'address') return;
-
-        if (key === 'aadhaar_number' && formData.no_aadhaar) {
-            setErrors(prev => {
-                const copy = { ...prev };
-                delete copy[key];
-                return copy;
-            });
-            return;
-        }
-
-        if (fieldConfig.required && (value === undefined || value === null || String(value).trim() === '')) {
-            if (fieldConfig.key === 'juz_options') {
-                if (getJuzCodesForCategory(formData.category).length > 0) {
-                    setErrors(prev => ({ ...prev, [key]: 'Juz Option is required.' }));
-                    return;
-                }
-            } else {
-                setErrors(prev => ({ ...prev, [key]: `${fieldConfig.label} is required.` }));
+        if (key === 'full_name' || key === 'father_name' || key === 'dob' || key === 'whatsapp_number' || key === 'guardian_name' || key === 'guardian_phone' || key === 'street_address' || key === 'village_name' || key === 'district_name' || key === 'state_name' || key === 'pincode') {
+            if (value === undefined || value === null || String(value).trim() === '') {
+                setErrors(prev => ({ ...prev, [key]: 'This field is required.' }));
                 return;
             }
         }
-
-        if (value) {
-            if (fieldConfig.validationType === 'phone') {
-                if (!validators.isValidMobile(value)) {
-                    setErrors(prev => ({ ...prev, [key]: 'Please enter a valid 10-digit mobile number starting with 6-9.' }));
-                    return;
-                }
-            } else if (fieldConfig.validationType === 'email') {
-                if (!validators.isValidEmail(value)) {
-                    setErrors(prev => ({ ...prev, [key]: 'Please enter a valid email address.' }));
-                    return;
-                }
+        if (key === 'aadhaar_number' && !formData.no_aadhaar) {
+            if (!value || String(value).trim() === '') {
+                setErrors(prev => ({ ...prev, [key]: 'Aadhaar Number is required.' }));
+                return;
+            }
+            if (!validators.isValidAadhaar(value)) {
+                setErrors(prev => ({ ...prev, [key]: 'Please enter a valid 12-digit Aadhaar number.' }));
+                return;
             }
         }
-
+        if (key === 'whatsapp_number' || key === 'guardian_phone' || key === 'father_number') {
+            if (value && !validators.isValidMobile(value)) {
+                setErrors(prev => ({ ...prev, [key]: 'Please enter a valid 10-digit mobile number starting with 6-9.' }));
+                return;
+            }
+        }
+        if (key === 'email' && value) {
+            if (!validators.isValidEmail(value)) {
+                setErrors(prev => ({ ...prev, [key]: 'Please enter a valid email address.' }));
+                return;
+            }
+        }
         setErrors(prev => {
             const copy = { ...prev };
             delete copy[key];
@@ -207,18 +173,129 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
         });
     };
 
-    const renderField = (field: typeof FORM_FIELDS_CONFIG[0]) => {
-        if (field.customFormRender || field.key === 'address') {
-            return null;
-        }
+    return (
+        <div className={styles.stepContainer}>
+            <div>
+                <h3 className={styles.stepTitle}>Personal & Contact Details</h3>
+                <p className={styles.stepDesc}>Please fill in the details of the candidate accurately.</p>
+            </div>
 
-        const isError = !!errors[field.key];
-        const errorMsg = errors[field.key];
+            <div className={styles.formGrid}>
+                {/* Full Name */}
+                <div className={styles.inputGroupFull}>
+                    <label className={styles.inputLabel} htmlFor="full_name">
+                        Full Name <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    <input
+                        type="text"
+                        id="full_name"
+                        className={`${styles.inputField} ${errors.full_name ? styles.inputError : ''}`}
+                        placeholder="Enter full name"
+                        value={formData.full_name || ''}
+                        onChange={(e) => updateForm('full_name', e.target.value.replace(/[0-9]/g, ''))}
+                        onBlur={() => validateField('full_name', formData.full_name)}
+                    />
+                    {errors.full_name && <span className={styles.errorMessage}>{errors.full_name}</span>}
+                </div>
 
-        if (field.key === 'gender') {
-            return (
-                <div key={field.key} className={field.gridSpan === 2 ? styles.inputGroupFull : styles.inputGroup}>
-                    <label className={styles.inputLabel}>{field.label} {field.required && <span style={{ color: '#ef4444' }}>*</span>}</label>
+                {/* Father Name */}
+                <div className={styles.inputGroup}>
+                    <label className={styles.inputLabel} htmlFor="father_name">
+                        Father Name <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    <input
+                        type="text"
+                        id="father_name"
+                        className={`${styles.inputField} ${errors.father_name ? styles.inputError : ''}`}
+                        placeholder="Enter father name"
+                        value={formData.father_name || ''}
+                        onChange={(e) => updateForm('father_name', e.target.value.replace(/[0-9]/g, ''))}
+                        onBlur={() => validateField('father_name', formData.father_name)}
+                    />
+                    {errors.father_name && <span className={styles.errorMessage}>{errors.father_name}</span>}
+                </div>
+
+                {/* Father Mobile */}
+                <div className={styles.inputGroup}>
+                    <label className={styles.inputLabel} htmlFor="father_number">
+                        Father Mobile
+                    </label>
+                    <input
+                        type="text"
+                        id="father_number"
+                        maxLength={10}
+                        className={`${styles.inputField} ${errors.father_number ? styles.inputError : ''}`}
+                        placeholder="Enter father mobile"
+                        value={formData.father_number || ''}
+                        onChange={(e) => updateForm('father_number', e.target.value.replace(/\D/g, ''))}
+                        onBlur={() => validateField('father_number', formData.father_number)}
+                    />
+                    {errors.father_number && <span className={styles.errorMessage}>{errors.father_number}</span>}
+                </div>
+
+                {/* Aadhaar Number */}
+                <div className={styles.inputGroupFull}>
+                    <label className={styles.inputLabel} htmlFor="aadhaar_number">
+                        Aadhaar Number {!formData.no_aadhaar && <span style={{ color: '#ef4444' }}>*</span>}
+                    </label>
+                    <input
+                        type="text"
+                        id="aadhaar_number"
+                        maxLength={12}
+                        disabled={formData.no_aadhaar}
+                        className={`${styles.inputField} ${errors.aadhaar_number ? styles.inputError : ''}`}
+                        placeholder={formData.no_aadhaar ? "Aadhaar Card is marked as not available" : "Enter 12-digit Aadhaar"}
+                        value={formData.aadhaar_number || ''}
+                        onChange={(e) => updateForm('aadhaar_number', e.target.value.replace(/\D/g, ''))}
+                        onBlur={() => validateField('aadhaar_number', formData.aadhaar_number)}
+                    />
+                    {errors.aadhaar_number ? (
+                        <span className={styles.errorMessage}>{errors.aadhaar_number}</span>
+                    ) : (
+                        <span className={styles.inputHint}>12-digit unique identification number. Will be mathematically verified.</span>
+                    )}
+
+                    <div style={{ marginTop: '8px' }}>
+                        <label className={styles.checkboxLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={!!formData.no_aadhaar}
+                                onChange={(e) => {
+                                    updateForm('no_aadhaar', e.target.checked);
+                                    if (e.target.checked) {
+                                        updateForm('aadhaar_number', '');
+                                        setErrors(prev => {
+                                            const copy = { ...prev };
+                                            delete copy.aadhaar_number;
+                                            return copy;
+                                        });
+                                    }
+                                }}
+                            />
+                            <span style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text)' }}>No Aadhaar Card (Birth Certificate upload will be compulsory)</span>
+                        </label>
+                    </div>
+                </div>
+
+                {/* Date of Birth */}
+                <div className={styles.inputGroup}>
+                    <label className={styles.inputLabel} htmlFor="dob">
+                        Date of Birth <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    <input
+                        type="date"
+                        id="dob"
+                        className={`${styles.inputField} ${errors.dob ? styles.inputError : ''}`}
+                        value={formData.dob || ''}
+                        onChange={(e) => updateForm('dob', e.target.value)}
+                        onBlur={() => validateField('dob', formData.dob)}
+                    />
+                    {errors.dob && <span className={styles.errorMessage}>{errors.dob}</span>}
+                </div>
+
+                {/* Gender */}
+                <div className={styles.inputGroup}>
+                    <label className={styles.inputLabel}>Gender <span style={{ color: '#ef4444' }}>*</span></label>
                     <div className={styles.buttonGroup}>
                         <button
                             type="button"
@@ -241,90 +318,58 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
                             Female
                         </button>
                     </div>
-                    {isError && <span className={styles.errorMessage}>{errorMsg}</span>}
+                    {errors.gender && <span className={styles.errorMessage}>{errors.gender}</span>}
                 </div>
-            );
-        }
 
-        const isAadhaarField = field.key === 'aadhaar_number';
-        const isRequired = field.required && (!isAadhaarField || !formData.no_aadhaar);
+                {/* WhatsApp Number */}
+                <div className={styles.inputGroup}>
+                    <label className={styles.inputLabel} htmlFor="whatsapp_number">
+                        WhatsApp Number <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    <input
+                        type="text"
+                        id="whatsapp_number"
+                        maxLength={10}
+                        className={`${styles.inputField} ${errors.whatsapp_number ? styles.inputError : ''}`}
+                        placeholder="10-digit WhatsApp number"
+                        value={formData.whatsapp_number || ''}
+                        onChange={(e) => updateForm('whatsapp_number', e.target.value.replace(/\D/g, ''))}
+                        onBlur={() => validateField('whatsapp_number', formData.whatsapp_number)}
+                    />
+                    {errors.whatsapp_number && <span className={styles.errorMessage}>{errors.whatsapp_number}</span>}
+                </div>
 
-        return (
-            <div key={field.key} className={field.gridSpan === 2 ? styles.inputGroupFull : styles.inputGroup}>
-                <label className={styles.inputLabel} htmlFor={field.key}>
-                    {field.label} {isRequired && <span style={{ color: '#ef4444' }}>*</span>}
-                </label>
-                <input
-                    type={field.type}
-                    id={field.key}
-                    maxLength={field.validationType === 'aadhaar' ? 12 : field.validationType === 'phone' ? 10 : undefined}
-                    disabled={isAadhaarField && formData.no_aadhaar}
-                    className={`${styles.inputField} ${isError ? styles.inputError : ''}`}
-                    placeholder={isAadhaarField && formData.no_aadhaar ? "Aadhaar Card is marked as not available" : (field.placeholder || `Enter ${field.label.toLowerCase()}`)}
-                    value={(formData as any)[field.key] || ''}
-                    onChange={(e) => {
-                        let val = e.target.value;
-                        if (field.validationType === 'aadhaar' || field.validationType === 'phone') {
-                            val = val.replace(/\D/g, '');
-                        }
-                        updateForm(field.key as keyof RegistrationFormData, val as any);
-                    }}
-                    onBlur={() => validateField(field.key, (formData as any)[field.key])}
-                />
-                {isError ? (
-                    <span className={styles.errorMessage}>{errorMsg}</span>
-                ) : isAadhaarField ? (
-                    <span className={styles.inputHint}>12-digit unique identification number. Will be mathematically verified.</span>
-                ) : null}
+                {/* Email */}
+                <div className={styles.inputGroup}>
+                    <label className={styles.inputLabel} htmlFor="email">
+                        Email Address
+                    </label>
+                    <input
+                        type="email"
+                        id="email"
+                        className={`${styles.inputField} ${errors.email ? styles.inputError : ''}`}
+                        placeholder="Enter email address"
+                        value={formData.email || ''}
+                        onChange={(e) => updateForm('email', e.target.value)}
+                        onBlur={() => validateField('email', formData.email)}
+                    />
+                    {errors.email && <span className={styles.errorMessage}>{errors.email}</span>}
+                </div>
 
-                {isAadhaarField && (
-                    <div style={{ marginTop: '8px' }}>
-                        <label className={styles.checkboxLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                            <input
-                                type="checkbox"
-                                checked={!!formData.no_aadhaar}
-                                onChange={(e) => {
-                                    updateForm('no_aadhaar', e.target.checked);
-                                    if (e.target.checked) {
-                                        updateForm('aadhaar_number', '');
-                                        setErrors(prev => {
-                                            const copy = { ...prev };
-                                            delete copy.aadhaar_number;
-                                            return copy;
-                                        });
-                                    }
-                                }}
-                            />
-                            <span style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text)' }}>No Aadhaar Card (Birth Certificate upload will be compulsory)</span>
-                        </label>
-                    </div>
-                )}
-            </div>
-        );
-    };
-
-    return (
-        <div className={styles.stepContainer}>
-            <div>
-                <h3 className={styles.stepTitle}>Personal & Contact Details</h3>
-                <p className={styles.stepDesc}>Please fill in the details of the candidate accurately.</p>
-            </div>
-
-            <div className={styles.formGrid}>
-                {FORM_FIELDS_CONFIG.filter(f => f.section === 'candidate').map(renderField)}
-
-                {/* ─── DYNAMIC SPLIT ADDRESS INTERFACE REGION ────────────────────────── */}
+                {/* Address Section */}
                 <div className={styles.inputGroupFull} style={{ display: 'flex', flexDirection: 'column', gap: '16px', margin: '8px 0' }}>
                     <div className={styles.inputGroupFull}>
                         <label className={styles.inputLabel}>Door No, Building, & Street Road *</label>
                         <input
                             type="text"
-                            className={styles.inputField}
+                            className={`${styles.inputField} ${errors.street_address ? styles.inputError : ''}`}
                             placeholder="e.g. 12B, Mosque Street"
-                            value={street}
-                            onChange={(e) => setStreet(e.target.value)}
+                            value={formData.street_address || ''}
+                            onChange={(e) => updateForm('street_address', e.target.value)}
+                            onBlur={() => validateField('street_address', formData.street_address)}
                             required
                         />
+                        {errors.street_address && <span className={styles.errorMessage}>{errors.street_address}</span>}
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', width: '100%' }}>
@@ -332,28 +377,32 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
                             <label className={styles.inputLabel}>Pincode *</label>
                             <input
                                 type="text"
-                                className={styles.inputField}
+                                className={`${styles.inputField} ${errors.pincode ? styles.inputError : ''}`}
                                 placeholder="6-digit pincode"
                                 maxLength={6}
-                                value={pincodeLocal}
+                                value={formData.pincode || ''}
                                 onChange={handlePincodeChange}
+                                onBlur={() => validateField('pincode', formData.pincode)}
                                 required
                             />
                             {isLoadingLocation && <small style={{ color: '#0d9488', marginTop: '4px' }}>Fetching details...</small>}
                             {pincodeError && <small style={{ color: '#ef4444', marginTop: '4px' }}>{pincodeError}</small>}
+                            {errors.pincode && <span className={styles.errorMessage}>{errors.pincode}</span>}
                         </div>
 
                         <div className={styles.inputGroup}>
                             <label className={styles.inputLabel}>District *</label>
                             <input
                                 type="text"
-                                className={styles.inputField}
-                                value={districtLocal}
+                                className={`${styles.inputField} ${errors.district_name ? styles.inputError : ''}`}
+                                value={formData.district_name || ''}
                                 placeholder="District"
-                                onChange={(e) => setDistrictLocal(e.target.value)}
+                                onChange={(e) => updateForm('district_name', e.target.value)}
+                                onBlur={() => validateField('district_name', formData.district_name)}
                                 disabled={isLoadingLocation}
                                 required
                             />
+                            {errors.district_name && <span className={styles.errorMessage}>{errors.district_name}</span>}
                         </div>
                     </div>
 
@@ -362,17 +411,18 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
                             <label className={styles.inputLabel}>Village / Locality *</label>
                             <input
                                 type="text"
-                                className={styles.inputField}
+                                className={`${styles.inputField} ${errors.village_name ? styles.inputError : ''}`}
                                 placeholder="Search or select locality..."
-                                value={villageLocal}
+                                value={formData.village_name || ''}
                                 disabled={isLoadingLocation}
                                 onChange={(e) => {
-                                    setVillageNameLocal(e.target.value);
+                                    updateForm('village_name', e.target.value);
                                     if (availableVillages.length > 0) setIsLocalityOpen(true);
                                 }}
                                 onFocus={() => {
                                     if (availableVillages.length > 0) setIsLocalityOpen(true);
                                 }}
+                                onBlur={() => validateField('village_name', formData.village_name)}
                                 required
                                 autoComplete="off"
                             />
@@ -396,8 +446,9 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
                                         <li
                                             key={idx}
                                             onClick={() => {
-                                                setVillageNameLocal(village);
+                                                updateForm('village_name', village);
                                                 setIsLocalityOpen(false);
+                                                validateField('village_name', village);
                                             }}
                                             style={{ padding: '8px 12px', cursor: 'pointer', borderRadius: '4px' }}
                                             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
@@ -408,19 +459,22 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
                                     ))}
                                 </ul>
                             )}
+                            {errors.village_name && <span className={styles.errorMessage}>{errors.village_name}</span>}
                         </div>
 
                         <div className={styles.inputGroup}>
                             <label className={styles.inputLabel}>State *</label>
                             <input
                                 type="text"
-                                className={styles.inputField}
-                                value={stateLocal}
+                                className={`${styles.inputField} ${errors.state_name ? styles.inputError : ''}`}
+                                value={formData.state_name || ''}
                                 placeholder="State"
-                                onChange={(e) => setStateNameLocal(e.target.value)}
+                                onChange={(e) => updateForm('state_name', e.target.value)}
+                                onBlur={() => validateField('state_name', formData.state_name)}
                                 disabled={isLoadingLocation}
                                 required
                             />
+                            {errors.state_name && <span className={styles.errorMessage}>{errors.state_name}</span>}
                         </div>
                     </div>
                 </div>
@@ -488,7 +542,7 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
                             Select Juz Range / Option <span style={{ color: '#ef4444' }}>*</span>
                         </label>
                         <select
-                            className={styles.inputField}
+                            className={`${styles.inputField} ${errors.juz_options ? styles.inputError : ''}`}
                             value={formData.juz_options || ''}
                             onChange={(e) => {
                                 const code = e.target.value;
@@ -504,6 +558,7 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
                                 </option>
                             ))}
                         </select>
+                        {errors.juz_options && <span className={styles.errorMessage}>{errors.juz_options}</span>}
                     </div>
                 )}
 
@@ -512,7 +567,40 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
                     <h4 className={styles.sectionTitle}>Guardian Details</h4>
                 </div>
 
-                {FORM_FIELDS_CONFIG.filter(f => f.section === 'guardian').map(renderField)}
+                {/* Guardian Name */}
+                <div className={styles.inputGroup}>
+                    <label className={styles.inputLabel} htmlFor="guardian_name">
+                        Guardian Name <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    <input
+                        type="text"
+                        id="guardian_name"
+                        className={`${styles.inputField} ${errors.guardian_name ? styles.inputError : ''}`}
+                        placeholder="Enter guardian name"
+                        value={formData.guardian_name || ''}
+                        onChange={(e) => updateForm('guardian_name', e.target.value.replace(/[0-9]/g, ''))}
+                        onBlur={() => validateField('guardian_name', formData.guardian_name)}
+                    />
+                    {errors.guardian_name && <span className={styles.errorMessage}>{errors.guardian_name}</span>}
+                </div>
+
+                {/* Guardian Phone */}
+                <div className={styles.inputGroup}>
+                    <label className={styles.inputLabel} htmlFor="guardian_phone">
+                        Guardian Phone <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    <input
+                        type="text"
+                        id="guardian_phone"
+                        maxLength={10}
+                        className={`${styles.inputField} ${errors.guardian_phone ? styles.inputError : ''}`}
+                        placeholder="Enter guardian mobile number"
+                        value={formData.guardian_phone || ''}
+                        onChange={(e) => updateForm('guardian_phone', e.target.value.replace(/\D/g, ''))}
+                        onBlur={() => validateField('guardian_phone', formData.guardian_phone)}
+                    />
+                    {errors.guardian_phone && <span className={styles.errorMessage}>{errors.guardian_phone}</span>}
+                </div>
 
                 <div className={styles.inputGroupFull} style={{ marginTop: '12px' }}>
                     <label className={styles.checkboxLabel}>

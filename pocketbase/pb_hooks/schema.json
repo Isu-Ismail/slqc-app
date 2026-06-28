@@ -1210,20 +1210,6 @@
             {
                 "autogeneratePattern": "",
                 "hidden": false,
-                "id": "text_pincode_inst",
-                "max": 10,
-                "min": 6,
-                "name": "pincode",
-                "pattern": "^[0-9]+$",
-                "presentable": false,
-                "primaryKey": false,
-                "required": true,
-                "system": false,
-                "type": "text"
-            },
-            {
-                "autogeneratePattern": "",
-                "hidden": false,
                 "id": "text_vill_loc_inst",
                 "max": 0,
                 "min": 0,
@@ -1406,6 +1392,20 @@
                 "type": "json"
             },
             {
+                "autogeneratePattern": "",
+                "hidden": false,
+                "id": "text783054703",
+                "max": 7,
+                "min": 6,
+                "name": "pincode",
+                "pattern": "",
+                "presentable": false,
+                "primaryKey": false,
+                "required": false,
+                "system": false,
+                "type": "text"
+            },
+            {
                 "hidden": false,
                 "id": "autodate2990389176",
                 "name": "created",
@@ -1427,9 +1427,14 @@
             }
         ],
         "indexes": [
-            "CREATE UNIQUE INDEX `idx_gWQVjm2LMn` ON `institutions` (\n  `email`,\n  `institution_id`,\n  `phone_number`,\n  `whatsapp_number`,\n  `name`\n)",
             "CREATE INDEX `idx_NtrCIwcAgX` ON `institutions` (\n  `status`,\n  `approved_by`\n)",
-            "CREATE INDEX `idx_PFtKJTnHJ6` ON `institutions` (\n  `created`,\n  `updated`\n)"
+            "CREATE INDEX `idx_PFtKJTnHJ6` ON `institutions` (\n  `created`,\n  `updated`\n)",
+            "CREATE UNIQUE INDEX `idx_p4cGrn05TM` ON `institutions` (`email`)",
+            "CREATE UNIQUE INDEX `idx_M0ZTMMWz0K` ON `institutions` (`name`)",
+            "CREATE UNIQUE INDEX `idx_uMqOZhwVf6` ON `institutions` (`whatsapp_number`)",
+            "CREATE INDEX `idx_KNXUEQTIgK` ON `institutions` (\n  `village_name`,\n  `district_name`,\n  `state_name`\n)",
+            "CREATE INDEX `idx_lxOEdkuSzQ` ON `institutions` (`institution_id`)",
+            "CREATE UNIQUE INDEX idx_unique_institution_id ON institutions (institution_id) WHERE institution_id != ''"
         ],
         "system": false
     },
@@ -2809,7 +2814,7 @@
         "listRule": "@request.auth.id != \"\" && (@request.auth.designation = \"admin\" || @request.auth.designation = \"coordinators\")",
         "viewRule": "@request.auth.id != \"\" && (@request.auth.designation = \"admin\" || @request.auth.designation = \"coordinators\")",
         "createRule": null,
-        "updateRule": null,
+        "updateRule": "@request.auth.id != \"\" && (@request.auth.designation = \"admin\" || @request.auth.designation = \"coordinators\")",
         "deleteRule": null,
         "name": "participants_application",
         "type": "base",
@@ -2856,6 +2861,21 @@
                     "approved",
                     "rejected",
                     "reapplied"
+                ]
+            },
+            {
+                "hidden": false,
+                "id": "select_arrival_status",
+                "maxSelect": 1,
+                "name": "arrival_status",
+                "presentable": false,
+                "required": false,
+                "system": false,
+                "type": "select",
+                "values": [
+                    "none",
+                    "present",
+                    "absent"
                 ]
             },
             {
@@ -3067,6 +3087,20 @@
             },
             {
                 "hidden": false,
+                "id": "file3439751345",
+                "maxSelect": 1,
+                "maxSize": 0,
+                "mimeTypes": [],
+                "name": "birthcertificate_photo",
+                "presentable": false,
+                "protected": false,
+                "required": false,
+                "system": false,
+                "thumbs": [],
+                "type": "file"
+            },
+            {
+                "hidden": false,
                 "id": "select339120485",
                 "maxSelect": 1,
                 "name": "registration_type",
@@ -3177,6 +3211,18 @@
                 "type": "number"
             },
             {
+                "hidden": false,
+                "id": "number60535452",
+                "max": null,
+                "min": null,
+                "name": "final_ranking",
+                "onlyInt": false,
+                "presentable": false,
+                "required": false,
+                "system": false,
+                "type": "number"
+            },
+            {
                 "autogeneratePattern": "",
                 "hidden": false,
                 "id": "text432184710",
@@ -3205,41 +3251,68 @@
                 "type": "text"
             },
             {
+                "autogeneratePattern": "",
                 "hidden": false,
-                "id": "file3439751345",
-                "maxSelect": 1,
-                "maxSize": 0,
-                "mimeTypes": [],
-                "name": "birthcertificate_photo",
+                "id": "text1387253794",
+                "max": 0,
+                "min": 0,
+                "name": "street_address",
+                "pattern": "",
                 "presentable": false,
-                "protected": false,
+                "primaryKey": false,
                 "required": false,
                 "system": false,
-                "thumbs": [],
-                "type": "file"
-            },
-            {
-                "hidden": false,
-                "id": "select_arrival_status",
-                "maxSelect": 1,
-                "name": "arrival_status",
-                "presentable": false,
-                "required": false,
-                "system": false,
-                "type": "select",
-                "values": [
-                    "none",
-                    "present",
-                    "absent"
-                ]
+                "type": "text"
             },
             {
                 "autogeneratePattern": "",
                 "hidden": false,
-                "id": "text_address_field",
+                "id": "text312410543",
                 "max": 0,
                 "min": 0,
-                "name": "address",
+                "name": "district_name",
+                "pattern": "",
+                "presentable": false,
+                "primaryKey": false,
+                "required": false,
+                "system": false,
+                "type": "text"
+            },
+            {
+                "autogeneratePattern": "",
+                "hidden": false,
+                "id": "text637167919",
+                "max": 0,
+                "min": 0,
+                "name": "village_name",
+                "pattern": "",
+                "presentable": false,
+                "primaryKey": false,
+                "required": false,
+                "system": false,
+                "type": "text"
+            },
+            {
+                "autogeneratePattern": "",
+                "hidden": false,
+                "id": "text3401643968",
+                "max": 0,
+                "min": 0,
+                "name": "state_name",
+                "pattern": "",
+                "presentable": false,
+                "primaryKey": false,
+                "required": false,
+                "system": false,
+                "type": "text"
+            },
+            {
+                "autogeneratePattern": "",
+                "hidden": false,
+                "id": "text783054703",
+                "max": 0,
+                "min": 0,
+                "name": "pincode",
                 "pattern": "",
                 "presentable": false,
                 "primaryKey": false,
@@ -3266,23 +3339,13 @@
                 "presentable": false,
                 "system": true,
                 "type": "autodate"
-            },
-            {
-                "hidden": false,
-                "id": "number60535452",
-                "max": null,
-                "min": null,
-                "name": "final_ranking",
-                "onlyInt": false,
-                "presentable": false,
-                "required": false,
-                "system": false,
-                "type": "number"
             }
         ],
         "indexes": [
             "CREATE INDEX `idx_Ye8yyQQ534` ON `participants_application` (\n  `status`,\n  `approved_by`,\n  `allocated_venue`,\n  `selected_juz`,\n  `category`,\n  `updated`,\n  `created`,\n  `juzz_options`\n)",
-            "CREATE UNIQUE INDEX `idx_ZIdwPgYalO` ON `participants_application` (\n  `participant_id`,\n  `whatsapp_number`\n)"
+            "CREATE UNIQUE INDEX `idx_ZIdwPgYalO` ON `participants_application` (\n  `participant_id`,\n  `whatsapp_number`\n)",
+            "CREATE UNIQUE INDEX idx_unique_aadhaar ON participants_application (aadhaar_number) WHERE aadhaar_number != ''",
+            "CREATE UNIQUE INDEX idx_unique_participant_id ON participants_application (participant_id) WHERE participant_id != ''"
         ],
         "system": false
     },
@@ -3774,6 +3837,76 @@
                 "required": false,
                 "system": false,
                 "type": "number"
+            },
+            {
+                "autogeneratePattern": "",
+                "hidden": false,
+                "id": "text1387253794",
+                "max": 0,
+                "min": 0,
+                "name": "street_address",
+                "pattern": "",
+                "presentable": false,
+                "primaryKey": false,
+                "required": false,
+                "system": false,
+                "type": "text"
+            },
+            {
+                "autogeneratePattern": "",
+                "hidden": false,
+                "id": "text312410543",
+                "max": 0,
+                "min": 0,
+                "name": "district_name",
+                "pattern": "",
+                "presentable": false,
+                "primaryKey": false,
+                "required": false,
+                "system": false,
+                "type": "text"
+            },
+            {
+                "autogeneratePattern": "",
+                "hidden": false,
+                "id": "text637167919",
+                "max": 0,
+                "min": 0,
+                "name": "village_name",
+                "pattern": "",
+                "presentable": false,
+                "primaryKey": false,
+                "required": false,
+                "system": false,
+                "type": "text"
+            },
+            {
+                "autogeneratePattern": "",
+                "hidden": false,
+                "id": "text3401643968",
+                "max": 0,
+                "min": 0,
+                "name": "state_name",
+                "pattern": "",
+                "presentable": false,
+                "primaryKey": false,
+                "required": false,
+                "system": false,
+                "type": "text"
+            },
+            {
+                "autogeneratePattern": "",
+                "hidden": false,
+                "id": "text783054703",
+                "max": 0,
+                "min": 0,
+                "name": "pincode",
+                "pattern": "",
+                "presentable": false,
+                "primaryKey": false,
+                "required": false,
+                "system": false,
+                "type": "text"
             }
         ],
         "indexes": [

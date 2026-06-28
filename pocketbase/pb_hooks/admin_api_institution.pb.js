@@ -166,3 +166,144 @@ routerAdd("POST", "/api/admin/assign-incharge", (e) => {
     }
 });
 
+routerAdd("POST", "/api/admin/update-institution", (e) => {
+    const authRecord = e.auth;
+    const isSuperuser = authRecord && authRecord.collection().name === "_superusers";
+    const isAdmin = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "admin";
+    const isCoordinator = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "coordinators";
+
+    if (!isSuperuser && !isAdmin && !isCoordinator) {
+        return e.json(403, { error: "Unauthorized. Admin or coordinator access required." });
+    }
+
+    const body = new DynamicModel({
+        id: "",
+        name: "",
+        street_address: "",
+        pincode: "",
+        state_name: "",
+        district_name: "",
+        village_name: "",
+        contact_person: "",
+        email: "",
+        whatsapp_number: "",
+        phone_number: "",
+        instituition_location: "",
+        incharge: "",
+        incharge_number: ""
+    });
+    e.bindBody(body);
+
+    const id = body.id;
+
+    if (!id) {
+        return e.json(400, { error: "Missing institution id" });
+    }
+
+    try {
+        const record = $app.findRecordById("institutions", id);
+        if (!record) {
+            return e.json(404, { error: "Institution not found" });
+        }
+
+        // Map fields
+        const fields = [
+            "name", "street_address", "pincode", "state_name", "district_name",
+            "village_name", "contact_person", "email", "whatsapp_number", "phone_number",
+            "instituition_location", "incharge", "incharge_number"
+        ];
+
+        fields.forEach(f => {
+            if (body[f] !== undefined) {
+                record.set(f, body[f]);
+            }
+        });
+
+        // Handle files
+        const files = e.requestInfo().files;
+        if (files) {
+            const fileKeys = ["document", "instituition_building_proof"];
+            fileKeys.forEach(k => {
+                const uploadedFiles = files[k];
+                if (uploadedFiles && uploadedFiles.length > 0) {
+                    record.set(k, uploadedFiles[0]);
+                }
+            });
+        }
+
+        $app.save(record);
+
+        // Fetch all applications referencing this institution to return a matching structure
+        const applications = $app.findRecordsByFilter(
+            "participants_application",
+            "institution_ref = {:instId}",
+            "-created",
+            9999,
+            0,
+            { instId: record.get("id") }
+        );
+
+        const appList = [];
+        for (let i = 0; i < applications.length; i++) {
+            const app = applications[i];
+            appList.push({
+                id: app.get("id"),
+                participant_id: app.get("participant_id"),
+                full_name: app.get("full_name"),
+                father_name: app.get("father_name"),
+                father_number: app.get("father_number"),
+                aadhaar_number: app.get("aadhaar_number"),
+                dob: app.get("dob"),
+                gender: app.get("gender"),
+                category: app.get("category"),
+                juz_options: app.get("juzz_options"),
+                selected_juz: app.get("selected_juz"),
+                whatsapp_number: app.get("whatsapp_number"),
+                email: app.get("email"),
+                guardian_name: app.get("guardian_name"),
+                guardian_phone: app.get("guardian_phone"),
+                requires_accommodation: app.get("requires_accommodation"),
+                status: app.get("status"),
+                is_locked: app.get("is_locked"),
+                rejection_reason: app.get("rejection_reason"),
+                allocated_venue: app.get("allocated_venue"),
+                aadhaar_front: app.get("aadhaar_front"),
+                birthcertificate_photo: app.get("birthcertificate_photo"),
+                candidate_photo: app.get("candidate_photo"),
+                created: app.get("created"),
+                updated: app.get("updated")
+            });
+        }
+
+        return e.json(200, {
+            institution: {
+                id: record.get("id"),
+                institution_id: record.get("institution_id"),
+                name: record.get("name"),
+                street_address: record.get("street_address"),
+                pincode: record.get("pincode"),
+                state_name: record.get("state_name"),
+                district_name: record.get("district_name"),
+                village_name: record.get("village_name"),
+                contact_person: record.get("contact_person"),
+                email: record.get("email"),
+                whatsapp_number: record.get("whatsapp_number"),
+                phone_number: record.get("phone_number"),
+                document: record.get("document"),
+                instituition_location: record.get("instituition_location"),
+                instituition_building_proof: record.get("instituition_building_proof"),
+                status: record.get("status"),
+                is_locked: record.get("is_locked"),
+                rejection_reason: record.get("rejection_reason"),
+                passcode: record.get("passcode"),
+                incharge: record.get("incharge"),
+                incharge_number: record.get("incharge_number")
+            },
+            applications: appList
+        });
+    } catch (err) {
+        console.error("Update institution error: " + err);
+        return e.json(500, { error: "Failed to update institution: " + err });
+    }
+});
+

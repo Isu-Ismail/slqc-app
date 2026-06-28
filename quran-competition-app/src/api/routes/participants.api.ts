@@ -18,7 +18,11 @@ export interface CreateApplicationParams {
     guardian_name: string;
     guardian_phone: string;
     requires_accommodation?: boolean;
-    address?: string;
+    street_address: string;
+    village_name: string;
+    district_name: string;
+    state_name: string;
+    pincode: string;
     aadhaar_front?: File;
     birthcertificate_photo?: File;
     candidate_photo: File;
@@ -55,12 +59,13 @@ export const participantsApi = {
         formData.append('guardian_phone', params.guardian_phone);
         formData.append('requires_accommodation', String(params.requires_accommodation || false));
 
-        // Explicitly appending the text address parameter
-        if (params.address) {
-            formData.append('address', params.address.trim());
-        } else {
-            formData.append('address', '');
-        }
+        formData.append('street_address', params.street_address.trim());
+        formData.append('village_name', params.village_name.trim());
+        formData.append('district_name', params.district_name.trim());
+        formData.append('state_name', params.state_name.trim());
+        formData.append('pincode', params.pincode);
+
+
 
         if (params.selected_juz) {
             formData.append('selected_juz', params.selected_juz);

@@ -22,6 +22,7 @@ export default function ApprovalReviewPage() {
     const [fullscreenImg, setFullscreenImg] = useState<string | null>(null);
     const [sendingMail, setSendingMail] = useState(false);
     const [mailSent, setMailSent] = useState(false);
+    const [actionError, setActionError] = useState<string | null>(null);
 
     // Modal states
     const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
@@ -115,6 +116,7 @@ export default function ApprovalReviewPage() {
     const submitApprove = async () => {
         if (!application) return;
 
+        setActionError(null);
         setProcessing(true);
         actionTakenRef.current = true;
 
@@ -138,16 +140,13 @@ export default function ApprovalReviewPage() {
 
             navigate(backUrl);
 
-        } catch (e) {
-
+        } catch (e: any) {
             console.error(e);
-
             setProcessing(false);
             actionTakenRef.current = false;
 
-            alert(
-                "Failed to approve application."
-            );
+            const errMsg = e.data?.error || e.message || "Failed to approve application.";
+            setActionError(errMsg);
         }
     };
 
@@ -161,6 +160,7 @@ export default function ApprovalReviewPage() {
             return;
         }
 
+        setActionError(null);
         setProcessing(true);
         actionTakenRef.current = true;
 
@@ -185,16 +185,13 @@ export default function ApprovalReviewPage() {
 
             navigate(backUrl);
 
-        } catch (e) {
-
+        } catch (e: any) {
             console.error(e);
-
             setProcessing(false);
             actionTakenRef.current = false;
 
-            alert(
-                "Failed to reject application."
-            );
+            const errMsg = e.data?.error || e.message || "Failed to reject application.";
+            setActionError(errMsg);
         }
     };
     const handleSendMail = async () => {
@@ -366,6 +363,29 @@ export default function ApprovalReviewPage() {
                                 <div className={styles.detailGroup}>
                                     <label>Requires Accommodation?</label>
                                     <div>{indivApp.requires_accommodation ? 'Yes' : 'No'}</div>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', gridColumn: '1 / -1', marginTop: '10px', marginBottom: '10px' }}>
+                                    <div className={styles.detailGroup}>
+                                        <label>Street Address</label>
+                                        <div>{indivApp.street_address || 'N/A'}</div>
+                                    </div>
+                                    <div className={styles.detailGroup}>
+                                        <label>Pincode</label>
+                                        <div>{indivApp.pincode || 'N/A'}</div>
+                                    </div>
+                                    <div className={styles.detailGroup}>
+                                        <label>District</label>
+                                        <div>{indivApp.district_name || 'N/A'}</div>
+                                    </div>
+                                    <div className={styles.detailGroup}>
+                                        <label>Village / Locality</label>
+                                        <div>{indivApp.village_name || 'N/A'}</div>
+                                    </div>
+                                    <div className={styles.detailGroup} style={{ gridColumn: '1 / -1' }}>
+                                        <label>State</label>
+                                        <div>{indivApp.state_name || 'N/A'}</div>
+                                    </div>
                                 </div>
 
                                 {instData && (
@@ -628,10 +648,15 @@ export default function ApprovalReviewPage() {
             )}
 
             {isRejectModalOpen && (
-                <div className={styles.imgModalOverlay} onClick={() => setIsRejectModalOpen(false)}>
+                <div className={styles.imgModalOverlay} onClick={() => { setIsRejectModalOpen(false); setActionError(null); }}>
                     <div className={styles.customModal} onClick={e => e.stopPropagation()}>
                         <h3>Reject Application</h3>
                         <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 12px 0' }}>Please provide a reason for rejecting this application.</p>
+                        {actionError && (
+                            <div style={{ color: '#ef4444', backgroundColor: '#fee2e2', border: '1px solid #fecaca', borderRadius: '6px', padding: '10px 14px', fontSize: '13px', marginBottom: '12px', width: '100%', boxSizing: 'border-box' }}>
+                                {actionError}
+                            </div>
+                        )}
                         <input
                             autoFocus
                             type="text"
@@ -651,12 +676,17 @@ export default function ApprovalReviewPage() {
             )}
 
             {isApproveModalOpen && (
-                <div className={styles.imgModalOverlay} onClick={() => setIsApproveModalOpen(false)}>
+                <div className={styles.imgModalOverlay} onClick={() => { setIsApproveModalOpen(false); setActionError(null); }}>
                     <div className={styles.customModal} onClick={e => e.stopPropagation()}>
                         <h3>Confirm Approval</h3>
                         <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 16px 0' }}>
                             Are you sure you want to approve this application? This action will generate a unique ID and notify the applicant.
                         </p>
+                        {actionError && (
+                            <div style={{ color: '#ef4444', backgroundColor: '#fee2e2', border: '1px solid #fecaca', borderRadius: '6px', padding: '10px 14px', fontSize: '13px', marginBottom: '12px', width: '100%', boxSizing: 'border-box' }}>
+                                ⚠️ {actionError}
+                            </div>
+                        )}
                         <div className={styles.modalActions}>
                             <button className={styles.btnCancelNormal} onClick={() => setIsApproveModalOpen(false)}>Cancel</button>
                             <button className={styles.btnApproveNormal} onClick={submitApprove} disabled={processing}>

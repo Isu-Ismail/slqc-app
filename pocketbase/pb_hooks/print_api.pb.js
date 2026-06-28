@@ -43,7 +43,13 @@ routerAdd("GET", "/api/admin/print-form", (e) => {
             requires_accommodation: record.get("requires_accommodation"),
             status: record.get("status"),
             arrival_status: record.get("arrival_status") || "none",
-            address: record.get("address") || "",
+            address: record.get("address") || [
+                record.get("street_address"),
+                record.get("village_name"),
+                record.get("district_name"),
+                record.get("state_name"),
+                record.get("pincode")
+            ].filter(Boolean).join(", "),
             registration_type: record.get("registration_type") || "individual",
             allocated_venue: record.get("allocated_venue"),
             allocated_order: record.get("allocated_order"),
@@ -157,7 +163,13 @@ routerAdd("GET", "/api/public/print-form", (e) => {
             requires_accommodation: record.get("requires_accommodation"),
             status: record.get("status"),
             arrival_status: record.get("arrival_status") || "none",
-            address: record.get("address") || "",
+            address: record.get("address") || [
+                record.get("street_address"),
+                record.get("village_name"),
+                record.get("district_name"),
+                record.get("state_name"),
+                record.get("pincode")
+            ].filter(Boolean).join(", "),
             registration_type: record.get("registration_type") || "individual",
             allocated_venue: record.get("allocated_venue"),
             allocated_order: record.get("allocated_order"),
@@ -270,7 +282,13 @@ routerAdd("GET", "/api/admin/print-institution-students", (e) => {
             requires_accommodation: record.get("requires_accommodation"),
             status: record.get("status"),
             arrival_status: record.get("arrival_status") || "none",
-            address: record.get("address") || "",
+            address: record.get("address") || [
+                record.get("street_address"),
+                record.get("village_name"),
+                record.get("district_name"),
+                record.get("state_name"),
+                record.get("pincode")
+            ].filter(Boolean).join(", "),
             registration_type: record.get("registration_type") || "individual",
             allocated_venue: record.get("allocated_venue"),
             allocated_order: record.get("allocated_order"),

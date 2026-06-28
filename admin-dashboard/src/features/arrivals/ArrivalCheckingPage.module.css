@@ -77,36 +77,130 @@
 }
 
 .instCard {
-    background: #f8fafc;
+    background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 18px;
+    border-radius: 12px;
+    padding: 20px;
     cursor: pointer;
     transition: all 0.2s ease-in-out;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .instCard:hover {
-    background: #ffffff;
     border-color: #0d9488;
     transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgba(13, 148, 136, 0.05), 0 4px 6px -2px rgba(13, 148, 136, 0.02);
+    box-shadow: 0 12px 20px -8px rgba(13, 148, 136, 0.1);
+}
+
+.instCardArrived {
+    background: #f8fafc;
+    border-color: #86efac;
+}
+
+.instCardArrived:hover {
+    border-color: #22c55e;
+    box-shadow: 0 12px 20px -8px rgba(34, 197, 94, 0.12);
+}
+
+.instCardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 14px;
 }
 
 .instName {
     font-size: 16px;
-    font-weight: 600;
+    font-weight: 700;
     color: #0f172a;
-    margin-bottom: 6px;
+    margin: 0;
 }
 
 .instId {
     font-family: monospace;
-    font-size: 12px;
+    font-size: 11px;
+    color: #475569;
+    background: #f1f5f9;
+    padding: 2px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+.instCardBody {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.inchargeLabel {
+    color: #0d9488;
+    font-weight: 500;
+}
+
+.inchargeValue {
+    color: #0f766e;
+    font-weight: 700;
+}
+
+.contactItem {
+    display: flex;
+    font-size: 13px;
+    line-height: 1.4;
+    gap: 6px;
+}
+
+.contactLabel {
     color: #64748b;
-    background: #e2e8f0;
-    padding: 2px 6px;
-    border-radius: 4px;
-    display: inline-block;
+    font-weight: 500;
+}
+
+.contactValue {
+    color: #334155;
+    font-weight: 600;
+}
+
+.instCardFooter {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #f1f5f9;
+    padding-top: 12px;
+    margin-top: auto;
+}
+
+.arrivedBadge {
+    font-size: 10px;
+    font-weight: 700;
+    background-color: #d1fae5;
+    color: #065f46;
+    padding: 3px 10px;
+    border-radius: 99px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.pendingBadge {
+    font-size: 10px;
+    font-weight: 700;
+    background-color: #f1f5f9;
+    color: #475569;
+    padding: 3px 10px;
+    border-radius: 99px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.inchargeBadge {
+    font-size: 11px;
+    color: #0d9488;
+    background-color: #ccfbf1;
+    padding: 3px 10px;
+    border-radius: 8px;
+    font-weight: 600;
 }
 
 /* Back Header */

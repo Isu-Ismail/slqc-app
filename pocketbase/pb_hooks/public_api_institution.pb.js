@@ -23,6 +23,20 @@ routerAdd("GET", "/api/public/track-institution", (e) => {
                 0,
                 { query: upper, passcode: passcode }
             );
+        } else if (query.indexOf("@") !== -1 || query.indexOf("%40") !== -1) {
+            let emailQuery = query;
+            try {
+                emailQuery = decodeURIComponent(query);
+            } catch (err) {}
+            emailQuery = emailQuery.trim().toLowerCase();
+            records = $app.findRecordsByFilter(
+                "institutions",
+                "email = {:query} && passcode = {:passcode}",
+                "",
+                1,
+                0,
+                { query: emailQuery, passcode: passcode }
+            );
         } else if (query.length === 15) {
             records = $app.findRecordsByFilter(
                 "institutions",

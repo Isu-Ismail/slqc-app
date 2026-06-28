@@ -11,7 +11,7 @@ import { validators } from '../../../../utils/validators';
 import { participantsApi } from '../../../../api/routes/participants.api';
 import { Clock, Ban } from 'lucide-react';
 import styles from './RegisterPage.module.css';
-import { getJuzCodesForCategory, FORM_FIELDS_CONFIG } from '../../../../config/fieldsConfig';
+import { getJuzCodesForCategory } from '../../../../config/fieldsConfig';
 
 import { useRegistrationStatus } from '../../../../shared/context/StatusContext';
 
@@ -35,6 +35,11 @@ export interface RegistrationFormData {
     guardian_phone: string;
     requires_accommodation: boolean;
     address: string;
+    street_address: string;
+    village_name: string;
+    district_name: string;
+    state_name: string;
+    pincode: string;
     aadhaar_front: File | null;
     birthcertificate_photo: File | null;
     candidate_photo: File | null;
@@ -79,6 +84,11 @@ const getInitialFormData = (): RegistrationFormData => {
         guardian_phone: '',
         requires_accommodation: false,
         address: '',
+        street_address: '',
+        village_name: '',
+        district_name: '',
+        state_name: '',
+        pincode: '',
         aadhaar_front: null,
         birthcertificate_photo: null,
         candidate_photo: null,
@@ -147,44 +157,64 @@ export default function RegisterPage() {
                 return;
             }
         } else if (currentStep === 2) {
-            for (const field of FORM_FIELDS_CONFIG) {
-                if (field.key === 'aadhaar_number' && formData.no_aadhaar) {
-                    continue;
-                }
+            // Explicit Field Validation
+            const requiredFields: { key: keyof RegistrationFormData; label: string }[] = [
+                { key: 'full_name', label: 'Full Name' },
+                { key: 'father_name', label: 'Father Name' },
+                { key: 'dob', label: 'Date of Birth' },
+                { key: 'category', label: 'Category' },
+                { key: 'whatsapp_number', label: 'WhatsApp Number' },
+                { key: 'street_address', label: 'Door No, Building, & Street Road' },
+                { key: 'pincode', label: 'Pincode' },
+                { key: 'village_name', label: 'Village / Locality' },
+                { key: 'district_name', label: 'District' },
+                { key: 'state_name', label: 'State' },
+                { key: 'guardian_name', label: 'Guardian Name' },
+                { key: 'guardian_phone', label: 'Guardian Phone' }
+            ];
 
-                const val = (formData as any)[field.key];
-                const valStr = val !== undefined && val !== null ? String(val).trim() : '';
-
-                if (field.required && !valStr) {
-                    if (field.key === 'juz_options') {
-                        if (getJuzCodesForCategory(formData.category).length > 0) {
-                            triggerAlert('Please select a Juz option before proceeding.', 'Juz Option Required');
-                            return;
-                        }
-                    } else if (field.key !== 'selected_juz' && field.key !== 'address') {
-                        triggerAlert(`Please enter a value for "${field.label}".`, 'Incomplete Fields');
-                        return;
-                    }
+            for (const field of requiredFields) {
+                const val = formData[field.key];
+                if (val === undefined || val === null || String(val).trim() === '') {
+                    triggerAlert(`Please enter a value for "${field.label}".`, 'Incomplete Fields');
+                    return;
                 }
+            }
 
-                if (valStr && field.validationType) {
-                    if (field.validationType === 'aadhaar') {
-                        if (!validators.isValidAadhaar(valStr)) {
-                            triggerAlert('Please enter a mathematically valid Aadhaar number.', 'Invalid Aadhaar');
-                            return;
-                        }
-                    } else if (field.validationType === 'phone') {
-                        if (!validators.isValidMobile(valStr)) {
-                            triggerAlert(`Please enter a valid mobile number for "${field.label}".`, 'Invalid Contact');
-                            return;
-                        }
-                    } else if (field.validationType === 'email') {
-                        if (!validators.isValidEmail(valStr)) {
-                            triggerAlert(`Please enter a valid email address for "${field.label}".`, 'Invalid Email');
-                            return;
-                        }
-                    }
+            if (getJuzCodesForCategory(formData.category).length > 0 && !formData.juz_options) {
+                triggerAlert('Please select a Juz option before proceeding.', 'Juz Option Required');
+                return;
+            }
+
+            if (!formData.no_aadhaar) {
+                if (!formData.aadhaar_number) {
+                    triggerAlert('Please enter your Aadhaar number.', 'Aadhaar Required');
+                    return;
                 }
+                if (!validators.isValidAadhaar(formData.aadhaar_number)) {
+                    triggerAlert('Please enter a mathematically valid Aadhaar number.', 'Invalid Aadhaar');
+                    return;
+                }
+            }
+
+            if (formData.whatsapp_number && !validators.isValidMobile(formData.whatsapp_number)) {
+                triggerAlert('Please enter a valid 10-digit mobile number for WhatsApp.', 'Invalid Contact');
+                return;
+            }
+
+            if (formData.guardian_phone && !validators.isValidMobile(formData.guardian_phone)) {
+                triggerAlert('Please enter a valid 10-digit mobile number for Guardian Phone.', 'Invalid Contact');
+                return;
+            }
+
+            if (formData.father_number && !validators.isValidMobile(formData.father_number)) {
+                triggerAlert('Please enter a valid 10-digit mobile number for Father Mobile.', 'Invalid Contact');
+                return;
+            }
+
+            if (formData.email && !validators.isValidEmail(formData.email)) {
+                triggerAlert('Please enter a valid email address.', 'Invalid Email');
+                return;
             }
         }
         setCurrentStep((prev) => prev + 1);
@@ -229,7 +259,11 @@ export default function RegisterPage() {
                 guardian_name: formData.guardian_name,
                 guardian_phone: formData.guardian_phone,
                 requires_accommodation: formData.requires_accommodation,
-                address: formData.address,
+                street_address: formData.street_address,
+                village_name: formData.village_name,
+                district_name: formData.district_name,
+                state_name: formData.state_name,
+                pincode: formData.pincode,
                 aadhaar_front: formData.no_aadhaar ? undefined : formData.aadhaar_front || undefined,
                 birthcertificate_photo: formData.no_aadhaar ? formData.birthcertificate_photo || undefined : formData.birthcertificate_photo || undefined,
                 candidate_photo: formData.candidate_photo,
@@ -268,6 +302,11 @@ export default function RegisterPage() {
                 guardian_phone: '',
                 requires_accommodation: false,
                 address: '',
+                street_address: '',
+                village_name: '',
+                district_name: '',
+                state_name: '',
+                pincode: '',
                 aadhaar_front: null,
                 birthcertificate_photo: null,
                 candidate_photo: null,

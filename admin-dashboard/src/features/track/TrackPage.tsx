@@ -7,7 +7,7 @@ import { Search } from 'lucide-react';
 import styles from './TrackPage.module.css';
 import IndividualDetails from './components/IndividualDetails';
 import InstitutionDetails from './components/InstitutionDetails';
-import { FORM_FIELDS_CONFIG, getJuzCodesForCategory, JUZ_OPTIONS } from '../../config/fieldsConfig';
+import { getJuzCodesForCategory, JUZ_OPTIONS } from '../../config/fieldsConfig';
 import { pb } from '../../api/db';
 import { useIndividualRealtime, useInstitutionRealtime } from '../../realtime/track';
 import { metadataApi } from '../../api/metadata';
@@ -78,19 +78,25 @@ export default function TrackPage() {
     }, []);
 
     const initializeEditData = (record: any) => {
+        const fields = [
+            'full_name', 'father_name', 'father_number', 'aadhaar_number', 'dob', 'gender',
+            'category', 'selected_juz', 'juz_options', 'whatsapp_number', 'email',
+            'street_address', 'village_name', 'district_name', 'state_name', 'pincode',
+            'guardian_name', 'guardian_phone', 'requires_accommodation'
+        ];
         const data: Record<string, any> = {};
-        FORM_FIELDS_CONFIG.forEach(field => {
-            let val = (record as any)[field.key];
-            if (field.type === 'date' && val) {
+        fields.forEach(key => {
+            let val = (record as any)[key];
+            if (key === 'dob' && val) {
                 val = val.split(' ')[0];
             }
-            if (field.key === 'juz_options' && !val) {
+            if (key === 'juz_options' && !val) {
                 const matched = JUZ_OPTIONS.find(o => o.label === record.selected_juz);
                 if (matched) {
                     val = matched.code;
                 }
             }
-            data[field.key] = val || '';
+            data[key] = val || '';
         });
         setEditData(data);
         setEditAadhaarFile(null);
@@ -373,40 +379,73 @@ export default function TrackPage() {
             return;
         }
 
-        // Dynamic Field Validation
-        for (const field of FORM_FIELDS_CONFIG) {
+        // Explicit Field Validation
+        const requiredFields = [
+            { key: 'full_name', label: 'Full Name' },
+            { key: 'father_name', label: 'Father Name' },
+            { key: 'dob', label: 'Date of Birth' },
+            { key: 'category', label: 'Category' },
+            { key: 'whatsapp_number', label: 'WhatsApp Number' },
+            { key: 'street_address', label: 'Door No, Building, & Street Road' },
+            { key: 'pincode', label: 'Pincode' },
+            { key: 'village_name', label: 'Village / Locality' },
+            { key: 'district_name', label: 'District' },
+            { key: 'state_name', label: 'State' },
+            { key: 'guardian_name', label: 'Guardian Name' },
+            { key: 'guardian_phone', label: 'Guardian Phone' }
+        ];
+
+        for (const field of requiredFields) {
             const val = editData[field.key];
-            const valStr = val !== undefined && val !== null ? String(val).trim() : '';
-            if (field.required && !valStr) {
-                if (field.key === 'juz_options') {
-                    if (getJuzCodesForCategory(editData.category).length > 0) {
-                        triggerAlert('Please select a Juz range option.', 'Validation Error');
-                        return;
-                    }
-                } else if (field.key !== 'selected_juz') {
-                    triggerAlert(`Please fill in "${field.label}".`, 'Validation Error');
-                    return;
-                }
+            if (val === undefined || val === null || String(val).trim() === '') {
+                triggerAlert(`Please fill in "${field.label}".`, 'Validation Error');
+                return;
+            }
+        }
+
+        if (getJuzCodesForCategory(editData.category).length > 0 && !editData.juz_options) {
+            triggerAlert('Please select a Juz range option.', 'Validation Error');
+            return;
+        }
+
+        if (appMetadata) {
+            const validation = validateCategorySelection(
+                editData.category,
+                editData.dob,
+                appMetadata.event_date,
+                appMetadata.event_age_criteria,
+                appMetadata.age_buffer_months
+            );
+            if (!validation.allowed) {
+                triggerAlert(validation.message || 'Age or category restriction violated.', 'Validation Error');
+                return;
             }
         }
 
         // Calculate actual diff of changes
         const changes: Record<string, any> = {};
-        FORM_FIELDS_CONFIG.forEach(field => {
-            if (field.key === 'requires_accommodation') {
+        const fieldsToDiff = [
+            'full_name', 'father_name', 'father_number', 'aadhaar_number', 'dob', 'gender',
+            'category', 'selected_juz', 'juz_options', 'whatsapp_number', 'email',
+            'street_address', 'village_name', 'district_name', 'state_name', 'pincode',
+            'guardian_name', 'guardian_phone', 'requires_accommodation'
+        ];
+
+        fieldsToDiff.forEach(key => {
+            if (key === 'requires_accommodation') {
                 const oldVal = !!individualRecord.requires_accommodation;
                 const newVal = !!editData.requires_accommodation;
                 if (oldVal !== newVal) {
                     changes.requires_accommodation = newVal;
                 }
             } else {
-                let oldVal = (individualRecord as any)[field.key] || '';
-                if (field.type === 'date' && oldVal) {
+                let oldVal = (individualRecord as any)[key] || '';
+                if (key === 'dob' && oldVal) {
                     oldVal = oldVal.split(' ')[0];
                 }
-                const newVal = editData[field.key] || '';
+                const newVal = editData[key] || '';
                 if (String(oldVal).trim() !== String(newVal).trim()) {
-                    changes[field.key] = String(newVal).trim();
+                    changes[key] = String(newVal).trim();
                 }
             }
         });
@@ -469,11 +508,11 @@ export default function TrackPage() {
         try {
             const formData = new FormData();
             formData.append('name', instEditName.trim());
-            formData.append('street', instEditStreet.trim());
+            formData.append('street_address', instEditStreet.trim());
             formData.append('pincode', instEditPincode.trim());
-            formData.append('village', instEditVillage.trim());
-            formData.append('district', instEditDistrict.trim());
-            formData.append('state', instEditState.trim());
+            formData.append('village_name', instEditVillage.trim());
+            formData.append('district_name', instEditDistrict.trim());
+            formData.append('state_name', instEditState.trim());
             formData.append('contact_person', instEditContactPerson.trim());
             formData.append('email', instEditEmail.trim());
             formData.append('whatsapp_number', instEditWhatsapp.trim());
@@ -721,16 +760,6 @@ export default function TrackPage() {
                         handleSaveInstitutionChanges={handleSaveInstitutionChanges}
                         loading={loading}
                         getStatusClass={getStatusClass}
-                        onViewIndividual={(app) => {
-                            const cleanQuery = app.participant_id || app.id;
-                            setIndividualQuery(cleanQuery);
-                            localStorage.setItem('admin_track_individual_query', cleanQuery);
-                            setIsEditMode(false);
-                            setActiveTab('individual');
-                            localStorage.setItem('admin_track_tab', 'individual');
-                            handleSearchIndividual(app.id);
-                        }}
-                       
                         onRefresh={() => handleSearchInstitution(institutionQuery, true)}
                     />
                 )}

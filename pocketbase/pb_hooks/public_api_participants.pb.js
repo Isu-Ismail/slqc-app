@@ -27,7 +27,7 @@ routerAdd("GET", "/api/public/track-individual", (e) => {
         const upper = query.toUpperCase();
         const dobStart = dob + " 00:00:00.000Z";
         const dobEnd = dob + " 23:59:59.999Z";
-        
+
         const isNumericId = /^\d{3,4}$/.test(query);
         // 1. If it starts with APL- or is a 3/4 digit numeric ID, search by participant_id
         if (upper.indexOf("APL-") === 0 || isNumericId) {
@@ -41,9 +41,9 @@ routerAdd("GET", "/api/public/track-individual", (e) => {
                     { query: upper, dobStart: dobStart, dobEnd: dobEnd }
                 );
                 if (records && records.length > 0) record = records[0];
-            } catch (_) {}
+            } catch (_) { }
         }
-        
+
         // 2. If it is 12 digits, search by Aadhaar number
         else if (/^\d{12}$/.test(query)) {
             try {
@@ -56,9 +56,9 @@ routerAdd("GET", "/api/public/track-individual", (e) => {
                     { query: query, dobStart: dobStart, dobEnd: dobEnd }
                 );
                 if (records && records.length > 0) record = records[0];
-            } catch (_) {}
+            } catch (_) { }
         }
-        
+
         // 3. Otherwise, try by 15-character record ID directly
         else if (query.length === 15) {
             try {
@@ -66,7 +66,7 @@ routerAdd("GET", "/api/public/track-individual", (e) => {
                 if (r && (r.get("dob") + "").indexOf(dob) === 0) {
                     record = r;
                 }
-            } catch (_) {}
+            } catch (_) { }
         }
 
         if (!record) {
@@ -79,7 +79,7 @@ routerAdd("GET", "/api/public/track-individual", (e) => {
         if (instRef) {
             try {
                 expandedInst = $app.findRecordById("institutions", instRef);
-            } catch (_) {}
+            } catch (_) { }
         }
 
         let expandedApprover = null;
@@ -87,7 +87,7 @@ routerAdd("GET", "/api/public/track-individual", (e) => {
         if (approvedBy) {
             try {
                 expandedApprover = $app.findRecordById("users", approvedBy);
-            } catch (_) {}
+            } catch (_) { }
         }
 
         const responseData = {
@@ -109,7 +109,11 @@ routerAdd("GET", "/api/public/track-individual", (e) => {
             guardian_name: record.get("guardian_name"),
             guardian_phone: record.get("guardian_phone"),
             requires_accommodation: record.get("requires_accommodation"),
-            address: record.get("address") || "",
+            street_address: record.get("street_address") || "",
+            village_name: record.get("village_name") || "",
+            district_name: record.get("district_name") || "",
+            state_name: record.get("state_name") || "",
+            pincode: record.get("pincode") || "",
             status: record.get("status"),
             is_locked: record.get("is_locked"),
             rejection_reason: record.get("rejection_reason"),
@@ -139,7 +143,13 @@ routerAdd("GET", "/api/public/track-individual", (e) => {
                 email: expandedInst.get("email"),
                 phone_number: expandedInst.get("phone_number"),
                 whatsapp_number: expandedInst.get("whatsapp_number"),
-                address: expandedInst.get("address")
+                address: [
+                    expandedInst.get("street_address"),
+                    expandedInst.get("village_name"),
+                    expandedInst.get("district_name"),
+                    expandedInst.get("state_name"),
+                    expandedInst.get("pincode")
+                ].map(s => (s || "") + "").map(s => s.trim()).filter(Boolean).join(", ")
             } : null
         };
 
@@ -198,7 +208,7 @@ routerAdd("POST", "/api/public/update-individual", (e) => {
         contentType = contentType.toLowerCase();
 
         const data = info.data || {};
-        
+
         const getFormVal = (name) => {
             let val = data[name] || "";
             if (!val) {
@@ -236,7 +246,7 @@ routerAdd("POST", "/api/public/update-individual", (e) => {
                     if (files && files.length > 0) {
                         return files[0];
                     }
-                } catch (_) {}
+                } catch (_) { }
                 return null;
             };
 
@@ -258,19 +268,22 @@ routerAdd("POST", "/api/public/update-individual", (e) => {
 
         // Update fields securely
         const fields = [
-            "full_name", "father_name", "father_number", "aadhaar_number", 
-            "dob", "gender", "category", "juz_options", "selected_juz", 
-            "whatsapp_number", "email", "guardian_name", "guardian_phone", 
-            "requires_accommodation", "address", "status", "approved_by", "rejection_reason"
+            "full_name", "father_name", "father_number", "aadhaar_number",
+            "dob", "gender", "category", "juz_options", "selected_juz",
+            "whatsapp_number", "email", "guardian_name", "guardian_phone",
+            "requires_accommodation", "address", "status", "approved_by", "rejection_reason",
+            "street_address", "village_name", "district_name", "state_name", "pincode"
         ];
 
         fields.forEach(field => {
             let val = getFormVal(field);
-            if (val) {
+            if (val !== undefined && val !== null && val !== "") {
                 if (field === "requires_accommodation") {
                     record.set(field, val === "true" || val === true);
                 } else if (field === "juz_options") {
                     record.set("juzz_options", val);
+                } else if (field === "pincode") {
+                    record.set(field, String(val).trim());
                 } else {
                     record.set(field, val);
                 }
@@ -287,7 +300,7 @@ routerAdd("POST", "/api/public/update-individual", (e) => {
                 tr.set("random_value", $security.randomString(10));
                 $app.save(tr);
             }
-        } catch (_) {}
+        } catch (_) { }
 
         return e.json(200, {
             id: record.get("id"),
@@ -307,6 +320,11 @@ routerAdd("POST", "/api/public/update-individual", (e) => {
             guardian_phone: record.get("guardian_phone"),
             requires_accommodation: record.get("requires_accommodation"),
             address: record.get("address") || "",
+            street_address: record.get("street_address") || "",
+            village_name: record.get("village_name") || "",
+            district_name: record.get("district_name") || "",
+            state_name: record.get("state_name") || "",
+            pincode: record.get("pincode") || 0,
             status: record.get("status"),
             is_locked: record.get("is_locked"),
             rejection_reason: record.get("rejection_reason"),
@@ -366,6 +384,11 @@ routerAdd("POST", "/api/public/submit-application", (e) => {
         guardian_phone: "",
         requires_accommodation: "",
         address: "",
+        street_address: "",
+        village_name: "",
+        district_name: "",
+        state_name: "",
+        pincode: "",
         selected_juz: "",
         juz_options: ""
     });
@@ -379,7 +402,7 @@ routerAdd("POST", "/api/public/submit-application", (e) => {
     const whatsapp = (body.whatsapp_number || "").trim();
     const guardianName = (body.guardian_name || "").trim();
     const guardianPhone = (body.guardian_phone || "").trim();
-    
+
 
     if (!regType || !fullName || !dob || !category || !gender || !whatsapp || !guardianName || !guardianPhone) {
         return e.json(400, { error: "Missing required application parameters." });
@@ -412,7 +435,7 @@ routerAdd("POST", "/api/public/submit-application", (e) => {
                         break;
                     }
                 }
-            } catch (_) {}
+            } catch (_) { }
 
             let appsVal = [];
             try {
@@ -431,7 +454,7 @@ routerAdd("POST", "/api/public/submit-application", (e) => {
                         }
                     }
                 }
-            } catch (_) {}
+            } catch (_) { }
 
             if (!Array.isArray(appsVal)) {
                 appsVal = [];
@@ -474,17 +497,17 @@ routerAdd("POST", "/api/public/submit-application", (e) => {
         try {
             const dateRec = $app.findFirstRecordByData("metadata", "key", "event_date");
             eventDateStr = dateRec.get("value") || eventDateStr;
-        } catch (_) {}
+        } catch (_) { }
 
         try {
             const criteriaRec = $app.findFirstRecordByData("metadata", "key", "event_age_criteria");
             ageCriteriaStr = criteriaRec.get("value") || ageCriteriaStr;
-        } catch (_) {}
+        } catch (_) { }
 
         try {
             const bufferRec = $app.findFirstRecordByData("metadata", "key", "age_buffer_months");
             bufferMonths = parseFloat(bufferRec.get("value")) || bufferMonths;
-        } catch (_) {}
+        } catch (_) { }
 
         const ageCriteria = JSON.parse(ageCriteriaStr);
         const rule = ageCriteria[category];
@@ -513,7 +536,7 @@ routerAdd("POST", "/api/public/submit-application", (e) => {
         // 4. Create record
         const collection = $app.findCollectionByNameOrId("participants_application");
         const record = new Record(collection);
-        
+
         record.set("registration_type", regType);
         if (regType === "institution") {
             record.set("institution_id", body.institution_id);
@@ -531,7 +554,11 @@ routerAdd("POST", "/api/public/submit-application", (e) => {
         record.set("guardian_name", guardianName);
         record.set("guardian_phone", guardianPhone);
         record.set("requires_accommodation", body.requires_accommodation === "true" || body.requires_accommodation === true);
-        record.set("address", (body.address || "").trim());
+        record.set("street_address", (body.street_address || "").trim());
+        record.set("village_name", (body.village_name || "").trim());
+        record.set("district_name", (body.district_name || "").trim());
+        record.set("state_name", (body.state_name || "").trim());
+        record.set("pincode", (body.pincode || "").trim());
         record.set("selected_juz", (body.selected_juz || "").trim());
         record.set("juzz_options", (body.juz_options || "").trim());
         record.set("status", "pending");
@@ -543,7 +570,7 @@ routerAdd("POST", "/api/public/submit-application", (e) => {
                 if (files && files.length > 0) {
                     return files[0];
                 }
-            } catch (_) {}
+            } catch (_) { }
             return null;
         };
 
@@ -583,7 +610,7 @@ routerAdd("POST", "/api/public/submit-application", (e) => {
                         }
                     }
                 }
-            } catch (_) {}
+            } catch (_) { }
 
             if (!Array.isArray(appsVal)) {
                 appsVal = [];
@@ -601,6 +628,23 @@ routerAdd("POST", "/api/public/submit-application", (e) => {
                 appsVal.push({ cat: category, count: 1 });
             }
 
+            // Fill in missing required address fields if they are blank/null/0 on the institution record
+            if (!institution.get("street_address")) {
+                institution.set("street_address", (body.street_address || "").trim() || "Street");
+            }
+            if (!institution.get("village_name")) {
+                institution.set("village_name", (body.village_name || "").trim() || "Village");
+            }
+            if (!institution.get("district_name")) {
+                institution.set("district_name", (body.district_name || "").trim() || "District");
+            }
+            if (!institution.get("state_name")) {
+                institution.set("state_name", (body.state_name || "").trim() || "State");
+            }
+            if (!institution.get("pincode") || institution.get("pincode") === "0" || institution.get("pincode") === "") {
+                institution.set("pincode", (body.pincode || "").trim() || "600001");
+            }
+
             institution.set("applications", JSON.stringify(appsVal));
             $app.save(institution);
         }
@@ -613,7 +657,7 @@ routerAdd("POST", "/api/public/submit-application", (e) => {
                 tr.set("random_value", $security.randomString(10));
                 $app.save(tr);
             }
-        } catch (_) {}
+        } catch (_) { }
 
         return e.json(200, {
             id: record.get("id"),

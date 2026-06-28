@@ -10,12 +10,34 @@ import { useIndividualRealtime, useInstitutionRealtime } from '../../../../realt
 import styles from './TrackPage.module.css';
 import IndividualDetails from './components/IndividualDetails';
 import InstitutionDetails from './components/InstitutionDetails';
-import { FORM_FIELDS_CONFIG, JUZ_OPTIONS } from '../../../../config/fieldsConfig';
+import { JUZ_OPTIONS } from '../../../../config/fieldsConfig';
 
 
 
 
 
+
+const FORM_FIELDS_CONFIG = [
+    { key: 'full_name' },
+    { key: 'father_name' },
+    { key: 'father_number' },
+    { key: 'aadhaar_number' },
+    { key: 'dob', type: 'date' },
+    { key: 'gender' },
+    { key: 'category' },
+    { key: 'juz_options' },
+    { key: 'selected_juz' },
+    { key: 'whatsapp_number' },
+    { key: 'email' },
+    { key: 'guardian_name' },
+    { key: 'guardian_phone' },
+    { key: 'requires_accommodation' },
+    { key: 'street_address' },
+    { key: 'village_name' },
+    { key: 'district_name' },
+    { key: 'state_name' },
+    { key: 'pincode' }
+];
 
 const isValidGoogleMapsLink = (url: string): boolean => {
     try {

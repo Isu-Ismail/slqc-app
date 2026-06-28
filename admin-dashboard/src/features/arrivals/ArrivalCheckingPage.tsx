@@ -32,6 +32,7 @@ export default function ArrivalCheckingPage() {
     const [localStatuses, setLocalStatuses] = useState<Record<string, 'none' | 'present' | 'absent'>>({});
     const [submitting, setSubmitting] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [arrivedInsts, setArrivedInsts] = useState<Record<string, boolean>>({});
 
     // Fetch all institutions on mount
     useEffect(() => {
@@ -44,6 +45,19 @@ export default function ArrivalCheckingPage() {
                     sort: 'name',
                 });
                 setInstitutions(data);
+
+                // Fetch student statuses to map institution arrivals
+                const studentsData = await pb.collection('participants_application').getFullList({
+                    filter: 'status = "approved"',
+                    fields: 'institution_ref,arrival_status'
+                });
+                const arrivedMap: Record<string, boolean> = {};
+                studentsData.forEach((s: any) => {
+                    if (s.arrival_status === 'present' || s.arrival_status === 'absent') {
+                        arrivedMap[s.institution_ref] = true;
+                    }
+                });
+                setArrivedInsts(arrivedMap);
             } catch (err) {
                 console.error("Error fetching institutions:", err);
             } finally {
@@ -128,6 +142,15 @@ export default function ArrivalCheckingPage() {
                     ...s,
                     arrival_status: localStatuses[s.id]
                 })));
+
+                // Update arrivedInsts map
+                const hasArrived = Object.values(localStatuses).some(status => status === 'present' || status === 'absent');
+                if (selectedInst) {
+                    setArrivedInsts(prev => ({
+                        ...prev,
+                        [selectedInst.id]: hasArrived
+                    }));
+                }
             }
         } catch (err: any) {
             console.error("Failed to submit arrival status:", err);
@@ -335,33 +358,48 @@ export default function ArrivalCheckingPage() {
                         <div className={styles.empty}>No approved institutions found matching search.</div>
                     ) : (
                         <div className={styles.instGrid}>
-                            {filteredInstitutions.map(inst => (
-                                <div
-                                    key={inst.id}
-                                    onClick={() => handleSelectInstitution(inst)}
-                                    className={styles.instCard}
-                                >
-                                    <div className={styles.instName}>{inst.name}</div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                        <div className={styles.instId}>{inst.institution_id || inst.id}</div>
+                            {filteredInstitutions.map(inst => {
+                                const hasArrived = arrivedInsts[inst.id];
+                                return (
+                                    <div
+                                        key={inst.id}
+                                        onClick={() => handleSelectInstitution(inst)}
+                                        className={hasArrived ? `${styles.instCard} ${styles.instCardArrived}` : styles.instCard}
+                                    >
+                                        <div className={styles.instCardHeader}>
+                                            <h3 className={styles.instName}>{inst.name}</h3>
+                                            <span className={styles.instId}>{inst.institution_id || inst.id}</span>
+                                        </div>
+
+                                        <div className={styles.instCardBody}>
+                                            <div className={styles.contactItem}>
+                                                <span className={styles.contactLabel}>Contact Person:</span>
+                                                <span className={styles.contactValue}>
+                                                    {inst.contact_person || '—'}
+                                                    {(inst.phone_number || inst.whatsapp_number) ? ` (${inst.phone_number || inst.whatsapp_number})` : ''}
+                                                </span>
+                                            </div>
+                                            {inst.incharge && (
+                                                <div className={styles.contactItem}>
+                                                    <span className={styles.inchargeLabel}>In-Charge:</span>
+                                                    <span className={styles.inchargeValue}>
+                                                        {inst.incharge}
+                                                        {inst.incharge_number ? ` (${inst.incharge_number})` : ''}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className={styles.instCardFooter}>
+                                            {hasArrived ? (
+                                                <span className={styles.arrivedBadge}>Arrived</span>
+                                            ) : (
+                                                <span className={styles.pendingBadge}>Pending</span>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className={styles.inchargeInfo}>
-                                        <strong>Contact Person:</strong> {inst.contact_person || <span style={{ color: '#94a3b8' }}>—</span>}
-                                    </div>
-                                    <div className={styles.inchargeInfo}>
-                                        <strong>Contact Mobile:</strong> {inst.phone_number || <span style={{ color: '#94a3b8' }}>—</span>}
-                                    </div>
-                                    <div className={styles.inchargeInfo}>
-                                        <strong>WhatsApp Mobile:</strong> {inst.whatsapp_number || <span style={{ color: '#94a3b8' }}>—</span>}
-                                    </div>
-                                    <div className={styles.inchargeInfo} style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '4px', marginTop: '4px' }}>
-                                        <strong>In-Charge:</strong> {inst.incharge || <span style={{ color: '#94a3b8' }}>None</span>}
-                                    </div>
-                                    <div className={styles.inchargeInfo}>
-                                        <strong>In-Charge Number:</strong> {inst.incharge_number || <span style={{ color: '#94a3b8' }}>—</span>}
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>

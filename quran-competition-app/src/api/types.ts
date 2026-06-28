@@ -185,6 +185,11 @@ export type ParticipantsApplicationRecord = {
 	juz_options?: string
 	arrival_status?: 'none' | 'present' | 'absent'
 	address?: string
+	street_address?: string
+	village_name?: string
+	district_name?: string
+	state_name?: string
+	pincode?: number
 }
 
 export type UsersRecord = {

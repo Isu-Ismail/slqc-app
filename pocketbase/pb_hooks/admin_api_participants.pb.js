@@ -81,7 +81,11 @@ routerAdd("GET", "/api/admin/track-individual", (e) => {
             guardian_name: record.get("guardian_name"),
             guardian_phone: record.get("guardian_phone"),
             requires_accommodation: record.get("requires_accommodation"),
-            address: record.get("address") || "",
+            street_address: record.get("street_address") || "",
+            village_name: record.get("village_name") || "",
+            district_name: record.get("district_name") || "",
+            state_name: record.get("state_name") || "",
+            pincode: record.get("pincode") || "",
             status: record.get("status"),
             is_locked: record.get("is_locked"),
             rejection_reason: record.get("rejection_reason"),
@@ -119,7 +123,13 @@ routerAdd("GET", "/api/admin/track-individual", (e) => {
                 email: expandedInst.get("email"),
                 phone_number: expandedInst.get("phone_number"),
                 whatsapp_number: expandedInst.get("whatsapp_number"),
-                address: expandedInst.get("address")
+                address: [
+                    expandedInst.get("street_address"),
+                    expandedInst.get("village_name"),
+                    expandedInst.get("district_name"),
+                    expandedInst.get("state_name"),
+                    expandedInst.get("pincode")
+                ].map(s => (s || "") + "").map(s => s.trim()).filter(Boolean).join(", ")
             } : null
         };
 
@@ -194,3 +204,176 @@ routerAdd("POST", "/api/admin/batch-arrival-status", (e) => {
         return e.json(500, { error: "Failed to update arrival statuses: " + (err.message || err) });
     }
 });
+
+routerAdd("POST", "/api/admin/update-participant", (e) => {
+    const authRecord = e.auth;
+    const isSuperuser = authRecord && authRecord.collection().name === "_superusers";
+    const isAdmin = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "admin";
+    const isCoordinator = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "coordinators";
+
+    if (!isSuperuser && !isAdmin && !isCoordinator) {
+        return e.json(403, { error: "Unauthorized. Admin or coordinator access required." });
+    }
+
+    const body = new DynamicModel({
+        id: "",
+        full_name: "",
+        father_name: "",
+        father_number: "",
+        aadhaar_number: "",
+        dob: "",
+        gender: "",
+        category: "",
+        juz_options: "",
+        selected_juz: "",
+        whatsapp_number: "",
+        email: "",
+        guardian_name: "",
+        guardian_phone: "",
+        requires_accommodation: false,
+        street_address: "",
+        village_name: "",
+        district_name: "",
+        state_name: "",
+        pincode: ""
+    });
+    e.bindBody(body);
+
+    const id = body.id;
+
+    if (!id) {
+        return e.json(400, { error: "Missing application id" });
+    }
+
+    try {
+        const record = $app.findRecordById("participants_application", id);
+        if (!record) {
+            return e.json(404, { error: "Application not found" });
+        }
+
+        // Check if venue is allocated
+        const allocatedVenue = record.get("allocated_venue") || "";
+        const finalVenue = record.get("final_venue") || "";
+        if (allocatedVenue !== "" || finalVenue !== "") {
+            return e.json(400, { error: "Cannot update application details because a venue has already been allocated." });
+        }
+
+        // Map fields
+        const fields = [
+            "full_name", "father_name", "father_number", "aadhaar_number",
+            "dob", "gender", "category", "juzz_options", "selected_juz",
+            "whatsapp_number", "email", "guardian_name", "guardian_phone",
+            "requires_accommodation", "street_address", "village_name",
+            "district_name", "state_name", "pincode"
+        ];
+
+        fields.forEach(f => {
+            if (body[f] !== undefined) {
+                if (f === "requires_accommodation") {
+                    record.set(f, body[f] === "true" || body[f] === true);
+                } else {
+                    record.set(f, body[f]);
+                }
+            }
+        });
+
+        // Handle files
+        const files = e.requestInfo().files;
+        if (files) {
+            const fileKeys = ["aadhaar_front", "birthcertificate_photo", "candidate_photo"];
+            fileKeys.forEach(k => {
+                const uploadedFiles = files[k];
+                if (uploadedFiles && uploadedFiles.length > 0) {
+                    record.set(k, uploadedFiles[0]);
+                }
+            });
+        }
+
+        $app.save(record);
+
+        // Expand institution
+        const instRef = record.get("institution_ref");
+        let expandedInst = null;
+        if (instRef) {
+            try {
+                expandedInst = $app.findRecordById("institutions", instRef);
+            } catch (_) { }
+        }
+
+        const responseData = {
+            id: record.get("id"),
+            participant_id: record.get("participant_id"),
+            full_name: record.get("full_name"),
+            father_name: record.get("father_name"),
+            father_number: record.get("father_number"),
+            aadhaar_number: record.get("aadhaar_number"),
+            dob: record.get("dob"),
+            gender: record.get("gender"),
+            category: record.get("category"),
+            juz_options: record.get("juzz_options"),
+            selected_juz: record.get("selected_juz"),
+            whatsapp_number: record.get("whatsapp_number"),
+            email: record.get("email"),
+            guardian_name: record.get("guardian_name"),
+            guardian_phone: record.get("guardian_phone"),
+            requires_accommodation: record.get("requires_accommodation"),
+            street_address: record.get("street_address") || "",
+            village_name: record.get("village_name") || "",
+            district_name: record.get("district_name") || "",
+            state_name: record.get("state_name") || "",
+            pincode: record.get("pincode") || "",
+            status: record.get("status"),
+            is_locked: record.get("is_locked"),
+            rejection_reason: record.get("rejection_reason"),
+            allocated_venue: record.get("allocated_venue"),
+            allocated_order: record.get("allocated_order"),
+            aadhaar_front: record.get("aadhaar_front"),
+            birthcertificate_photo: record.get("birthcertificate_photo"),
+            candidate_photo: record.get("candidate_photo"),
+            created: record.get("created"),
+            updated: record.get("updated")
+        };
+
+        let expandedApprover = null;
+        const approvedBy = record.get("approved_by");
+        if (approvedBy) {
+            try {
+                expandedApprover = $app.findRecordById("users", approvedBy);
+            } catch (_) { }
+        }
+
+        responseData.expand = {
+            approved_by: expandedApprover ? {
+                name: expandedApprover.get("name") || expandedApprover.get("username") || "Organising Committee",
+                mobile: expandedApprover.get("mobile") || "Official Support",
+                email: expandedApprover.get("email") || "support@competition.com"
+            } : (record.get("status") === "approved" ? {
+                name: "Organising Committee",
+                mobile: "Official Support",
+                email: "support@competition.com"
+            } : null),
+            institution_ref: expandedInst ? {
+                id: expandedInst.get("id"),
+                name: expandedInst.get("name"),
+                institution_id: expandedInst.get("institution_id"),
+                email: expandedInst.get("email"),
+                phone_number: expandedInst.get("phone_number"),
+                whatsapp_number: expandedInst.get("whatsapp_number"),
+                address: [
+                    expandedInst.get("street_address"),
+                    expandedInst.get("village_name"),
+                    expandedInst.get("district_name"),
+                    expandedInst.get("state_name"),
+                    expandedInst.get("pincode")
+                ].map(s => (s || "") + "").map(s => s.trim()).filter(Boolean).join(", ")
+            } : null
+        };
+
+        return e.json(200, responseData);
+    } catch (err) {
+        console.error("Update participant error: " + err);
+        return e.json(500, { error: "Failed to update participant: " + err });
+    }
+});
+
+

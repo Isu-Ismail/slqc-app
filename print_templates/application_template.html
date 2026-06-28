@@ -191,6 +191,17 @@
             font-weight: bold;
         }
 
+        .address-value {
+            font-size: 14px;
+            font-weight: bold;
+            line-height: 1.25;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         .personal-row {
             display: flex;
             gap: 20px;
@@ -319,7 +330,7 @@
                                 class="value">{{whatsapp_number}}</span></div>
                         <!-- Participant's Home Address -->
                         <div class="info-box full-width"><span class="label" data-config="lblAddress"></span><span
-                                class="value">{{address}}</span></div>
+                                class="value address-value">{{address}}</span></div>
                     </div>
                 </div>
 
@@ -359,7 +370,7 @@
                 <div class="info-box"><span class="label" data-config="lblInstWhatsapp"></span><span
                         class="value">{{institution_phone}}</span></div>
                 <div class="info-box full-width"><span class="label" data-config="lblInstAddress"></span><span
-                        class="value">{{institution_address}}</span></div>
+                        class="value address-value">{{institution_address}}</span></div>
             </div>
         </div>
 

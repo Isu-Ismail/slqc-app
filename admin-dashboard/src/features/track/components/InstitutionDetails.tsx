@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import { Lock, Edit, FileText, ChevronDown, ChevronUp, Unlock, RefreshCw } from 'lucide-react';
 import { pb } from '../../../api/db';
 import { adminTrackApi } from '../../../api/track';
@@ -47,7 +47,7 @@ interface InstitutionDetailsProps {
     handleSaveInstitutionChanges: () => void;
     loading: boolean;
     getStatusClass: (status: string) => string;
-    onViewIndividual: (app: ParticipantsApplicationResponse) => void;
+    onViewIndividual?: (app: ParticipantsApplicationResponse) => void;
     onRefresh?: () => Promise<boolean>;
 }
 
@@ -93,8 +93,100 @@ export default function InstitutionDetails({
     const instBuildingFileInputRef = useRef<HTMLInputElement>(null);
     const [printPreview, setPrintPreview] = useState<{ title: string; html: string } | null>(null);
 
+    const hasChanges = useMemo(() => {
+        if (!institutionData.institution) return false;
+        const inst = institutionData.institution;
+
+        if (instEditDocFile || instEditBuildingFile) return true;
+
+        const mappings = [
+            { current: inst.name, edit: instEditName },
+            { current: inst.street_address, edit: instEditStreet },
+            { current: inst.pincode, edit: instEditPincode },
+            { current: inst.village_name, edit: instEditVillage },
+            { current: inst.district_name, edit: instEditDistrict },
+            { current: inst.state_name, edit: instEditState },
+            { current: inst.contact_person, edit: instEditContactPerson },
+            { current: inst.email, edit: instEditEmail },
+            { current: inst.whatsapp_number, edit: instEditWhatsapp },
+            { current: inst.phone_number, edit: instEditPhone },
+            { current: inst.instituition_location, edit: instEditLocation }
+        ];
+
+        for (const item of mappings) {
+            const normCurrent = (item.current === undefined || item.current === null) ? '' : String(item.current).trim();
+            const normEdit = (item.edit === undefined || item.edit === null) ? '' : String(item.edit).trim();
+            if (normCurrent !== normEdit) return true;
+        }
+
+        return false;
+    }, [
+        institutionData.institution,
+        instEditName, instEditStreet, instEditPincode, instEditVillage,
+        instEditDistrict, instEditState, instEditContactPerson, instEditEmail,
+        instEditWhatsapp, instEditPhone, instEditLocation, instEditDocFile, instEditBuildingFile
+    ]);
+
     const [isRefetching, setIsRefetching] = useState(false);
     const [refetchSuccess, setRefetchSuccess] = useState(false);
+
+    // Locality dropdown states
+    const [availableVillages, setAvailableVillages] = useState<string[]>([]);
+    const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+    const [pincodeError, setPincodeError] = useState('');
+    const [isLocalityOpen, setIsLocalityOpen] = useState(false);
+    const localityRef = useRef<HTMLDivElement | null>(null);
+
+    // Handle clicks outside the custom locality list wrapper
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (localityRef.current && !localityRef.current.contains(event.target as Node)) {
+                setIsLocalityOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const filteredVillages = availableVillages.filter(v =>
+        v.toLowerCase().includes((instEditVillage || '').toLowerCase())
+    );
+
+    const handlePincodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const code = e.target.value.replace(/\D/g, '');
+        setInstEditPincode(code);
+
+        setInstEditState('');
+        setInstEditDistrict('');
+        setInstEditVillage('');
+        setAvailableVillages([]);
+        setPincodeError('');
+
+        if (code.length === 6) {
+            setIsLoadingLocation(true);
+            try {
+                const response = await fetch(`https://api.postalpincode.in/pincode/${code}`);
+                const data = await response.json();
+
+                if (data && data[0] && data[0].Status === "Success") {
+                    const postOffices = data[0].PostOffice;
+                    if (postOffices && postOffices.length > 0) {
+                        setInstEditState(postOffices[0].State);
+                        setInstEditDistrict(postOffices[0].District);
+                        const villages = Array.from(new Set(postOffices.map((po: any) => po.Name))) as string[];
+                        setAvailableVillages(villages);
+                        setIsLocalityOpen(true);
+                    }
+                } else {
+                    setPincodeError("Invalid Pincode. Please enter details manually.");
+                }
+            } catch (error) {
+                setPincodeError("Could not auto-fetch address. Please enter details manually.");
+            } finally {
+                setIsLoadingLocation(false);
+            }
+        }
+    };
 
     const handleRefetch = async () => {
         if (!onRefresh) return;
@@ -395,14 +487,17 @@ export default function InstitutionDetails({
                                 onChange={(e) => setInstEditStreet(e.target.value)}
                             />
                         </div>
-                        <div className={styles.formGroup}>
+                        <div className={styles.formGroup} style={{ position: 'relative' }}>
                             <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>Pincode</label>
                             <input
                                 type="text" className={styles.formInput}
                                 value={isInstEditMode ? instEditPincode : (institutionData.institution?.pincode || '')}
                                 disabled={!isInstEditMode || institutionData.institution?.is_locked}
-                                onChange={(e) => setInstEditPincode(e.target.value)}
+                                onChange={handlePincodeChange}
+                                maxLength={6}
                             />
+                            {isLoadingLocation && <small style={{ color: '#0d9488', position: 'absolute', top: 'calc(100% + 2px)', left: '4px', fontSize: '11px', fontWeight: '500' }}>⚡ Fetching details...</small>}
+                            {pincodeError && <small style={{ color: '#ef4444', position: 'absolute', top: 'calc(100% + 2px)', left: '4px', fontSize: '11px', fontWeight: '500' }}>{pincodeError}</small>}
                         </div>
 
                         {/* Row 2: 50/50 */}
@@ -411,18 +506,58 @@ export default function InstitutionDetails({
                             <input
                                 type="text" className={styles.formInput}
                                 value={isInstEditMode ? instEditDistrict : (institutionData.institution?.district_name || '')}
-                                disabled={!isInstEditMode || institutionData.institution?.is_locked}
+                                disabled={!isInstEditMode || institutionData.institution?.is_locked || isLoadingLocation}
                                 onChange={(e) => setInstEditDistrict(e.target.value)}
                             />
                         </div>
-                        <div className={styles.formGroup}>
+                        <div className={styles.formGroup} style={{ position: 'relative' }} ref={localityRef}>
                             <label className={styles.formLabel} style={{ fontSize: '11px', marginBottom: '2px' }}>Village / Locality</label>
                             <input
                                 type="text" className={styles.formInput}
                                 value={isInstEditMode ? instEditVillage : (institutionData.institution?.village_name || '')}
-                                disabled={!isInstEditMode || institutionData.institution?.is_locked}
-                                onChange={(e) => setInstEditVillage(e.target.value)}
+                                disabled={!isInstEditMode || institutionData.institution?.is_locked || isLoadingLocation}
+                                onChange={(e) => {
+                                    setInstEditVillage(e.target.value);
+                                    if (availableVillages.length > 0) setIsLocalityOpen(true);
+                                }}
+                                onFocus={() => {
+                                    if (availableVillages.length > 0) setIsLocalityOpen(true);
+                                }}
+                                autoComplete="off"
                             />
+                            {isLocalityOpen && filteredVillages.length > 0 && (
+                                <ul style={{
+                                    position: 'absolute',
+                                    top: 'calc(100% + 4px)',
+                                    left: 0,
+                                    width: '100%',
+                                    margin: '0',
+                                    padding: '4px',
+                                    listStyle: 'none',
+                                    backgroundColor: '#fff',
+                                    border: '1px solid #cbd5e1',
+                                    borderRadius: '6px',
+                                    maxHeight: '120px',
+                                    overflowY: 'auto',
+                                    zIndex: 100,
+                                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
+                                }}>
+                                    {filteredVillages.map((village, idx) => (
+                                        <li
+                                            key={idx}
+                                            onClick={() => {
+                                                setInstEditVillage(village);
+                                                setIsLocalityOpen(false);
+                                            }}
+                                            style={{ padding: '8px 12px', cursor: 'pointer', borderRadius: '4px', fontSize: '12px' }}
+                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
+                                        >
+                                            {village}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
                         </div>
 
                         {/* Row 3: Full Width */}
@@ -431,7 +566,7 @@ export default function InstitutionDetails({
                             <input
                                 type="text" className={styles.formInput}
                                 value={isInstEditMode ? instEditState : (institutionData.institution?.state_name || '')}
-                                disabled={!isInstEditMode || institutionData.institution?.is_locked}
+                                disabled={!isInstEditMode || institutionData.institution?.is_locked || isLoadingLocation}
                                 onChange={(e) => setInstEditState(e.target.value)}
                             />
                         </div>
@@ -453,21 +588,7 @@ export default function InstitutionDetails({
                                         className={styles.btnPrimary}
                                         style={{ padding: '6px 12px', fontSize: '13px' }}
                                         onClick={handleSaveInstitutionChanges}
-                                        disabled={loading || !(
-                                            (instEditName || '').toString().trim() !== (institutionData.institution?.name || '').toString().trim() ||
-                                            (instEditStreet || '').toString().trim() !== (institutionData.institution?.street_address || '').toString().trim() ||
-                                            (instEditPincode || '').toString().trim() !== (institutionData.institution?.pincode || '').toString().trim() ||
-                                            (instEditVillage || '').toString().trim() !== (institutionData.institution?.village_name || '').toString().trim() ||
-                                            (instEditDistrict || '').toString().trim() !== (institutionData.institution?.district_name || '').toString().trim() ||
-                                            (instEditState || '').toString().trim() !== (institutionData.institution?.state_name || '').toString().trim() ||
-                                            (instEditContactPerson || '').toString().trim() !== (institutionData.institution?.contact_person || '').toString().trim() ||
-                                            (instEditEmail || '').toString().trim() !== (institutionData.institution?.email || '').toString().trim() ||
-                                            (instEditWhatsapp || '').toString().trim() !== (institutionData.institution?.whatsapp_number || '').toString().trim() ||
-                                            (instEditPhone || '').toString().trim() !== (institutionData.institution?.phone_number || '').toString().trim() ||
-                                            (instEditLocation || '').toString().trim() !== (institutionData.institution?.instituition_location || '').toString().trim() ||
-                                            instEditDocFile !== null ||
-                                            instEditBuildingFile !== null
-                                        )}
+                                        disabled={loading || !hasChanges}
                                     >
                                         {loading ? 'Saving...' : 'Save'}
                                     </button>

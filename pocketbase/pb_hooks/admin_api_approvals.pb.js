@@ -421,6 +421,28 @@ routerAdd("POST", "/api/admin/reject", (e) => {
             return e.json(404, { error: "Record not found" });
         }
 
+        if (type === "institution") {
+            const acceptedParticipants = $app.findRecordsByFilter(
+                "participants_application",
+                "institution_ref = {:instId} && status = 'approved'",
+                "",
+                1,
+                0,
+                { instId: id }
+            );
+            if (acceptedParticipants && acceptedParticipants.length > 0) {
+                return e.json(400, { error: "This institution cannot be rejected because there are already approved participants registered under it." });
+            }
+        }
+
+        if (type === "individual") {
+            const allocatedVenue = record.get("allocated_venue");
+            const finalVenue = record.get("final_venue");
+            if ((allocatedVenue && allocatedVenue !== "") || (finalVenue && finalVenue !== "")) {
+                return e.json(400, { error: "This student cannot be rejected because a venue has already been allocated." });
+            }
+        }
+
         record.set("status", "rejected");
         record.set("is_locked", false);
         record.set("approved_by", authRecord.get("id"));
@@ -549,6 +571,14 @@ routerAdd("POST", "/api/admin/toggle-lock", (e) => {
         const record = $app.findRecordById(collectionName, id);
         if (!record) {
             return e.json(404, { error: "Record not found" });
+        }
+
+        if (type === "individual" && !isLocked) {
+            const allocatedVenue = record.get("allocated_venue") || "";
+            const finalVenue = record.get("final_venue") || "";
+            if (allocatedVenue !== "" || finalVenue !== "") {
+                return e.json(400, { error: "This application cannot be unlocked because a venue has already been allocated." });
+            }
         }
 
         record.set("is_locked", isLocked);
