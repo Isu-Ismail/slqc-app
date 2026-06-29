@@ -459,3 +459,80 @@ routerAdd("GET", "/api/admin/print-venue-list", (e) => {
         return e.json(500, { error: "Failed to get venue participants: " + err });
     }
 });
+
+routerAdd("GET", "/api/admin/print-finalists-or-winners", (e) => {
+    const authRecord = e.auth;
+    const isSuperuser = authRecord && authRecord.collection().name === "_superusers";
+    const isAdmin = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "admin";
+    const isCoordinator = authRecord && authRecord.collection().name === "users" && authRecord.get("designation") === "coordinators";
+
+    if (!isSuperuser && !isAdmin && !isCoordinator) {
+        return e.json(403, { error: "Unauthorized. Admin or coordinator access required." });
+    }
+
+    const info = e.requestInfo();
+    const category = (info.query.category || "5_juz").trim();
+    const type = (info.query.type || "finalists").trim(); // 'finalists' or 'winners'
+
+    try {
+        let filter = "status = 'approved' && is_finalist = true && category = {:category}";
+        if (type === "winners") {
+            filter += " && final_ranking > 0";
+        }
+
+        const params = { category: category };
+        // Sort by final_ranking if winners, else by participant_id
+        const sort = type === "winners" ? "final_ranking" : "participant_id";
+        const records = $app.findRecordsByFilter("participants_application", filter, sort, 1000, 0, params);
+        
+        const list = [];
+
+        records.forEach(record => {
+            let grandTotal = 0;
+            try {
+                const marksCollection = type === "winners" ? "final_marks" : "preliminary_marks";
+                const markRec = $app.findFirstRecordByData(marksCollection, "participant_ref", record.get("id"));
+                const valStr = markRec.getString("values");
+                if (valStr) {
+                    const parsed = JSON.parse(valStr);
+                    if (parsed && parsed.totals) {
+                        grandTotal = parseFloat(parsed.totals.grandTotal) || 0;
+                    }
+                }
+            } catch (_) {}
+
+            let expandedInst = null;
+            const instRef = record.get("institution_ref");
+            if (instRef) {
+                try {
+                    expandedInst = $app.findRecordById("institutions", instRef);
+                } catch (_) {}
+            }
+
+            const fullAddress = record.get("address") || [
+                record.get("street_address"),
+                record.get("village_name"),
+                record.get("district_name"),
+                record.get("state_name"),
+                record.get("pincode")
+            ].filter(Boolean).join(", ");
+
+            list.push({
+                id: record.get("id"),
+                participant_id: record.get("participant_id"),
+                full_name: record.get("full_name"),
+                father_name: record.get("father_name"),
+                village_name: record.get("village_name") || "",
+                address: fullAddress || "",
+                institution_name: expandedInst ? expandedInst.get("name") : "Individual",
+                category: record.get("category"),
+                final_marks: grandTotal,
+                final_ranking: record.getInt("final_ranking")
+            });
+        });
+
+        return e.json(200, list);
+    } catch (err) {
+        return e.json(500, { error: "Failed to get print list: " + err });
+    }
+});

@@ -40,6 +40,7 @@ export default function MarkEntryPage() {
     const [tplSaving, setTplSaving] = useState<boolean>(false);
     const [hasExistingMarks, setHasExistingMarks] = useState<boolean>(false);
     const [isLocked, setIsLocked] = useState<boolean>(true);
+    const [originalCriteria, setOriginalCriteria] = useState<any[]>([]);
 
     const isVenueIncharge = user?.designation === 'venue Incharge' || user?.designation === 'coordinators';
 
@@ -314,11 +315,13 @@ export default function MarkEntryPage() {
     const loadTemplate = async () => {
         setTplLoading(true);
         setTplCriteria([]); // Clear previous template immediately to prevent stale caching/showing
+        setOriginalCriteria([]);
         try {
             const data = await marksApi.getTemplate(editRound, editCategory);
             console.log("[client loadTemplate] round=" + editRound + ", category=" + editCategory + ", data=", data);
             const criteria = data.columns?.criteria || [];
             setTplCriteria(criteria);
+            setOriginalCriteria(JSON.parse(JSON.stringify(criteria)));
             
             // Check if marks already exist for this category/round
             const marksCollection = editRound === 'final' ? 'final_marks' : 'preliminary_marks';
@@ -338,6 +341,7 @@ export default function MarkEntryPage() {
         } catch (err) {
             console.warn('[client loadTemplate] Template not found or failed to load:', err);
             setTplCriteria([]); // Ensure it remains empty
+            setOriginalCriteria([]);
             setHasExistingMarks(false);
             setIsLocked(false);
         } finally {
@@ -358,6 +362,8 @@ export default function MarkEntryPage() {
                 criteria: tplCriteria
             });
             alert('Template saved successfully!');
+            setIsLocked(true);
+            setOriginalCriteria(JSON.parse(JSON.stringify(tplCriteria)));
         } catch (err) {
             console.error('Failed to save template:', err);
             alert('Failed to save template: ' + err);
@@ -365,6 +371,13 @@ export default function MarkEntryPage() {
             setTplSaving(false);
         }
     };
+
+    const handleCancelTemplateEdit = () => {
+        setTplCriteria(JSON.parse(JSON.stringify(originalCriteria)));
+        setIsLocked(true);
+    };
+
+    const tplHasChanges = JSON.stringify(originalCriteria) !== JSON.stringify(tplCriteria);
 
     const addCriterion = () => {
         const key = `c${Date.now()}`;
@@ -445,6 +458,8 @@ export default function MarkEntryPage() {
                     isLocked={isLocked}
                     setIsLocked={setIsLocked}
                     onPasteAspectNames={handlePasteAspectNames}
+                    hasChanges={tplHasChanges}
+                    onCancel={handleCancelTemplateEdit}
                 />
             ) : (
                 <div>

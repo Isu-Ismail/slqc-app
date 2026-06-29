@@ -20,6 +20,8 @@ interface TemplateEditorProps {
     isLocked: boolean;
     setIsLocked: (locked: boolean) => void;
     onPasteAspectNames?: (startIndex: number, names: string[]) => void;
+    hasChanges: boolean;
+    onCancel: () => void;
 }
 
 export default function TemplateEditor({
@@ -38,7 +40,9 @@ export default function TemplateEditor({
     hasExistingMarks,
     isLocked,
     setIsLocked,
-    onPasteAspectNames
+    onPasteAspectNames,
+    hasChanges,
+    onCancel
 }: TemplateEditorProps) {
 
     // Unlock modal states
@@ -99,14 +103,24 @@ export default function TemplateEditor({
                         <Lock size={18} /> Edit Template (Locked)
                     </button>
                 ) : (
-                    <button
-                        onClick={onSave}
-                        disabled={tplSaving || tplLoading}
-                        className={styles.btnPrim}
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                    >
-                        <Save size={18} /> {tplSaving ? 'Saving...' : 'Save Template Configuration'}
-                    </button>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <button
+                            onClick={onCancel}
+                            disabled={tplSaving || tplLoading}
+                            className={styles.btnSec}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={onSave}
+                            disabled={tplSaving || tplLoading || !hasChanges}
+                            className={styles.btnPrim}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: (!hasChanges || tplSaving || tplLoading) ? 0.6 : 1, cursor: (!hasChanges || tplSaving || tplLoading) ? 'not-allowed' : 'pointer' }}
+                        >
+                            <Save size={18} /> {tplSaving ? 'Saving...' : 'Save Template Configuration'}
+                        </button>
+                    </div>
                 )}
             </div>
 

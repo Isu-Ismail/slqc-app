@@ -30,6 +30,7 @@ export default function ArrivalCheckingPage() {
     // Local state for tracking edited arrival status before saving
     // key: student.id, value: 'none' | 'present' | 'absent'
     const [localStatuses, setLocalStatuses] = useState<Record<string, 'none' | 'present' | 'absent'>>({});
+    const [hasMarksMap, setHasMarksMap] = useState<Record<string, boolean>>({});
     const [submitting, setSubmitting] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [arrivedInsts, setArrivedInsts] = useState<Record<string, boolean>>({});
@@ -51,10 +52,20 @@ export default function ArrivalCheckingPage() {
                     filter: 'status = "approved"',
                     fields: 'institution_ref,arrival_status'
                 });
-                const arrivedMap: Record<string, boolean> = {};
+                const totalStudents: Record<string, number> = {};
+                const markedStudents: Record<string, number> = {};
                 studentsData.forEach((s: any) => {
+                    const instId = s.institution_ref;
+                    if (!instId) return;
+                    totalStudents[instId] = (totalStudents[instId] || 0) + 1;
                     if (s.arrival_status === 'present' || s.arrival_status === 'absent') {
-                        arrivedMap[s.institution_ref] = true;
+                        markedStudents[instId] = (markedStudents[instId] || 0) + 1;
+                    }
+                });
+                const arrivedMap: Record<string, boolean> = {};
+                Object.keys(totalStudents).forEach(instId => {
+                    if (totalStudents[instId] > 0 && totalStudents[instId] === markedStudents[instId]) {
+                        arrivedMap[instId] = true;
                     }
                 });
                 setArrivedInsts(arrivedMap);
@@ -74,6 +85,7 @@ export default function ArrivalCheckingPage() {
         setInchargePhone(inst.incharge_number || '');
         setLoadingStudents(true);
         setLocalStatuses({});
+        setHasMarksMap({});
         setMessage(null);
         try {
             const data = await pb.collection('participants_application').getFullList<ParticipantsApplicationResponse>({
@@ -88,6 +100,41 @@ export default function ArrivalCheckingPage() {
                 initial[s.id] = (s as any).arrival_status || 'none';
             });
             setLocalStatuses(initial);
+
+            // Query preliminary_marks for these students to see if marks are entered
+            const studentIds = data.map(s => s.id);
+            const marksMap: Record<string, boolean> = {};
+            if (studentIds.length > 0) {
+                for (let i = 0; i < studentIds.length; i += 50) {
+                    const chunkIds = studentIds.slice(i, i + 50);
+                    const filterStr = chunkIds.map(id => `participant_ref = "${id}"`).join(' || ');
+                    const marksList = await pb.collection('preliminary_marks').getFullList({
+                        filter: filterStr,
+                        fields: 'participant_ref,values'
+                    });
+                    marksList.forEach((m: any) => {
+                        const judgesMarks = m.values?.judges || {};
+                        let hasMarks = false;
+                        for (const jId in judgesMarks) {
+                            for (const cKey in judgesMarks[jId]) {
+                                for (const qIdx in judgesMarks[jId][cKey]) {
+                                    const val = judgesMarks[jId][cKey][qIdx];
+                                    if (val !== '' && val !== null && val !== undefined) {
+                                        hasMarks = true;
+                                        break;
+                                    }
+                                }
+                                if (hasMarks) break;
+                            }
+                            if (hasMarks) break;
+                        }
+                        if (hasMarks) {
+                            marksMap[m.participant_ref] = true;
+                        }
+                    });
+                }
+            }
+            setHasMarksMap(marksMap);
         } catch (err) {
             console.error("Error fetching students:", err);
         } finally {
@@ -103,8 +150,11 @@ export default function ArrivalCheckingPage() {
     };
 
     const handleMarkAll = (status: 'present' | 'absent') => {
-        const next: Record<string, 'none' | 'present' | 'absent'> = {};
+        const next: Record<string, 'none' | 'present' | 'absent'> = { ...localStatuses };
         students.forEach(s => {
+            if (status === 'absent' && hasMarksMap[s.id]) {
+                return; // Cannot mark absent if marks exist
+            }
             next[s.id] = status;
         });
         setLocalStatuses(next);
@@ -144,11 +194,11 @@ export default function ArrivalCheckingPage() {
                 })));
 
                 // Update arrivedInsts map
-                const hasArrived = Object.values(localStatuses).some(status => status === 'present' || status === 'absent');
+                const allArrived = Object.values(localStatuses).every(status => status === 'present' || status === 'absent');
                 if (selectedInst) {
                     setArrivedInsts(prev => ({
                         ...prev,
-                        [selectedInst.id]: hasArrived
+                        [selectedInst.id]: allArrived
                     }));
                 }
             }
@@ -514,6 +564,8 @@ export default function ArrivalCheckingPage() {
                                                                                 type="button"
                                                                                 onClick={() => handleStatusChange(student.id, 'absent')}
                                                                                 className={`${styles.statusBtn} ${styles.absentBtn} ${currentVal === 'absent' ? styles.activeAbsent : ''}`}
+                                                                                disabled={hasMarksMap[student.id]}
+                                                                                title={hasMarksMap[student.id] ? "Cannot mark as absent: marks have already been entered." : ""}
                                                                             >
                                                                                 <X size={14} /> Absent
                                                                             </button>

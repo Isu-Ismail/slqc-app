@@ -40,7 +40,56 @@ export default function OrganisersPage() {
         };
     }, []);
 
-    const handleDelete = (id: string, name: string) => {
+    const handleDelete = async (id: string, name: string) => {
+        try {
+            // Check if user is allocated as venue incharge
+            const venueInchargeCheck = await pb.collection('venue_detail').getList(1, 1, {
+                filter: `incharge = "${id}"`
+            });
+            if (venueInchargeCheck.items.length > 0) {
+                setConfirmConfig({
+                    isOpen: true,
+                    title: "Cannot Delete Organiser",
+                    message: `${name} is currently allocated as the Venue Incharge for a venue. Please remove them from the venue assignment before deleting their account.`,
+                    type: 'alert',
+                    onConfirm: () => setConfirmConfig(null)
+                });
+                return;
+            }
+
+            // Check if user has approved any institutions
+            const instCheck = await pb.collection('institutions').getList(1, 1, {
+                filter: `approved_by = "${id}"`
+            });
+            if (instCheck.items.length > 0) {
+                setConfirmConfig({
+                    isOpen: true,
+                    title: "Cannot Delete Organiser",
+                    message: `${name} has approved institution registrations. To maintain audit records, they cannot be deleted.`,
+                    type: 'alert',
+                    onConfirm: () => setConfirmConfig(null)
+                });
+                return;
+            }
+
+            // Check if user has approved any participant applications
+            const appCheck = await pb.collection('participants_application').getList(1, 1, {
+                filter: `approved_by = "${id}"`
+            });
+            if (appCheck.items.length > 0) {
+                setConfirmConfig({
+                    isOpen: true,
+                    title: "Cannot Delete Organiser",
+                    message: `${name} has approved participant applications. To maintain audit records, they cannot be deleted.`,
+                    type: 'alert',
+                    onConfirm: () => setConfirmConfig(null)
+                });
+                return;
+            }
+        } catch (err) {
+            console.error("Dependency check failed", err);
+        }
+
         setConfirmConfig({
             isOpen: true,
             title: "Delete Organiser",
@@ -50,6 +99,7 @@ export default function OrganisersPage() {
                 setConfirmConfig(null);
                 try {
                     await usersApi.deleteOrganiser(id);
+                    loadUsers(true);
                 } catch (err) {
                     console.error("Failed to delete user", err);
                     setConfirmConfig({
@@ -141,7 +191,10 @@ export default function OrganisersPage() {
             {isAddModalOpen && (
                 <AddOrganiserModal 
                     onClose={() => setIsAddModalOpen(false)} 
-                    onSuccess={() => setIsAddModalOpen(false)} 
+                    onSuccess={() => {
+                        setIsAddModalOpen(false);
+                        loadUsers(true);
+                    }}
                 />
             )}
 

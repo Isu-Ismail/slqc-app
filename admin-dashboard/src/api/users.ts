@@ -52,6 +52,7 @@ export const usersApi = {
     async createOrganiser(data: any): Promise<UserRecord> {
         // 1. Create the user in PocketBase
         const user = await pb.collection('users').create<UserRecord>({
+            username: data.username,
             email: data.email,
             password: data.password,
             passwordConfirm: data.password,

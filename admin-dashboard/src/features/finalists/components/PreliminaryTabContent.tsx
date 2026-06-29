@@ -28,6 +28,7 @@ interface PreliminaryTabContentProps {
     sortedLeaderboard: LeaderboardItem[];
     handleRevertClick: () => void;
     handlePromoteClick: () => void;
+    onPrint: () => void;
 }
 
 export default function PreliminaryTabContent({
@@ -41,7 +42,8 @@ export default function PreliminaryTabContent({
     slotsAvailable,
     sortedLeaderboard,
     handleRevertClick,
-    handlePromoteClick
+    handlePromoteClick,
+    onPrint
 }: PreliminaryTabContentProps) {
     const displayCategory = selectedCategory.replace('_', ' ');
 
@@ -55,7 +57,7 @@ export default function PreliminaryTabContent({
                     <p className={styles.warningText}>
                         Leaderboard and finalist promotion will be available once the preliminary round scores for all present candidates in the <strong>{displayCategory}</strong> category are entered and locked.
                     </p>
-
+ 
                     <div className={styles.statusCheckList}>
                         <h4 className={styles.statusCheckHeader}>Grading Progress ({leaderboard.filter(item => item.is_frozen).length} / {leaderboard.length} Candidates Completed):</h4>
                         <div className={styles.finalistStatusGrid}>
@@ -93,7 +95,7 @@ export default function PreliminaryTabContent({
                             )}
                         </div>
                     )}
-
+ 
                     <div className={styles.infoBanner}>
                         <ShieldAlert size={20} className={styles.bannerIcon} />
                         <div>
@@ -101,34 +103,45 @@ export default function PreliminaryTabContent({
                             The top 10 candidates of this category will be promoted to the Final Round once finalized.
                         </div>
                     </div>
-
+ 
                     <div className={styles.tableCard}>
                         <div className={styles.tableHeader}>
                             <h3 className={styles.tableTitle}>Leaderboard: {displayCategory}</h3>
-                            {isAdmin && (
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    {leaderboard.some(item => item.is_finalist) && (() => {
-                                        const finalAllocationDone = leaderboard.some(item => item.is_finalist && item.final_venue && item.final_order && item.final_order > 0);
-                                        return (
-                                            <button
-                                                onClick={handleRevertClick}
-                                                disabled={finalAllocationDone}
-                                                className={styles.btnRevert}
-                                                title={finalAllocationDone ? "Cannot revert promotion after final round venue allocation has been completed." : undefined}
-                                            >
-                                                <AlertTriangle size={14} /> Revert Promotion
-                                            </button>
-                                        );
-                                    })()}
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                {leaderboard.some(item => item.is_finalist) && (
                                     <button
-                                        onClick={handlePromoteClick}
+                                        onClick={onPrint}
                                         className={styles.btnPromote}
-                                        disabled={leaderboard.length === 0 || leaderboard.some(item => item.is_finalist)}
+                                        style={{ backgroundColor: '#4f46e5', borderColor: '#4338ca' }}
                                     >
-                                        <Lock size={14} /> Upload Finalist List
+                                        Print Finalists
                                     </button>
-                                </div>
-                            )}
+                                )}
+                                {isAdmin && (
+                                    <>
+                                        {leaderboard.some(item => item.is_finalist) && (() => {
+                                            const finalAllocationDone = leaderboard.some(item => item.is_finalist && item.final_venue && item.final_order && item.final_order > 0);
+                                            return (
+                                                <button
+                                                    onClick={handleRevertClick}
+                                                    disabled={finalAllocationDone}
+                                                    className={styles.btnRevert}
+                                                    title={finalAllocationDone ? "Cannot revert promotion after final round venue allocation has been completed." : undefined}
+                                                >
+                                                    <AlertTriangle size={14} /> Revert Promotion
+                                                </button>
+                                            );
+                                        })()}
+                                        <button
+                                            onClick={handlePromoteClick}
+                                            className={styles.btnPromote}
+                                            disabled={leaderboard.length === 0 || leaderboard.some(item => item.is_finalist)}
+                                        >
+                                            <Lock size={14} /> Upload Finalist List
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         </div>
 
                         {leaderboard.length === 0 ? (

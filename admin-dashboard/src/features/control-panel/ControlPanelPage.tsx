@@ -10,6 +10,7 @@ import PrintTemplatesForm from './components/PrintTemplatesForm';
 import DynamicListEditor from './components/DynamicListEditor';
 import StatsRecalculator from './components/StatsRecalculator';
 import ArchiveManager from './components/ArchiveManager';
+import InstituteLimitsForm from './components/InstituteLimitsForm';
 import styles from './ControlPanelPage.module.css';
 import { pb } from '../../api/db';
 
@@ -211,12 +212,9 @@ export default function ControlPanelPage() {
 
                 {activeTab === 'limits' && (
                     <>
-                        <DynamicListEditor 
-                            title="Applications Per Institution Limit" 
-                            metadataKey="applications_per_institute"
+                        <InstituteLimitsForm 
                             metadata={metadata}
                             onUpdate={() => loadMetadata(false, true)}
-                            template={{ cat: '5_juz', count: 3 }}
                         />
                     </>
                 )}

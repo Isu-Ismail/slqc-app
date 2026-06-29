@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { metadataApi } from '../../../api/metadata';
 import type { MetadataRecord } from '../../../api/metadata';
 import { pb } from '../../../api/db';
@@ -29,6 +29,48 @@ export default function RulesSettingsForm({ metadata, onUpdate }: Props) {
     const dosRecord = metadata['dos_and_donts'];
     const overallRecord = metadata['overall_rules'];
     const mapRecord = metadata['venue_map'];
+    const titleRecord = metadata['competition_title'];
+
+    const parseDbValue = (val: string) => {
+        if (!val) return '';
+        try {
+            if (val.trim().startsWith('"') && val.trim().endsWith('"')) {
+                return JSON.parse(val);
+            }
+        } catch (_) {}
+        return val;
+    };
+
+    const [titleHtml, setTitleHtml] = useState(parseDbValue(titleRecord?.value || ''));
+    const [titleSaving, setTitleSaving] = useState(false);
+
+    useEffect(() => {
+        if (titleRecord?.value) {
+            setTitleHtml(parseDbValue(titleRecord.value));
+        }
+    }, [titleRecord?.value]);
+
+    const handleSaveTitle = async () => {
+        setTitleSaving(true);
+        try {
+            const serializedValue = JSON.stringify(titleHtml);
+            if (titleRecord) {
+                await metadataApi.updateMetadata(titleRecord.id, serializedValue);
+            } else {
+                await pb.send('/api/admin/update-metadata', {
+                    method: 'POST',
+                    body: { key: 'competition_title', value: serializedValue }
+                });
+            }
+            alert('Competition title updated successfully!');
+            onUpdate();
+        } catch (err) {
+            console.error(err);
+            alert('Failed to update competition title.');
+        } finally {
+            setTitleSaving(false);
+        }
+    };
 
     const handleFileUpload = (type: 'individual' | 'institution' | 'dos' | 'overall', file: File) => {
         const keyMap = {
@@ -241,206 +283,264 @@ Don'ts:
     };
 
     return (
-        <div className={styles.card}>
-            <div className={styles.cardHeader}>
-                <h3 className={styles.cardTitle}>Document & Template Manager</h3>
+        <>
+            {/* 1. Competition Header Title Setting Box */}
+            <div className={styles.card} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', margin: 0 }}>
+                <div>
+                    <div className={styles.cardHeader}>
+                        <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>Competition Title (HTML Header)</h4>
+                    </div>
+                    <div style={{ padding: '16px' }}>
+                        <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 12px 0' }}>
+                            Edit the main competition header title layout directly using HTML styling. Use <code>{'{year}'}</code> for dynamic year replacement.
+                        </p>
+                        <textarea
+                            className={styles.formInput}
+                            style={{ width: '100%', minHeight: '140px', fontFamily: 'monospace', fontSize: '12px', padding: '8px', boxSizing: 'border-box' }}
+                            value={titleHtml}
+                            onChange={(e) => setTitleHtml(e.target.value)}
+                            placeholder="HTML Header Code..."
+                        />
+                    </div>
+                </div>
+                <div style={{ padding: '16px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', backgroundColor: '#f8fafc' }}>
+                    <button
+                        type="button"
+                        className={styles.btnPrimary}
+                        disabled={titleSaving}
+                        style={{ height: '36px', padding: '0 16px', fontSize: '13px' }}
+                        onClick={handleSaveTitle}
+                    >
+                        {titleSaving ? 'Saving...' : 'Save Title'}
+                    </button>
+                </div>
             </div>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {/* Individual Rules Widget */}
-                <div style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <span style={{ fontWeight: '600', fontSize: '14px', color: '#334155' }}>Individual Participant Rules</span>
-                        <button 
-                            type="button" 
-                            className={styles.btnOutline} 
-                            onClick={() => downloadSample('individual')}
-                            style={{ padding: '4px 10px', fontSize: '12px' }}
-                        >
-                            Download Sample
-                        </button>
-                    </div>
-                    <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 12px 0' }}>
-                        Upload a plain text (.txt), HTML (.html), or PDF (.pdf) file with the rules for individual candidates.
-                    </p>
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                        <input 
-                            type="file" 
-                            accept=".txt,.html,.pdf" 
-                            className={styles.formInput} 
-                            disabled={indLoading}
-                            style={{ flex: 1 }}
-                            onChange={(e) => setIndFile(e.target.files?.[0] || null)}
-                        />
-                        <button
-                            type="button"
-                            className={styles.btnPrimary}
-                            style={{ whiteSpace: 'nowrap', padding: '10px 16px', height: '42px', fontSize: '13px' }}
-                            disabled={indLoading || !indFile}
-                            onClick={() => indFile && handleFileUpload('individual', indFile)}
-                        >
-                            {indLoading ? 'Uploading...' : 'Upload'}
-                        </button>
-                    </div>
-                    {renderFileStatus(indRecord, 'Individual Participant Rules')}
-                </div>
 
-                {/* Institution Rules Widget */}
-                <div style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <span style={{ fontWeight: '600', fontSize: '14px', color: '#334155' }}>Institution/Madrasa Rules</span>
-                        <button 
-                            type="button" 
-                            className={styles.btnOutline} 
-                            onClick={() => downloadSample('institution')}
-                            style={{ padding: '4px 10px', fontSize: '12px' }}
-                        >
-                            Download Sample
-                        </button>
-                    </div>
-                    <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 12px 0' }}>
-                        Upload a plain text (.txt), HTML (.html), or PDF (.pdf) file with the rules for institutions/madrasas.
-                    </p>
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                        <input 
-                            type="file" 
-                            accept=".txt,.html,.pdf" 
-                            className={styles.formInput} 
-                            disabled={instLoading}
-                            style={{ flex: 1 }}
-                            onChange={(e) => setInstFile(e.target.files?.[0] || null)}
-                        />
-                        <button
-                            type="button"
-                            className={styles.btnPrimary}
-                            style={{ whiteSpace: 'nowrap', padding: '10px 16px', height: '42px', fontSize: '13px' }}
-                            disabled={instLoading || !instFile}
-                            onClick={() => instFile && handleFileUpload('institution', instFile)}
-                        >
-                            {instLoading ? 'Uploading...' : 'Upload'}
-                        </button>
-                    </div>
-                    {renderFileStatus(instRecord, 'Institution/Madrasa Rules')}
-                </div>
-
-                {/* Do's and Don'ts Widget */}
-                <div style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <span style={{ fontWeight: '600', fontSize: '14px', color: '#334155' }}>Do's and Don'ts</span>
-                        <button 
-                            type="button" 
-                            className={styles.btnOutline} 
-                            onClick={() => downloadSample('dos')}
-                            style={{ padding: '4px 10px', fontSize: '12px' }}
-                        >
-                            Download Sample
-                        </button>
-                    </div>
-                    <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 12px 0' }}>
-                        Upload a plain text (.txt), HTML (.html), or PDF (.pdf) file with the Do's and Don'ts guidelines.
-                    </p>
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                        <input 
-                            type="file" 
-                            accept=".txt,.html,.pdf" 
-                            className={styles.formInput} 
-                            disabled={dosLoading}
-                            style={{ flex: 1 }}
-                            onChange={(e) => setDosFile(e.target.files?.[0] || null)}
-                        />
-                        <button
-                            type="button"
-                            className={styles.btnPrimary}
-                            style={{ whiteSpace: 'nowrap', padding: '10px 16px', height: '42px', fontSize: '13px' }}
-                            disabled={dosLoading || !dosFile}
-                            onClick={() => dosFile && handleFileUpload('dos', dosFile)}
-                        >
-                            {dosLoading ? 'Uploading...' : 'Upload'}
-                        </button>
-                    </div>
-                    {renderFileStatus(dosRecord, "Do's and Don'ts")}
-                </div>
-
-                {/* Overall Rules Widget */}
-                <div style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <span style={{ fontWeight: '600', fontSize: '14px', color: '#334155' }}>Overall Rules</span>
-                        <button 
-                            type="button" 
-                            className={styles.btnOutline} 
-                            onClick={() => downloadSample('overall')}
-                            style={{ padding: '4px 10px', fontSize: '12px' }}
-                        >
-                            Download Sample
-                        </button>
-                    </div>
-                    <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 12px 0' }}>
-                        Upload a plain text (.txt), HTML (.html), or PDF (.pdf) file with the overall competition rules.
-                    </p>
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                        <input 
-                            type="file" 
-                            accept=".txt,.html,.pdf" 
-                            className={styles.formInput} 
-                            disabled={overallLoading}
-                            style={{ flex: 1 }}
-                            onChange={(e) => setOverallFile(e.target.files?.[0] || null)}
-                        />
-                        <button
-                            type="button"
-                            className={styles.btnPrimary}
-                            style={{ whiteSpace: 'nowrap', padding: '10px 16px', height: '42px', fontSize: '13px' }}
-                            disabled={overallLoading || !overallFile}
-                            onClick={() => overallFile && handleFileUpload('overall', overallFile)}
-                        >
-                            {overallLoading ? 'Uploading...' : 'Upload'}
-                        </button>
-                    </div>
-                    {renderFileStatus(overallRecord, 'Overall Rules')}
-                </div>
-
-                {/* Venue Map Upload Widget */}
-                <div style={{ paddingBottom: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <span style={{ fontWeight: '600', fontSize: '14px', color: '#334155' }}>Competition Venue Map</span>
-                    </div>
-                    <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 12px 0' }}>
-                        Upload the location/venue map as an image or PDF.
-                    </p>
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                        <input 
-                            type="file" 
-                            accept="image/*,application/pdf" 
-                            className={styles.formInput} 
-                            disabled={mapLoading}
-                            style={{ flex: 1 }}
-                            onChange={(e) => setMapFile(e.target.files?.[0] || null)}
-                        />
-                        <button
-                            type="button"
-                            className={styles.btnPrimary}
-                            style={{ whiteSpace: 'nowrap', padding: '10px 16px', height: '42px', fontSize: '13px' }}
-                            disabled={mapLoading || !mapFile}
-                            onClick={() => mapFile && handleMapUpload(mapFile)}
-                        >
-                            {mapLoading ? 'Uploading...' : 'Upload'}
-                        </button>
-                    </div>
-                    {mapRecord?.document && (
-                        <div style={{ marginTop: '10px', fontSize: '12px', color: '#0d9488', fontWeight: '500' }}>
-                            ✓ Map uploaded: {' '}
-                            <a 
-                                href={pb.files.getURL(mapRecord, mapRecord.document)} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                style={{ color: '#0ea5e9', textDecoration: 'underline' }}
+            {/* 2. Individual Rules Widget */}
+            <div className={styles.card} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', margin: 0 }}>
+                    <div>
+                        <div className={styles.cardHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>Individual Participant Rules</h4>
+                            <button 
+                                type="button" 
+                                className={styles.btnOutline} 
+                                onClick={() => downloadSample('individual')}
+                                style={{ padding: '4px 10px', fontSize: '12px' }}
                             >
-                                View File
-                            </a>
+                                Download Sample
+                            </button>
                         </div>
-                    )}
+                        <div style={{ padding: '16px' }}>
+                            <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 12px 0' }}>
+                                Upload a plain text (.txt), HTML (.html), or PDF (.pdf) file with the rules for individual candidates.
+                            </p>
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                <input 
+                                    type="file" 
+                                    accept=".txt,.html,.pdf" 
+                                    className={styles.formInput} 
+                                    disabled={indLoading}
+                                    style={{ flex: 1 }}
+                                    onChange={(e) => setIndFile(e.target.files?.[0] || null)}
+                                />
+                                <button
+                                    type="button"
+                                    className={styles.btnPrimary}
+                                    style={{ whiteSpace: 'nowrap', padding: '10px 16px', height: '42px', fontSize: '13px' }}
+                                    disabled={indLoading || !indFile}
+                                    onClick={() => indFile && handleFileUpload('individual', indFile)}
+                                >
+                                    {indLoading ? 'Uploading...' : 'Upload'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div style={{ padding: '16px', borderTop: '1px solid #f1f5f9', backgroundColor: '#f8fafc' }}>
+                        {renderFileStatus(indRecord, 'Individual Participant Rules')}
+                    </div>
                 </div>
-            </div>
+
+                {/* 3. Institution Rules Widget */}
+                <div className={styles.card} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', margin: 0 }}>
+                    <div>
+                        <div className={styles.cardHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>Institution/Madrasa Rules</h4>
+                            <button 
+                                type="button" 
+                                className={styles.btnOutline} 
+                                onClick={() => downloadSample('institution')}
+                                style={{ padding: '4px 10px', fontSize: '12px' }}
+                            >
+                                Download Sample
+                            </button>
+                        </div>
+                        <div style={{ padding: '16px' }}>
+                            <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 12px 0' }}>
+                                Upload a plain text (.txt), HTML (.html), or PDF (.pdf) file with the rules for institutions/madrasas.
+                            </p>
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                <input 
+                                    type="file" 
+                                    accept=".txt,.html,.pdf" 
+                                    className={styles.formInput} 
+                                    disabled={instLoading}
+                                    style={{ flex: 1 }}
+                                    onChange={(e) => setInstFile(e.target.files?.[0] || null)}
+                                />
+                                <button
+                                    type="button"
+                                    className={styles.btnPrimary}
+                                    style={{ whiteSpace: 'nowrap', padding: '10px 16px', height: '42px', fontSize: '13px' }}
+                                    disabled={instLoading || !instFile}
+                                    onClick={() => instFile && handleFileUpload('institution', instFile)}
+                                >
+                                    {instLoading ? 'Uploading...' : 'Upload'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div style={{ padding: '16px', borderTop: '1px solid #f1f5f9', backgroundColor: '#f8fafc' }}>
+                        {renderFileStatus(instRecord, 'Institution/Madrasa Rules')}
+                    </div>
+                </div>
+
+                {/* 4. Do's and Don'ts Widget */}
+                <div className={styles.card} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', margin: 0 }}>
+                    <div>
+                        <div className={styles.cardHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>Do's and Don'ts</h4>
+                            <button 
+                                type="button" 
+                                className={styles.btnOutline} 
+                                onClick={() => downloadSample('dos')}
+                                style={{ padding: '4px 10px', fontSize: '12px' }}
+                            >
+                                Download Sample
+                            </button>
+                        </div>
+                        <div style={{ padding: '16px' }}>
+                            <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 12px 0' }}>
+                                Upload a plain text (.txt), HTML (.html), or PDF (.pdf) file with the Do's and Don'ts guidelines.
+                            </p>
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                <input 
+                                    type="file" 
+                                    accept=".txt,.html,.pdf" 
+                                    className={styles.formInput} 
+                                    disabled={dosLoading}
+                                    style={{ flex: 1 }}
+                                    onChange={(e) => setDosFile(e.target.files?.[0] || null)}
+                                />
+                                <button
+                                    type="button"
+                                    className={styles.btnPrimary}
+                                    style={{ whiteSpace: 'nowrap', padding: '10px 16px', height: '42px', fontSize: '13px' }}
+                                    disabled={dosLoading || !dosFile}
+                                    onClick={() => dosFile && handleFileUpload('dos', dosFile)}
+                                >
+                                    {dosLoading ? 'Uploading...' : 'Upload'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div style={{ padding: '16px', borderTop: '1px solid #f1f5f9', backgroundColor: '#f8fafc' }}>
+                        {renderFileStatus(dosRecord, "Do's and Don'ts")}
+                    </div>
+                </div>
+
+                {/* 5. Overall Rules Widget */}
+                <div className={styles.card} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', margin: 0 }}>
+                    <div>
+                        <div className={styles.cardHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>Overall Rules</h4>
+                            <button 
+                                type="button" 
+                                className={styles.btnOutline} 
+                                onClick={() => downloadSample('overall')}
+                                style={{ padding: '4px 10px', fontSize: '12px' }}
+                            >
+                                Download Sample
+                            </button>
+                        </div>
+                        <div style={{ padding: '16px' }}>
+                            <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 12px 0' }}>
+                                Upload a plain text (.txt), HTML (.html), or PDF (.pdf) file with the overall competition rules.
+                            </p>
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                <input 
+                                    type="file" 
+                                    accept=".txt,.html,.pdf" 
+                                    className={styles.formInput} 
+                                    disabled={overallLoading}
+                                    style={{ flex: 1 }}
+                                    onChange={(e) => setOverallFile(e.target.files?.[0] || null)}
+                                />
+                                <button
+                                    type="button"
+                                    className={styles.btnPrimary}
+                                    style={{ whiteSpace: 'nowrap', padding: '10px 16px', height: '42px', fontSize: '13px' }}
+                                    disabled={overallLoading || !overallFile}
+                                    onClick={() => overallFile && handleFileUpload('overall', overallFile)}
+                                >
+                                    {overallLoading ? 'Uploading...' : 'Upload'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div style={{ padding: '16px', borderTop: '1px solid #f1f5f9', backgroundColor: '#f8fafc' }}>
+                        {renderFileStatus(overallRecord, 'Overall Rules')}
+                    </div>
+                </div>
+
+                {/* 6. Venue Map Upload Widget */}
+                <div className={styles.card} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', margin: 0 }}>
+                    <div>
+                        <div className={styles.cardHeader}>
+                            <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>Competition Venue Map</h4>
+                        </div>
+                        <div style={{ padding: '16px' }}>
+                            <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 12px 0' }}>
+                                Upload the location/venue map as an image or PDF.
+                            </p>
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                <input 
+                                    type="file" 
+                                    accept="image/*,application/pdf" 
+                                    className={styles.formInput} 
+                                    disabled={mapLoading}
+                                    style={{ flex: 1 }}
+                                    onChange={(e) => setMapFile(e.target.files?.[0] || null)}
+                                />
+                                <button
+                                    type="button"
+                                    className={styles.btnPrimary}
+                                    style={{ whiteSpace: 'nowrap', padding: '10px 16px', height: '42px', fontSize: '13px' }}
+                                    disabled={mapLoading || !mapFile}
+                                    onClick={() => mapFile && handleMapUpload(mapFile)}
+                                >
+                                    {mapLoading ? 'Uploading...' : 'Upload'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div style={{ padding: '16px', borderTop: '1px solid #f1f5f9', backgroundColor: '#f8fafc' }}>
+                        {mapRecord?.document ? (
+                            <div style={{ fontSize: '12px', color: '#0d9488', fontWeight: '500' }}>
+                                ✓ Map uploaded: {' '}
+                                <a 
+                                    href={pb.files.getURL(mapRecord, mapRecord.document)} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    style={{ color: '#0ea5e9', textDecoration: 'underline' }}
+                                >
+                                    View File
+                                </a>
+                            </div>
+                        ) : (
+                            <div style={{ fontSize: '12px', color: '#64748b' }}>No map file uploaded yet.</div>
+                        )}
+                    </div>
+                </div>
 
             {viewContent && (
                 <div style={{
@@ -518,6 +618,6 @@ Don'ts:
                     </div>
                 </div>
             )}
-        </div>
+        </>
     );
 }

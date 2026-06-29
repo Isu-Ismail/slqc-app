@@ -4,6 +4,8 @@ import { pb } from '../../api/db';
 import { Award, Users } from 'lucide-react';
 import MarksheetViewer from '../mark-entry/MarksheetViewer';
 import styles from './FinalistsPage.module.css';
+import PrintPreviewModal from '../track/components/PrintPreviewModal';
+import { generateFinalistsOrWinnersHTML } from '../track/components/printTemplates';
 
 // Import newly created subcomponents
 import PasswordConfirmModal from './components/PasswordConfirmModal';
@@ -65,6 +67,24 @@ export default function FinalistsPage() {
     const [manualRankOverrides, setManualRankOverrides] = useState<Record<string, number>>({});
     const [showFinalTieResolutionModal, setShowFinalTieResolutionModal] = useState<boolean>(false);
     const [modalAction, setModalAction] = useState<'promote' | 'revert' | 'issue_rankings' | 'revert_rankings'>('promote');
+    const [printPreview, setPrintPreview] = useState<{ title: string; html: string } | null>(null);
+
+    const handlePrintFinalistsOrWinners = async (type: 'finalists' | 'winners') => {
+        try {
+            const data = await pb.send<any[]>('/api/admin/print-finalists-or-winners', {
+                method: 'GET',
+                query: { category: selectedCategory, type: type }
+            });
+            const html = generateFinalistsOrWinnersHTML(type, selectedCategory, data);
+            setPrintPreview({
+                title: type === 'winners' ? 'Winners List Print Preview' : 'Finalists List Print Preview',
+                html: html
+            });
+        } catch (err) {
+            console.error('Failed to load print data:', err);
+            alert('Failed to load print data. Make sure promotion is done or final rankings are issued.');
+        }
+    };
 
     const loadData = async () => {
         setLoading(true);
@@ -610,6 +630,7 @@ export default function FinalistsPage() {
                         sortedLeaderboard={sortedLeaderboard}
                         handleRevertClick={handleRevertClick}
                         handlePromoteClick={handlePromoteClick}
+                        onPrint={() => handlePrintFinalistsOrWinners('finalists')}
                     />
                 ) : (
                     <WinnersTabContent
@@ -626,6 +647,7 @@ export default function FinalistsPage() {
                         handleRevertRankingsClick={handleRevertRankingsClick}
                         handleIssueRankingsClick={handleIssueRankingsClick}
                         setShowFinalTieResolutionModal={setShowFinalTieResolutionModal}
+                        onPrint={() => handlePrintFinalistsOrWinners('winners')}
                     />
                 )}
             </div>
@@ -692,6 +714,16 @@ export default function FinalistsPage() {
                 formatCriterionScore={formatCriterionScore}
                 onViewMarksheets={setActiveMarksheetParticipant}
             />
+
+            {/* Print Preview Modal */}
+            {printPreview && (
+                <PrintPreviewModal
+                    isOpen={!!printPreview}
+                    onClose={() => setPrintPreview(null)}
+                    title={printPreview.title}
+                    htmlContent={printPreview.html}
+                />
+            )}
         </div>
     );
 }

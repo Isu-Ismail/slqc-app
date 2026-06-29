@@ -11,6 +11,7 @@ interface Props {
 export default function AddOrganiserModal({ onClose, onSuccess }: Props) {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
+        username: '',
         name: '',
         email: '',
         mobile: '',
@@ -18,6 +19,12 @@ export default function AddOrganiserModal({ onClose, onSuccess }: Props) {
         password: '',
         verified: true
     });
+    const isFormValid = formData.username.trim() !== '' && 
+                        formData.name.trim() !== '' && 
+                        formData.email.trim() !== '' && 
+                        formData.mobile.trim() !== '' && 
+                        formData.password.trim() !== '';
+
     const [modalConfig, setModalConfig] = useState<{isOpen: boolean, title: string, message: string, type: 'alert' | 'success'} | null>(null);
 
     const generatePassword = () => {
@@ -77,44 +84,59 @@ export default function AddOrganiserModal({ onClose, onSuccess }: Props) {
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'white' }}>
                     <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto' }}>
                         <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#475569' }}>Full Name</label>
-                        <input 
-                            type="text" 
-                            required 
-                            value={formData.name}
-                            onChange={(e) => setFormData({...formData, name: e.target.value})}
-                            style={{ width: '100%', boxSizing: 'border-box', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '15px', color: '#1e293b', outline: 'none', transition: '0.2s' }}
-                            placeholder="e.g. John Doe"
-                            onFocus={(e) => e.target.style.border = '1px solid #0f766e'}
-                            onBlur={(e) => e.target.style.border = '1px solid #e2e8f0'}
-                        />
-                    </div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#475569' }}>Username</label>
+                            <input 
+                                type="text" 
+                                required 
+                                value={formData.username}
+                                onChange={(e) => setFormData({...formData, username: e.target.value})}
+                                style={{ width: '100%', boxSizing: 'border-box', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '15px', color: '#1e293b', outline: 'none', transition: '0.2s' }}
+                                placeholder="e.g. johndoe123"
+                                onFocus={(e) => e.target.style.border = '1px solid #0f766e'}
+                                onBlur={(e) => e.target.style.border = '1px solid #e2e8f0'}
+                            />
+                        </div>
 
-                    <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#475569' }}>Email Address</label>
-                        <input 
-                            type="email" 
-                            required 
-                            value={formData.email}
-                            onChange={(e) => setFormData({...formData, email: e.target.value})}
-                            style={{ width: '100%', boxSizing: 'border-box', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '15px', color: '#1e293b', outline: 'none', transition: '0.2s' }}
-                            placeholder="e.g. john@example.com"
-                            onFocus={(e) => e.target.style.border = '1px solid #0f766e'}
-                            onBlur={(e) => e.target.style.border = '1px solid #e2e8f0'}
-                        />
-                    </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#475569' }}>Full Name</label>
+                            <input 
+                                type="text" 
+                                required 
+                                value={formData.name}
+                                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                                style={{ width: '100%', boxSizing: 'border-box', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '15px', color: '#1e293b', outline: 'none', transition: '0.2s' }}
+                                placeholder="e.g. John Doe"
+                                onFocus={(e) => e.target.style.border = '1px solid #0f766e'}
+                                onBlur={(e) => e.target.style.border = '1px solid #e2e8f0'}
+                            />
+                        </div>
 
-                    <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#475569' }}>Role / Designation</label>
-                        <select 
-                            value={formData.designation}
-                            onChange={(e) => setFormData({...formData, designation: e.target.value})}
-                            style={{ width: '100%', boxSizing: 'border-box', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '15px', color: '#1e293b', outline: 'none', cursor: 'pointer', appearance: 'none' }}
-                        >
-                            <option value="coordinators">Coordinator (Approves Applications)</option>
-                            <option value="admin">Administrator (Full Access)</option>
-                        </select>
-                    </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#475569' }}>Email Address</label>
+                            <input 
+                                type="email" 
+                                required 
+                                value={formData.email}
+                                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                                style={{ width: '100%', boxSizing: 'border-box', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '15px', color: '#1e293b', outline: 'none', transition: '0.2s' }}
+                                placeholder="e.g. john@example.com"
+                                onFocus={(e) => e.target.style.border = '1px solid #0f766e'}
+                                onBlur={(e) => e.target.style.border = '1px solid #e2e8f0'}
+                            />
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#475569' }}>Role / Designation</label>
+                            <select 
+                                value={formData.designation}
+                                onChange={(e) => setFormData({...formData, designation: e.target.value})}
+                                style={{ width: '100%', boxSizing: 'border-box', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '15px', color: '#1e293b', outline: 'none', cursor: 'pointer', appearance: 'none' }}
+                            >
+                                <option value="coordinators">Coordinator (Approves Applications)</option>
+                                <option value="admin">Administrator (Full Access)</option>
+                                <option value="venue Incharge">Venue Incharge (Allocated Venues)</option>
+                            </select>
+                        </div>
 
                     <div>
                         <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#475569' }}>Mobile Number</label>
@@ -170,7 +192,23 @@ export default function AddOrganiserModal({ onClose, onSuccess }: Props) {
                         <button type="button" onClick={onClose} style={{ padding: '12px 24px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', cursor: 'pointer', fontWeight: '600', color: '#64748b', fontSize: '14px', transition: '0.2s' }}>
                             Cancel
                         </button>
-                        <button type="submit" disabled={loading} style={{ padding: '12px 24px', borderRadius: '8px', border: 'none', background: '#0f766e', cursor: 'pointer', fontWeight: '600', color: 'white', fontSize: '14px', transition: '0.2s', boxShadow: '0 4px 6px -1px rgba(15, 118, 110, 0.2)' }}>
+                        <button 
+                            type="submit" 
+                            disabled={loading || !isFormValid} 
+                            style={{ 
+                                padding: '12px 24px', 
+                                borderRadius: '8px', 
+                                border: 'none', 
+                                background: '#0f766e', 
+                                cursor: (loading || !isFormValid) ? 'not-allowed' : 'pointer', 
+                                fontWeight: '600', 
+                                color: 'white', 
+                                fontSize: '14px', 
+                                transition: '0.2s', 
+                                boxShadow: '0 4px 6px -1px rgba(15, 118, 110, 0.2)',
+                                opacity: (loading || !isFormValid) ? 0.6 : 1
+                            }}
+                        >
                             {loading ? 'Creating Account...' : 'Create Account'}
                         </button>
                     </div>

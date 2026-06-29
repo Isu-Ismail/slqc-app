@@ -2,7 +2,21 @@ import { pb } from '../../../api/db';
 import type { ParticipantsApplicationResponse, InstitutionsResponse } from '../../../api/track';
 import { getCategoryLabel, getJuzLabel } from '../../../config/fieldsConfig';
 
-const COMPETITION_TITLE = 'Quran Hifz Competition 2026';
+export let COMPETITION_TITLE = `
+    <div style="font-size: 18px; font-family: Arial, sans-serif; font-weight: bold; letter-spacing: 0.5px;">QURAN HIFZ COMPETITION ${new Date().getFullYear()}</div>
+`;
+
+// Self-executing data fetch from PocketBase metadata collection
+(async () => {
+    try {
+        const record = await pb.collection('metadata').getFirstListItem('key="competition_title"');
+        if (record && record.value) {
+            COMPETITION_TITLE = record.value.replace(/{year}/g, new Date().getFullYear().toString());
+        }
+    } catch (error) {
+        console.error("Failed to fetch dynamic competition_title from metadata collection:", error);
+    }
+})();
 
 const PRINT_BASE_STYLES = `
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -901,6 +915,139 @@ export function generateAttendanceSheetHTML(
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Attendance Sheet</title>
     ${scriptAndStyles}
     </head><body>${sheets}</body></html>`;
+}
+
+export function generateFinalistsOrWinnersHTML(type: 'finalists' | 'winners', category: string, data: any[]): string {
+    const title = type === 'winners' ? 'Winner List' : 'Finalists List';
+    const catLabel = category.replace('_', ' ').toUpperCase();
+    
+    const announcementText = type === 'winners' 
+        ? "Official announcement of the winners and final standings of the competition, as per the final round marks evaluated and locked by the panel of judges."
+        : "The following candidates have successfully qualified and are selected to participate in the Final Round of the competition based on their preliminary round scores evaluated by the panel of judges.";
+
+    const renderTable = (studentsList: any[], startIndex: number, sectionTitle?: string) => {
+        let tableRows = '';
+        
+        if (type === 'winners') {
+            studentsList.forEach((student, index) => {
+                const rankOrSerial = student.final_ranking || startIndex + index + 1;
+                tableRows += `
+                    <tr>
+                        <td style="border: 1px solid #000; padding: 12px 8px; text-align: center; font-size: 16px; font-weight: bold; font-family: 'Times New Roman', Times, serif; overflow: hidden; word-wrap: break-word;">${rankOrSerial}</td>
+                        <td style="border: 1px solid #000; padding: 12px 8px; font-size: 14px; line-height: 1.4; font-family: 'Times New Roman', Times, serif; overflow: hidden; word-wrap: break-word;">
+                            <div style="font-size: 16px; font-weight: bold; margin-bottom: 2px;">${student.full_name || ''}</div>
+                            <div style="color: #111; font-size: 13px;">S/o: ${student.father_name || 'N/A'}</div>
+                            <div style="color: #444; font-size: 12px; margin-top: 4px;">Reg ID: ${student.participant_id || ''}</div>
+                        </td>
+                        <td style="border: 1px solid #000; padding: 12px 8px; font-size: 13px; line-height: 1.4; font-family: 'Times New Roman', Times, serif; overflow: hidden; word-wrap: break-word;">
+                            <div style="font-weight: bold; margin-bottom: 2px;">${student.institution_name || 'Individual'}</div>
+                            <div style="color: #333; font-size: 12px;">${student.address || student.village_name || 'N/A'}</div>
+                        </td>
+                        <td style="border: 1px solid #000; padding: 12px 8px; text-align: center; font-size: 18px; font-weight: bold; color: #000; font-family: 'Times New Roman', Times, serif; overflow: hidden; word-wrap: break-word;">${student.final_marks || 0}</td>
+                        <td style="border: 1px solid #000; padding: 12px 8px; vertical-align: middle; overflow: hidden; height: 55px;"></td>
+                    </tr>
+                `;
+            });
+
+            return `
+                ${sectionTitle ? `<h3 style="font-size: 18px; font-weight: bold; margin: 25px 0 10px 0; text-transform: uppercase; border-bottom: 2px solid #000; padding-bottom: 5px; color: #111; font-family: 'Times New Roman', Times, serif;">${sectionTitle}</h3>` : ''}
+                <table style="width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 5px; border: 1px solid #000; font-family: 'Times New Roman', Times, serif; box-sizing: border-box;">
+                    <thead>
+                        <tr>
+                            <th style="border: 1px solid #000; padding: 12px 8px; font-size: 14px; text-transform: uppercase; background-color: #f2f2f2; width: 8%; text-align: center;">Rank</th>
+                            <th style="border: 1px solid #000; padding: 12px 8px; font-size: 14px; text-transform: uppercase; background-color: #f2f2f2; width: 32%; text-align: left;">Participant Details</th>
+                            <th style="border: 1px solid #000; padding: 12px 8px; font-size: 14px; text-transform: uppercase; background-color: #f2f2f2; width: 32%; text-align: left;">Institution & Full Address</th>
+                            <th style="border: 1px solid #000; padding: 12px 8px; font-size: 14px; text-transform: uppercase; background-color: #f2f2f2; width: 10%; text-align: center;">Total Marks</th>
+                            <th style="border: 1px solid #000; padding: 12px 8px; font-size: 14px; text-transform: uppercase; background-color: #f2f2f2; width: 18%; text-align: left;">Distributed By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tableRows || `<tr><td colspan="5" style="text-align: center; padding: 20px; border: 1px solid #000;">No records found.</td></tr>`}
+                    </tbody>
+                </table>
+            `;
+        } else {
+            studentsList.forEach((student, index) => {
+                const serialNum = startIndex + index + 1;
+                tableRows += `
+                    <tr>
+                        <td style="border: 1px solid #000; padding: 10px 8px; text-align: center; font-size: 14px; font-family: 'Times New Roman', Times, serif; overflow: hidden; word-wrap: break-word;">${serialNum}</td>
+                        <td style="border: 1px solid #000; padding: 10px 8px; text-align: center; font-size: 14px; font-family: 'Times New Roman', Times, serif; overflow: hidden; word-wrap: break-word;">${student.participant_id || ''}</td>
+                        <td style="border: 1px solid #000; padding: 10px 8px; font-size: 14px; font-weight: bold; font-family: 'Times New Roman', Times, serif; overflow: hidden; word-wrap: break-word;">${student.full_name || ''}</td>
+                        <td style="border: 1px solid #000; padding: 10px 8px; font-size: 14px; font-family: 'Times New Roman', Times, serif; overflow: hidden; word-wrap: break-word;">${student.father_name || ''}</td>
+                        <td style="border: 1px solid #000; padding: 10px 8px; font-size: 14px; font-family: 'Times New Roman', Times, serif; overflow: hidden; word-wrap: break-word;">${student.village_name || ''}</td>
+                        <td style="border: 1px solid #000; padding: 10px 8px; font-size: 14px; font-family: 'Times New Roman', Times, serif; overflow: hidden; word-wrap: break-word;">${student.institution_name || 'Individual'}</td>
+                        <td style="border: 1px solid #000; padding: 10px 8px; text-align: center; font-size: 14px; font-weight: bold; font-family: 'Times New Roman', Times, serif; overflow: hidden; word-wrap: break-word;">${student.final_marks || 0}</td>
+                    </tr>
+                `;
+            });
+
+            return `
+                <table style="width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 15px; border: 1px solid #000; font-family: 'Times New Roman', Times, serif; box-sizing: border-box;">
+                    <thead>
+                        <tr>
+                            <th style="border: 1px solid #000; padding: 12px 8px; font-size: 14px; text-transform: uppercase; background-color: #f2f2f2; width: 6%; text-align: center;">S.No</th>
+                            <th style="border: 1px solid #000; padding: 12px 8px; font-size: 14px; text-transform: uppercase; background-color: #f2f2f2; width: 10%; text-align: center;">Reg ID</th>
+                            <th style="border: 1px solid #000; padding: 12px 8px; font-size: 14px; text-transform: uppercase; background-color: #f2f2f2; width: 25%; text-align: left;">Name</th>
+                            <th style="border: 1px solid #000; padding: 12px 8px; font-size: 14px; text-transform: uppercase; background-color: #f2f2f2; width: 20%; text-align: left;">Father's Name</th>
+                            <th style="border: 1px solid #000; padding: 12px 8px; font-size: 14px; text-transform: uppercase; background-color: #f2f2f2; width: 15%; text-align: left;">Village</th>
+                            <th style="border: 1px solid #000; padding: 12px 8px; font-size: 14px; text-transform: uppercase; background-color: #f2f2f2; width: 16%; text-align: left;">Institution</th>
+                            <th style="border: 1px solid #000; padding: 12px 8px; font-size: 14px; text-transform: uppercase; background-color: #f2f2f2; width: 8%; text-align: center;">Total Marks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tableRows || `<tr><td colspan="7" style="text-align: center; padding: 20px; border: 1px solid #000;">No records found.</td></tr>`}
+                    </tbody>
+                </table>
+            `;
+        }
+    };
+
+    let tablesHtml = '';
+    if (type === 'winners') {
+        const topThree = data.slice(0, 3);
+        const remaining = data.slice(3);
+        
+        tablesHtml += renderTable(topThree, 0, "🏆 Podium Winners (Top 3)");
+        if (remaining.length > 0) {
+            tablesHtml += `<div style="page-break-before: auto; margin-top: 20px; border-top: 2px dashed #000; padding-top: 10px;"></div>`;
+            tablesHtml += renderTable(remaining, 3, "✨ Consolation Winners / Remaining Rankings");
+        }
+    } else {
+        tablesHtml += renderTable(data, 0);
+    }
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>${title}</title>
+        <style>
+            ${PRINT_BASE_STYLES}
+            .sheet { padding: 5px; }
+            td { padding: 10px 8px; }
+        </style>
+    </head>
+    <body>
+        <div class="sheet">
+            <div class="header" style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px;">
+                ${COMPETITION_TITLE}
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;">
+                    <div style="font-size: 24px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">${title}</div>
+                    <div style="font-size: 22px; font-weight: bold; color: #111;">Category: ${catLabel}</div>
+                </div>
+            </div>
+
+            <div style="margin: 15px 0 25px 0; text-align: center; font-style: italic; font-size: 14px; color: #333; line-height: 1.5; font-family: 'Times New Roman', Times, serif; border: 1px dashed #000; padding: 10px; background-color: #fafafa;">
+                ${announcementText}
+            </div>
+
+            ${tablesHtml}
+        </div>
+    </body>
+    </html>
+    `;
 }
 
 

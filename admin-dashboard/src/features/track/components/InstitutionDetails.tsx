@@ -740,7 +740,7 @@ export default function InstitutionDetails({
                                             <button
                                                 className={styles.tableActionBtn}
                                                 style={{ padding: '4px 8px', fontSize: '12px' }}
-                                                onClick={() => onViewIndividual(app)}
+                                                onClick={() => onViewIndividual?.(app)}
                                             >
                                                 View / Edit
                                             </button>

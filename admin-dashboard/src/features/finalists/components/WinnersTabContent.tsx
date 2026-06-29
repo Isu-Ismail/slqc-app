@@ -39,6 +39,7 @@ interface WinnersTabContentProps {
     handleRevertRankingsClick: () => void;
     handleIssueRankingsClick: () => void;
     setShowFinalTieResolutionModal: (show: boolean) => void;
+    onPrint: () => void;
 }
 
 export default function WinnersTabContent({
@@ -54,7 +55,8 @@ export default function WinnersTabContent({
     getTieBreakerReason,
     handleRevertRankingsClick,
     handleIssueRankingsClick,
-    setShowFinalTieResolutionModal
+    setShowFinalTieResolutionModal,
+    onPrint
 }: WinnersTabContentProps) {
     const displayCategory = selectedCategory.replace('_', ' ');
 
@@ -164,35 +166,46 @@ export default function WinnersTabContent({
                     <div className={styles.tableCard}>
                         <div className={styles.tableHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                             <h3 className={styles.tableTitle} style={{ margin: 0 }}>Final Round Rankings: {displayCategory}</h3>
-                            {isAdmin && (
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    {rankingsIssued ? (
-                                        <button
-                                            onClick={handleRevertRankingsClick}
-                                            className={styles.btnRevert}
-                                        >
-                                            <Lock size={14} style={{ marginRight: '6px' }} /> Revert Rankings
-                                        </button>
-                                    ) : (
-                                        <>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                {rankingsIssued && (
+                                    <button
+                                        onClick={onPrint}
+                                        className={styles.btnPromote}
+                                        style={{ backgroundColor: '#4f46e5', borderColor: '#4338ca' }}
+                                    >
+                                        Print Winners
+                                    </button>
+                                )}
+                                {isAdmin && (
+                                    <>
+                                        {rankingsIssued ? (
                                             <button
-                                                onClick={() => setShowFinalTieResolutionModal(true)}
-                                                className={styles.btnResolveTie}
-                                                style={{ backgroundColor: '#0d9488' }}
+                                                onClick={handleRevertRankingsClick}
+                                                className={styles.btnRevert}
                                             >
-                                                <Award size={14} style={{ marginRight: '6px' }} /> Manual Rank Adjustment
+                                                <Lock size={14} style={{ marginRight: '6px' }} /> Revert Rankings
                                             </button>
-                                            <button
-                                                onClick={handleIssueRankingsClick}
-                                                className={styles.btnPromote}
-                                                disabled={sortedFinalLeaderboard.length === 0}
-                                            >
-                                                <Lock size={14} style={{ marginRight: '6px' }} /> Issue Final Rankings
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                            )}
+                                        ) : (
+                                            <>
+                                                <button
+                                                    onClick={() => setShowFinalTieResolutionModal(true)}
+                                                    className={styles.btnResolveTie}
+                                                    style={{ backgroundColor: '#0d9488' }}
+                                                >
+                                                    <Award size={14} style={{ marginRight: '6px' }} /> Manual Rank Adjustment
+                                                </button>
+                                                <button
+                                                    onClick={handleIssueRankingsClick}
+                                                    className={styles.btnPromote}
+                                                    disabled={sortedFinalLeaderboard.length === 0}
+                                                >
+                                                    <Lock size={14} style={{ marginRight: '6px' }} /> Issue Final Rankings
+                                                </button>
+                                            </>
+                                        )}
+                                    </>
+                                )}
+                            </div>
                         </div>
                         <div className={styles.tableWrapper}>
                             <table className={styles.table}>
