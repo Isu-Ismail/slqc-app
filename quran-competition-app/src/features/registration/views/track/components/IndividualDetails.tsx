@@ -952,13 +952,7 @@ export default function IndividualDetails({
                     </div>
                 )}
 
-                {!isEditMode && !individualRecord.is_locked && (
-                    <div className={styles.detailsActions} style={{ borderTop: '1px solid var(--border)', paddingTop: '20px', marginTop: '20px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                        <button type="button" className={styles.btnPrimary} onClick={() => setIsEditMode(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Edit size={16} /> {individualRecord.status === 'rejected' ? 'Edit & Reapply' : 'Edit Application Details'}</button>
-                    </div>
-                )}
-
-                {!isEditMode && individualRecord.status === 'approved' && (
+                {!isEditMode && (
                     <div className={styles.detailsActions} style={{ borderTop: '1px solid var(--border)', paddingTop: '20px', marginTop: '20px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                         <button
                             type="button"

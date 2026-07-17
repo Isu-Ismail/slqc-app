@@ -103,6 +103,11 @@ routerAdd("GET", "/api/public/track-institution", (e) => {
                 aadhaar_front: app.get("aadhaar_front"),
                 birthcertificate_photo: app.get("birthcertificate_photo"),
                 candidate_photo: app.get("candidate_photo"),
+                street_address: app.get("street_address"),
+                village_name: app.get("village_name"),
+                district_name: app.get("district_name"),
+                state_name: app.get("state_name"),
+                pincode: app.get("pincode"),
                 created: app.get("created"),
                 updated: app.get("updated"),
                 expand: {

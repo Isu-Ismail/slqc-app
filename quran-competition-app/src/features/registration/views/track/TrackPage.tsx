@@ -3,140 +3,22 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { pb } from '../../../../api/db';
 import { trackApplicationApi } from '../../../../api/routes/TracApplication.api';
-import type { ParticipantsApplicationResponse, InstitutionsResponse } from '../../../../api/types';
+import type { ParticipantsApplicationResponse } from '../../../../api/types';
 import AlertModal from '../../../../shared/components/Modal/AlertModal';
-import { useIndividualRealtime, useInstitutionRealtime } from '../../../../realtime/track';
-
+import { useIndividualRealtime } from '../../../../realtime/track';
 import styles from './TrackPage.module.css';
 import IndividualDetails from './components/IndividualDetails';
-import InstitutionDetails from './components/InstitutionDetails';
-import { JUZ_OPTIONS } from '../../../../config/fieldsConfig';
-
-
-
-
-
-
-const FORM_FIELDS_CONFIG = [
-    { key: 'full_name' },
-    { key: 'father_name' },
-    { key: 'father_number' },
-    { key: 'aadhaar_number' },
-    { key: 'dob', type: 'date' },
-    { key: 'gender' },
-    { key: 'category' },
-    { key: 'juz_options' },
-    { key: 'selected_juz' },
-    { key: 'whatsapp_number' },
-    { key: 'email' },
-    { key: 'guardian_name' },
-    { key: 'guardian_phone' },
-    { key: 'requires_accommodation' },
-    { key: 'street_address' },
-    { key: 'village_name' },
-    { key: 'district_name' },
-    { key: 'state_name' },
-    { key: 'pincode' }
-];
-
-const isValidGoogleMapsLink = (url: string): boolean => {
-    try {
-        const trimmed = url.trim();
-        if (!trimmed) return false;
-        const pattern = /^(https?:\/\/)?(www\.)?(google\.[a-z]+(\.[a-z]+)?\/maps|maps\.google\.[a-z]+|maps\.app\.goo\.gl|goo\.gl\/maps|share\.google)/i;
-        return pattern.test(trimmed);
-    } catch {
-        return false;
-    }
-};
-
-const normalizeUrl = (url: string): string => {
-    const trimmed = url.trim();
-    if (!trimmed) return '';
-    if (!/^https?:\/\//i.test(trimmed)) {
-        return 'https://' + trimmed;
-    }
-    return trimmed;
-};
 
 export default function TrackPage() {
     const [searchParams] = useSearchParams();
-    const [activeTab, setActiveTab] = useState<'individual' | 'institution'>('individual');
 
     // Search Inputs
     const [individualQuery, setIndividualQuery] = useState('');
     const [searchDob, setSearchDob] = useState('');
-    const [institutionQuery, setInstitutionQuery] = useState('');
-    const [institutionPasscode, setInstitutionPasscode] = useState('');
 
     // States
     const [loading, setLoading] = useState(false);
     const [individualRecord, setIndividualRecord] = useState<ParticipantsApplicationResponse | null>(null);
-    const [institutionData, setInstitutionData] = useState<{
-        institution: InstitutionsResponse | null;
-        applications: ParticipantsApplicationResponse[];
-    } | null>(null);
-
-    // Edit Form States
-    const [isEditMode, setIsEditMode] = useState(false);
-    const [editData, setEditData] = useState<Record<string, any>>({});
-    const [editAadhaarFile, setEditAadhaarFile] = useState<File | null>(null);
-    const [editBirthCertificateFile, setEditBirthCertificateFile] = useState<File | null>(null);
-    const [editCandidatePhotoFile, setEditCandidatePhotoFile] = useState<File | null>(null);
-
-    const updateEditField = (key: string, value: any) => {
-        setEditData(prev => ({ ...prev, [key]: value }));
-    };
-
-    const initializeEditData = (record: any) => {
-        const data: Record<string, any> = {};
-        FORM_FIELDS_CONFIG.forEach(field => {
-            let val = (record as any)[field.key];
-            if (field.type === 'date' && val) {
-                val = val.split(' ')[0];
-            }
-            if (field.key === 'juz_options' && !val) {
-                const matched = JUZ_OPTIONS.find(o => o.label === record.selected_juz);
-                if (matched) {
-                    val = matched.code;
-                }
-            }
-            data[field.key] = val || '';
-        });
-        setEditData(data);
-        setEditAadhaarFile(null);
-        setEditBirthCertificateFile(null);
-        setEditCandidatePhotoFile(null);
-    };
-
-
-    // Institution Edit Form States
-
-
-    const [isInstEditMode, setIsInstEditMode] = useState(false);
-    const [instEditName, setInstEditName] = useState('');
-    const [instEditStreetAddress, setInstEditStreetAddress] = useState('');
-    const [instEditVillageName, setInstEditVillageName] = useState('');
-    const [instEditDistrictName, setInstEditDistrictName] = useState('');
-    const [instEditStateName, setInstEditStateName] = useState('');
-    const [instEditPincode, setInstEditPincode] = useState('');
-    const [instEditContactPerson, setInstEditContactPerson] = useState('');
-
-    const [instEditEmail, setInstEditEmail] = useState('');
-    const [instEditWhatsapp, setInstEditWhatsapp] = useState('');
-    const [instEditPhone, setInstEditPhone] = useState('');
-    const [instEditDocFile, setInstEditDocFile] = useState<File | null>(null);
-    const [instEditLocation, setInstEditLocation] = useState('');
-    const [instEditBuildingFile, setInstEditBuildingFile] = useState<File | null>(null);
-    const [isInstMinimized, setIsInstMinimized] = useState(() => {
-        return localStorage.getItem('quran_competition_track_inst_minimized') === 'true';
-    });
-
-
-    const handleSetIsInstMinimized = (val: boolean) => {
-        setIsInstMinimized(val);
-        localStorage.setItem('quran_competition_track_inst_minimized', String(val));
-    };
 
     // Alert Modal state
     const [alertModal, setAlertModal] = useState<{
@@ -155,46 +37,15 @@ export default function TrackPage() {
     useEffect(() => {
         const urlType = searchParams.get('type');
         const urlQuery = searchParams.get('query');
-        const urlPasscode = searchParams.get('passcode');
         const urlDob = searchParams.get('dob');
 
-        if (urlType === 'institution' && urlQuery && urlPasscode) {
-            setActiveTab('institution');
-            setInstitutionQuery(urlQuery);
-            setInstitutionPasscode(urlPasscode);
-
-            localStorage.setItem('quran_competition_track_institution_query', urlQuery);
-            sessionStorage.setItem('quran_competition_track_institution_passcode', urlPasscode);
-            localStorage.setItem('quran_competition_track_tab', 'institution');
-
-            handleSearchInstitution(urlQuery, urlPasscode, false);
-            return;
-        }
-
         if (urlType === 'individual' && urlQuery && urlDob) {
-            setActiveTab('individual');
             setIndividualQuery(urlQuery);
             setSearchDob(urlDob);
-
             localStorage.setItem('quran_competition_track_individual_query', urlQuery);
             localStorage.setItem('quran_competition_track_individual_dob', urlDob);
-            localStorage.setItem('quran_competition_track_tab', 'individual');
-
             handleSearchIndividual(urlQuery, urlDob, false);
             return;
-        }
-
-        if (urlType === 'individual' || urlType === 'institution') {
-            setActiveTab(urlType);
-            if (urlQuery) {
-                if (urlType === 'individual') setIndividualQuery(urlQuery);
-                else setInstitutionQuery(urlQuery);
-            }
-        } else {
-            const cachedTab = localStorage.getItem('quran_competition_track_tab');
-            if (cachedTab === 'individual' || cachedTab === 'institution') {
-                setActiveTab(cachedTab);
-            }
         }
 
         const cachedIndQuery = localStorage.getItem('quran_competition_track_individual_query');
@@ -206,16 +57,6 @@ export default function TrackPage() {
         if (cachedIndQuery && cachedIndDob) {
             handleSearchIndividual(cachedIndQuery, cachedIndDob, true);
         }
-
-        const cachedInstQuery = localStorage.getItem('quran_competition_track_institution_query');
-        const cachedInstPasscode = sessionStorage.getItem('quran_competition_track_institution_passcode');
-
-        if (cachedInstQuery) setInstitutionQuery(cachedInstQuery);
-        if (cachedInstPasscode) setInstitutionPasscode(cachedInstPasscode);
-
-        if (cachedInstQuery && cachedInstPasscode) {
-            handleSearchInstitution(cachedInstQuery, cachedInstPasscode, true);
-        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchParams]);
 
@@ -224,10 +65,6 @@ export default function TrackPage() {
         individualRecord?.id,
         (updatedRecord) => {
             setIndividualRecord(updatedRecord);
-            if (updatedRecord.is_locked) {
-                setIsEditMode(false);
-            }
-            initializeEditData(updatedRecord);
         },
         () => {
             setIndividualRecord(null);
@@ -235,31 +72,6 @@ export default function TrackPage() {
         }
     );
 
-    useInstitutionRealtime(
-        institutionData?.institution?.id,
-        (updatedInst) => {
-            setInstitutionData(prev => {
-                if (!prev) return null;
-                return { ...prev, institution: updatedInst };
-            });
-        },
-        (action, record) => {
-            setInstitutionData(prev => {
-                if (!prev) return null;
-                let updatedApps = [...prev.applications];
-                if (action === 'create') {
-                    if (!updatedApps.some(a => a.id === record.id)) {
-                        updatedApps = [record, ...updatedApps];
-                    }
-                } else if (action === 'update') {
-                    updatedApps = updatedApps.map(a => a.id === record.id ? record : a);
-                } else if (action === 'delete') {
-                    updatedApps = updatedApps.filter(a => a.id !== record.id);
-                }
-                return { ...prev, applications: updatedApps };
-            });
-        }
-    );
     const triggerAlert = (message: string, title = 'Notification', type: 'success' | 'warning' = 'warning') => {
         setAlertModal({ isOpen: true, title, message, type });
     };
@@ -276,7 +88,6 @@ export default function TrackPage() {
         if (!silent) {
             setLoading(true);
             setIndividualRecord(null);
-            setIsEditMode(false);
         }
 
         try {
@@ -285,9 +96,6 @@ export default function TrackPage() {
                 setIndividualRecord(record);
                 localStorage.setItem('quran_competition_track_individual_query', queryVal);
                 localStorage.setItem('quran_competition_track_individual_dob', dobVal);
-                localStorage.setItem('quran_competition_track_tab', 'individual');
-
-                initializeEditData(record);
                 return true;
             } else {
                 if (!silent) triggerAlert('No application found matching the provided ID, Aadhaar, and Date of Birth details.', 'Not Found');
@@ -301,206 +109,15 @@ export default function TrackPage() {
         }
     };
 
-    const handleSearchInstitution = async (queryVal = institutionQuery, passcodeVal = institutionPasscode, silent = false) => {
-        if (!queryVal.trim()) {
-            if (!silent) triggerAlert('Please enter an Institution ID or Email address.', 'Search Required');
-            return false;
-        }
-        if (!passcodeVal.trim()) {
-            if (!silent) triggerAlert('Please enter the Institution Passcode to refresh status.', 'Passcode Required');
-            return false;
-        }
-        if (!silent) {
-            setLoading(true);
-            setInstitutionData(null);
-            setIsEditMode(false);
-            setIsInstEditMode(false);
-        }
-
-        try {
-            const result = await trackApplicationApi.trackInstitution(queryVal.trim(), passcodeVal.trim());
-            if (result && result.institution) {
-                setInstitutionData(result);
-                localStorage.setItem('quran_competition_track_institution_query', queryVal);
-                sessionStorage.setItem('quran_competition_track_institution_passcode', passcodeVal.trim());
-                localStorage.setItem('quran_competition_track_tab', 'institution');
-
-                const inst = result.institution;
-                setInstEditName(inst.name || '');
-                setInstEditName(inst.name || '');
-                setInstEditStreetAddress(inst.street_address || '');
-                setInstEditVillageName(inst.village_name || '');
-                setInstEditDistrictName(inst.district_name || '');
-                setInstEditStateName(inst.state_name || '');
-                setInstEditPincode(inst.pincode || '');
-                setInstEditContactPerson(inst.contact_person || '');
-                setInstEditEmail(inst.email || '');
-                setInstEditWhatsapp(inst.whatsapp_number || '');
-                setInstEditPhone(inst.phone_number || '');
-                setInstEditDocFile(null);
-                setInstEditLocation((inst as any).instituition_location || '');
-                setInstEditBuildingFile(null);
-                return true;
-            } else {
-                if (!silent) triggerAlert('No institution found matching the provided credentials.', 'Not Found');
-                return false;
-            }
-        } catch (e) {
-            if (!silent) triggerAlert('Failed to retrieve institution data.', 'Error');
-            return false;
-        } finally {
-            if (!silent) setLoading(false);
-        }
-    };
-
-    const handleDeleteIndividual = async (app: ParticipantsApplicationResponse) => {
-        if (app.status === 'approved') {
-            triggerAlert('Cannot delete an approved application.', 'Error');
-            return;
-        }
-        const confirmDelete = window.confirm(`Are you sure you want to delete participant ${app.full_name}? This action is permanent and cannot be undone.`);
-        if (!confirmDelete) return;
-
-        setLoading(true);
-        try {
-            await pb.send('/api/public/institution/delete-application', {
-                method: 'POST',
-                body: {
-                    application_id: app.id,
-                    institution_id: institutionData?.institution?.institution_id,
-                    passcode: institutionPasscode
-                }
-            });
-
-            // Proactively update state for instant local feedback
-            setInstitutionData(prev => {
-                if (!prev) return null;
-                const newApps = prev.applications.filter(a => a.id !== app.id);
-                // Also update local application counts if institution object is updated
-                let updatedInstitution = prev.institution;
-                if (updatedInstitution) {
-                    let appsVal = [];
-                    try {
-                        const rawApps = updatedInstitution.applications;
-                        if (rawApps) {
-                            appsVal = Array.isArray(rawApps) ? rawApps : JSON.parse(rawApps);
-                        }
-                    } catch (_) { }
-
-                    appsVal = appsVal.map((item: any) => {
-                        if (item.cat === app.category) {
-                            return { ...item, count: Math.max(0, (Number(item.count) || 1) - 1) };
-                        }
-                        return item;
-                    });
-                    updatedInstitution = { ...updatedInstitution, applications: appsVal };
-                }
-
-                const nextData = { ...prev, institution: updatedInstitution, applications: newApps };
-                localStorage.setItem('quran_competition_track_institution_data', JSON.stringify(nextData));
-                return nextData;
-            });
-
-            triggerAlert('Participant application deleted successfully.', 'Deleted', 'success');
-        } catch (e: any) {
-            let errMsg = 'Failed to delete applicant.';
-            if (e.response && e.response.error) {
-                errMsg = e.response.error;
-            } else if (e.message) {
-                errMsg = e.message;
-            }
-            triggerAlert(errMsg, 'Error');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-
-
-    const handleSaveInstitutionChanges = async () => {
-        if (!institutionData || !institutionData.institution) return;
-        if (
-            !instEditName.trim() ||
-            !instEditStreetAddress.trim() ||
-            !instEditVillageName.trim() ||
-            !instEditDistrictName.trim() ||
-            !instEditStateName.trim() ||
-            !instEditPincode.trim() ||
-            !instEditContactPerson.trim() ||
-            !instEditEmail.trim() ||
-            !instEditWhatsapp.trim()
-        ) {
-            triggerAlert('Please fill in all required fields.', 'Validation Error');
-            return;
-        }
-
-        setLoading(true);
-        try {
-            const formData = new FormData();
-            formData.append('name', instEditName.trim());
-            formData.append('street_address', instEditStreetAddress.trim());
-            formData.append('village_name', instEditVillageName.trim());
-            formData.append('district_name', instEditDistrictName.trim());
-            formData.append('state_name', instEditStateName.trim());
-            formData.append('pincode', instEditPincode.trim());
-            formData.append('contact_person', instEditContactPerson.trim());
-            formData.append('email', instEditEmail.trim());
-            formData.append('whatsapp_number', instEditWhatsapp.trim());
-            if (instEditPhone) formData.append('phone_number', instEditPhone.trim());
-
-            if (instEditDocFile) {
-                formData.append('document', instEditDocFile);
-            }
-
-            const normalizedLocation = normalizeUrl(instEditLocation);
-            if (normalizedLocation && !isValidGoogleMapsLink(normalizedLocation)) {
-                triggerAlert('Please enter a valid Google Maps link for your institution.', 'Invalid Google Maps Link');
-                setLoading(false);
-                return;
-            }
-            formData.append('instituition_location', normalizedLocation);
-
-            if (instEditBuildingFile) {
-                formData.append('instituition_building_proof', instEditBuildingFile);
-            }
-
-            const updated = await trackApplicationApi.updateInstitution(institutionData.institution.id, formData);
-            setInstitutionData(prev => {
-                if (!prev) return null;
-                return { ...prev, institution: updated };
-            });
-            setIsInstEditMode(false);
-            triggerAlert('Institution details updated successfully!', 'Success', 'success');
-        } catch (e: any) {
-            triggerAlert(e.message || 'Failed to update institution details.', 'Update Error');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-
     const handleClearCache = () => {
-        if (activeTab === 'individual') {
-            setIndividualQuery('');
-            setSearchDob('');
-            setIndividualRecord(null);
-            setIsEditMode(false);
+        setIndividualQuery('');
+        setSearchDob('');
+        setIndividualRecord(null);
 
-            localStorage.removeItem('quran_competition_track_individual_query');
-            localStorage.removeItem('quran_competition_track_individual_dob');
+        localStorage.removeItem('quran_competition_track_individual_query');
+        localStorage.removeItem('quran_competition_track_individual_dob');
 
-            triggerAlert('Individual applicant search cache cleared.', 'Cache Cleared', 'success');
-        } else {
-            setInstitutionQuery('');
-            setInstitutionPasscode('');
-            setInstitutionData(null);
-            setIsInstEditMode(false);
-
-            localStorage.removeItem('quran_competition_track_institution_query');
-            sessionStorage.removeItem('quran_competition_track_institution_passcode');
-
-            triggerAlert('Institution search cache cleared.', 'Cache Cleared', 'success');
-        }
+        triggerAlert('Individual applicant search cache cleared.', 'Cache Cleared', 'success');
     };
 
     const getStatusClass = (status: string) => {
@@ -530,198 +147,77 @@ export default function TrackPage() {
     return (
         <div className={styles.pageWrapper}>
             <div className={styles.container}>
-                {/* Header card with Tabs */}
+                {/* Header card */}
                 <div className={styles.searchCard}>
                     <div className={styles.cardHeader}>
                         <h2>Application Status Tracker</h2>
                         <p>Track your registration or manage submissions</p>
                     </div>
 
-                    <div className={styles.tabs}>
-                        <button
-                            className={`${styles.tabBtn} ${activeTab === 'individual' ? styles.activeTab : ''}`}
-                            onClick={() => {
-                                setActiveTab('individual');
-                                localStorage.setItem('quran_competition_track_tab', 'individual');
-                            }}
-                        >
-                            Individual Applicant
-                        </button>
-                        <button
-                            className={`${styles.tabBtn} ${activeTab === 'institution' ? styles.activeTab : ''}`}
-                            onClick={() => {
-                                setActiveTab('institution');
-                                localStorage.setItem('quran_competition_track_tab', 'institution');
-                            }}
-                        >
-                            Institution submissions
-                        </button>
-                    </div>
-
                     <div className={styles.searchForm}>
-                        {activeTab === 'individual' ? (
-                            <div className={styles.searchRow}>
-                                <div className={styles.inputGroup}>
-                                    <label className={styles.label}>Application ID or Aadhaar Number</label>
-                                    <input
-                                        type="text"
-                                        className={styles.input}
-                                        placeholder="e.g. scza1md0dxa58gc or 12-digit Aadhaar"
-                                        value={individualQuery}
-                                        onChange={(e) => setIndividualQuery(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSearchIndividual()}
-                                    />
-                                </div>
-                                <div className={styles.inputGroup}>
-                                    <label className={styles.label}>Date of Birth</label>
-                                    <input
-                                        type="date"
-                                        className={styles.input}
-                                        value={searchDob}
-                                        onChange={(e) => setSearchDob(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSearchIndividual()}
-                                    />
-                                </div>
-                                <div className={styles.searchBtnCol} style={{ display: 'flex', gap: '8px' }}>
-                                    <button
-                                        className={styles.btnPrimary}
-                                        onClick={() => handleSearchIndividual()}
-                                        disabled={loading}
-                                    >
-                                        {loading ? 'Searching...' : 'Search'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={styles.btnSecondary}
-                                        onClick={handleClearCache}
-                                        disabled={loading}
-                                    >
-                                        Clear
-                                    </button>
-                                </div>
+                        <div className={styles.searchRow}>
+                            <div className={styles.inputGroup}>
+                                <label className={styles.label}>Application ID or Aadhaar Number</label>
+                                <input
+                                    type="text"
+                                    className={styles.input}
+                                    placeholder="e.g. scza1md0dxa58gc or 12-digit Aadhaar"
+                                    value={individualQuery}
+                                    onChange={(e) => setIndividualQuery(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSearchIndividual()}
+                                />
                             </div>
-                        ) : (
-                            <div className={styles.searchRow}>
-                                <div className={styles.inputGroup}>
-                                    <label className={styles.label}>Institution ID or Email</label>
-                                    <input
-                                        type="text"
-                                        className={styles.input}
-                                        placeholder="e.g. INST-4829 or contact@school.com"
-                                        value={institutionQuery}
-                                        onChange={(e) => setInstitutionQuery(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSearchInstitution()}
-                                    />
-                                </div>
-                                <div className={styles.inputGroup}>
-                                    <label className={styles.label}>Institution Passcode</label>
-                                    <input
-                                        type="password"
-                                        className={styles.input}
-                                        placeholder="Enter passcode"
-                                        value={institutionPasscode}
-                                        onChange={(e) => setInstitutionPasscode(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSearchInstitution()}
-                                    />
-                                </div>
-                                <div className={styles.searchBtnCol} style={{ display: 'flex', gap: '8px' }}>
-                                    <button
-                                        className={styles.btnPrimary}
-                                        onClick={() => handleSearchInstitution(institutionQuery, institutionPasscode, false)}
-                                        disabled={loading}
-                                    >
-                                        {loading ? 'Searching...' : 'Search'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={styles.btnSecondary}
-                                        onClick={handleClearCache}
-                                        disabled={loading}
-                                    >
-                                        Clear
-                                    </button>
-                                </div>
+                            <div className={styles.inputGroup}>
+                                <label className={styles.label}>Date of Birth</label>
+                                <input
+                                    type="date"
+                                    className={styles.input}
+                                    value={searchDob}
+                                    onChange={(e) => setSearchDob(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSearchIndividual()}
+                                />
                             </div>
-                        )}
+                            <div className={styles.searchBtnCol} style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                    className={styles.btnPrimary}
+                                    onClick={() => handleSearchIndividual()}
+                                    disabled={loading}
+                                >
+                                    {loading ? 'Searching...' : 'Search'}
+                                </button>
+                                <button
+                                    type="button"
+                                    className={styles.btnSecondary}
+                                    onClick={handleClearCache}
+                                    disabled={loading}
+                                >
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 {/* Individual application Details Panel */}
-                {activeTab === 'individual' && individualRecord && (
+                {individualRecord && (
                     <IndividualDetails
                         individualRecord={individualRecord}
-                        isEditMode={isEditMode}
-                        setIsEditMode={setIsEditMode}
-                        editData={editData}
-                        updateEditField={updateEditField}
-                        editAadhaarFile={editAadhaarFile}
-                        setEditAadhaarFile={setEditAadhaarFile}
-                        editBirthCertificateFile={editBirthCertificateFile}
-                        setEditBirthCertificateFile={setEditBirthCertificateFile}
-                        editCandidatePhotoFile={editCandidatePhotoFile}
-                        setEditCandidatePhotoFile={setEditCandidatePhotoFile}
+                        isEditMode={false}
+                        setIsEditMode={() => {}}
+                        editData={{}}
+                        updateEditField={() => {}}
+                        editAadhaarFile={null}
+                        setEditAadhaarFile={() => {}}
+                        editBirthCertificateFile={null}
+                        setEditBirthCertificateFile={() => {}}
+                        editCandidatePhotoFile={null}
+                        setEditCandidatePhotoFile={() => {}}
                         loading={loading}
                         getStatusClass={getStatusClass}
                         getAadhaarUrl={getAadhaarUrl}
                         getBirthCertificateUrl={getBirthCertificateUrl}
                         getCandidatePhotoUrl={getCandidatePhotoUrl}
-                        onRefresh={() => handleSearchIndividual(individualQuery, searchDob, true)}
-                    />
-                )}
-
-                {/* Institution Applications Panel */}
-                {activeTab === 'institution' && institutionData && (
-                    <InstitutionDetails
-                        institutionData={institutionData}
-                        isInstEditMode={isInstEditMode}
-                        setIsInstEditMode={setIsInstEditMode}
-                        instEditName={instEditName}
-                        setInstEditName={setInstEditName}
-                        instEditStreet={instEditStreetAddress}
-                        setInstEditStreet={setInstEditStreetAddress}
-                        instEditVillage={instEditVillageName}
-                        setInstEditVillage={setInstEditVillageName}
-                        instEditDistrict={instEditDistrictName}
-                        setInstEditDistrict={setInstEditDistrictName}
-                        instEditState={instEditStateName}
-                        setInstEditState={setInstEditStateName}
-                        instEditPincode={instEditPincode}
-                        setInstEditPincode={setInstEditPincode}
-                        instEditContactPerson={instEditContactPerson}
-                        setInstEditContactPerson={setInstEditContactPerson}
-                        instEditEmail={instEditEmail}
-                        setInstEditEmail={setInstEditEmail}
-                        instEditWhatsapp={instEditWhatsapp}
-                        setInstEditWhatsapp={setInstEditWhatsapp}
-                        instEditPhone={instEditPhone}
-                        setInstEditPhone={setInstEditPhone}
-                        instEditDocFile={instEditDocFile}
-                        setInstEditDocFile={setInstEditDocFile}
-                        instEditLocation={instEditLocation}
-                        setInstEditLocation={setInstEditLocation}
-                        instEditBuildingFile={instEditBuildingFile}
-                        setInstEditBuildingFile={setInstEditBuildingFile}
-                        isMinimized={isInstMinimized}
-                        setIsMinimized={handleSetIsInstMinimized}
-                        handleSaveInstitutionChanges={handleSaveInstitutionChanges}
-                        loading={loading}
-                        getStatusClass={getStatusClass}
-                        onViewIndividual={(app) => {
-                            setIndividualRecord(app);
-                            initializeEditData(app);
-                            setIsEditMode(false);
-                            setActiveTab('individual');
-                            localStorage.setItem('quran_competition_track_tab', 'individual');
-
-                            const cleanId = app.id;
-                            const cleanDob = app.dob ? app.dob.split(' ')[0] : '';
-                            setIndividualQuery(cleanId);
-                            setSearchDob(cleanDob);
-                            localStorage.setItem('quran_competition_track_individual_query', cleanId);
-                            localStorage.setItem('quran_competition_track_individual_dob', cleanDob);
-                        }}
-                        onDeleteIndividual={handleDeleteIndividual}
-                        onRefresh={() => handleSearchInstitution(institutionQuery, institutionPasscode, true)}
+                        onRefresh={async () => handleSearchIndividual(individualQuery, searchDob, true)}
                     />
                 )}
 

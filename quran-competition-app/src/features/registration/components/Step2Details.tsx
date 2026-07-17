@@ -12,13 +12,14 @@ import { CATEGORIES_CONFIG, getJuzCodesForCategory, getJuzLabel } from '../../..
 interface Step2Props {
     formData: RegistrationFormData;
     updateForm: <K extends keyof RegistrationFormData>(field: K, value: RegistrationFormData[K]) => void;
+    disabled?: boolean;
 }
 
 interface ValidationErrors {
     [key: string]: string | undefined;
 }
 
-export default function Step2Details({ formData, updateForm }: Step2Props) {
+export default function Step2Details({ formData, updateForm, disabled }: Step2Props) {
     const [errors, setErrors] = useState<ValidationErrors>({});
     const { metadata } = useRegistrationStatus();
     const localityRef = useRef<HTMLDivElement | null>(null);
@@ -174,7 +175,8 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
     };
 
     return (
-        <div className={styles.stepContainer}>
+        <fieldset disabled={disabled} style={{ border: 'none', padding: 0, margin: 0, width: '100%', minWidth: 0 }}>
+            <div className={styles.stepContainer}>
             <div>
                 <h3 className={styles.stepTitle}>Personal & Contact Details</h3>
                 <p className={styles.stepDesc}>Please fill in the details of the candidate accurately.</p>
@@ -615,5 +617,6 @@ export default function Step2Details({ formData, updateForm }: Step2Props) {
                 </div>
             </div>
         </div>
+        </fieldset>
     );
 }

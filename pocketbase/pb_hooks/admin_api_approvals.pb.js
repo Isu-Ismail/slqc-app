@@ -448,6 +448,12 @@ routerAdd("POST", "/api/admin/reject", (e) => {
         record.set("approved_by", authRecord.get("id"));
         record.set("rejection_reason", rejectionReason);
 
+        if (type === "institution") {
+            record.set("institution_id", "");
+        } else if (type === "individual") {
+            record.set("participant_id", "");
+        }
+
         $app.save(record);
 
         // Update trigger manually for real-time tracking

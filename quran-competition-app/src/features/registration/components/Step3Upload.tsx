@@ -10,11 +10,24 @@ interface Step3Props {
     updateForm: <K extends keyof RegistrationFormData>(field: K, value: RegistrationFormData[K]) => void;
     rulesAccepted: boolean;
     setRulesAccepted: (val: boolean) => void;
+    existingAadhaarUrl?: string;
+    existingBirthCertificateUrl?: string;
+    existingPhotoUrl?: string;
+    disabled?: boolean;
 }
 
 const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
 
-export default function Step3Upload({ formData, updateForm, rulesAccepted, setRulesAccepted }: Step3Props) {
+export default function Step3Upload({
+    formData,
+    updateForm,
+    rulesAccepted,
+    setRulesAccepted,
+    existingAadhaarUrl,
+    existingBirthCertificateUrl,
+    existingPhotoUrl,
+    disabled
+}: Step3Props) {
     const { metadata } = useRegistrationStatus();
     const [showRulesModal, setShowRulesModal] = useState(false);
 
@@ -184,8 +197,37 @@ export default function Step3Upload({ formData, updateForm, rulesAccepted, setRu
     };
 
     const handleCropApply = () => {
-        if (!canvasRef.current) return;
-        canvasRef.current.toBlob(
+        if (!canvasRef.current || !cropImageObj) return;
+
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // Clear and redraw image ONLY (without grid lines)
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((rotation * Math.PI) / 180);
+        ctx.scale(zoom, zoom);
+        ctx.translate(panX, panY);
+
+        const imgRatio = cropImageObj.width / cropImageObj.height;
+        let dWidth = canvas.width;
+        let dHeight = canvas.height;
+
+        if (imgRatio > 1) {
+            dWidth = canvas.height * imgRatio;
+        } else {
+            dHeight = canvas.width / imgRatio;
+        }
+
+        ctx.drawImage(cropImageObj, -dWidth / 2, -dHeight / 2, dWidth, dHeight);
+        ctx.restore();
+
+        canvas.toBlob(
             (blob) => {
                 if (blob) {
                     const file = new File([blob], 'candidate_photo.jpg', { type: 'image/jpeg' });
@@ -227,7 +269,8 @@ export default function Step3Upload({ formData, updateForm, rulesAccepted, setRu
     };
 
     return (
-        <div className={styles.stepContainer}>
+        <fieldset disabled={disabled} style={{ border: 'none', padding: 0, margin: 0, width: '100%', minWidth: 0 }}>
+            <div className={styles.stepContainer}>
             {/* 1. AADHAAR CARD FRONT UPLOAD */}
             <div className={styles.uploadBlock}>
                 <div>
@@ -246,7 +289,7 @@ export default function Step3Upload({ formData, updateForm, rulesAccepted, setRu
                 />
 
                 {!formData.aadhaar_front ? (
-                    <div className={styles.dropzone} onClick={() => aadhaarInputRef.current?.click()}>
+                    <div className={styles.dropzone} onClick={() => !disabled && aadhaarInputRef.current?.click()}>
                         <svg className={styles.uploadIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                             <polyline points="17 8 12 3 7 8" />
@@ -255,34 +298,44 @@ export default function Step3Upload({ formData, updateForm, rulesAccepted, setRu
                         <span className={styles.uploadText}>Upload Aadhaar Front</span>
                         <span className={styles.uploadHint}>Supports PNG, JPG, JPEG, or PDF (Max 1MB)</span>
                     </div>
-                ) : (
-                    <div className={styles.previewContainer}>
-                        <div className={styles.previewHeader}>
-                            <div className={styles.fileInfo}>
-                                <svg className={styles.fileIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                    <polyline points="14 2 14 8 20 8" />
-                                </svg>
-                                <div className={styles.fileNameDetails}>
-                                    <span className={styles.fileName}>{formData.aadhaar_front.name}</span>
-                                    <span className={styles.fileSize}>{formatSize(formData.aadhaar_front.size)}</span>
+                ) : (() => {
+                    const isFile = formData.aadhaar_front instanceof File;
+                    const isPdf = isFile 
+                        ? !formData.aadhaar_front.type.startsWith('image/') 
+                        : String(formData.aadhaar_front).toLowerCase().endsWith('.pdf');
+                    const name = isFile ? formData.aadhaar_front.name : 'Uploaded Aadhaar Card Front';
+                    const sizeText = isFile ? formatSize(formData.aadhaar_front.size) : 'Existing Document';
+                    const previewSrc = isFile ? aadhaarPreview : (existingAadhaarUrl || '');
+
+                    return (
+                        <div className={styles.previewContainer}>
+                            <div className={styles.previewHeader}>
+                                <div className={styles.fileInfo}>
+                                    <svg className={styles.fileIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                        <polyline points="14 2 14 8 20 8" />
+                                    </svg>
+                                    <div className={styles.fileNameDetails}>
+                                        <span className={styles.fileName}>{name}</span>
+                                        <span className={styles.fileSize}>{sizeText}</span>
+                                    </div>
                                 </div>
+                                <button type="button" className={styles.removeBtn} onClick={() => updateForm('aadhaar_front', null)}>
+                                    Remove
+                                </button>
                             </div>
-                            <button type="button" className={styles.removeBtn} onClick={() => updateForm('aadhaar_front', null)}>
-                                Remove
-                            </button>
+                            {!isPdf && (previewSrc || aadhaarPreview) ? (
+                                <div className={styles.imagePreviewWrapper}>
+                                    <img src={previewSrc || aadhaarPreview || ''} alt="Aadhaar Preview" className={styles.imagePreview} />
+                                </div>
+                            ) : (
+                                <div className={styles.imagePreviewWrapper} style={{ padding: '16px', fontSize: '13px' }}>
+                                    PDF Document uploaded (preview unavailable)
+                                </div>
+                            )}
                         </div>
-                        {aadhaarPreview ? (
-                            <div className={styles.imagePreviewWrapper}>
-                                <img src={aadhaarPreview} alt="Aadhaar Preview" className={styles.imagePreview} />
-                            </div>
-                        ) : (
-                            <div className={styles.imagePreviewWrapper} style={{ padding: '16px', fontSize: '13px' }}>
-                                PDF uploaded successfully (preview unavailable)
-                            </div>
-                        )}
-                    </div>
-                )}
+                    );
+                })()}
             </div>
 
             {/* 1b. BIRTH CERTIFICATE UPLOAD */}
@@ -303,7 +356,7 @@ export default function Step3Upload({ formData, updateForm, rulesAccepted, setRu
                 />
 
                 {!formData.birthcertificate_photo ? (
-                    <div className={styles.dropzone} onClick={() => birthcertificateInputRef.current?.click()}>
+                    <div className={styles.dropzone} onClick={() => !disabled && birthcertificateInputRef.current?.click()}>
                         <svg className={styles.uploadIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                             <polyline points="17 8 12 3 7 8" />
@@ -312,34 +365,44 @@ export default function Step3Upload({ formData, updateForm, rulesAccepted, setRu
                         <span className={styles.uploadText}>Upload Birth Certificate</span>
                         <span className={styles.uploadHint}>Supports PNG, JPG, JPEG, or PDF (Max 1MB)</span>
                     </div>
-                ) : (
-                    <div className={styles.previewContainer}>
-                        <div className={styles.previewHeader}>
-                            <div className={styles.fileInfo}>
-                                <svg className={styles.fileIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                    <polyline points="14 2 14 8 20 8" />
-                                </svg>
-                                <div className={styles.fileNameDetails}>
-                                    <span className={styles.fileName}>{formData.birthcertificate_photo.name}</span>
-                                    <span className={styles.fileSize}>{formatSize(formData.birthcertificate_photo.size)}</span>
+                ) : (() => {
+                    const isFile = formData.birthcertificate_photo instanceof File;
+                    const isPdf = isFile 
+                        ? !formData.birthcertificate_photo.type.startsWith('image/') 
+                        : String(formData.birthcertificate_photo).toLowerCase().endsWith('.pdf');
+                    const name = isFile ? formData.birthcertificate_photo.name : 'Uploaded Birth Certificate';
+                    const sizeText = isFile ? formatSize(formData.birthcertificate_photo.size) : 'Existing Document';
+                    const previewSrc = isFile ? birthcertificatePreview : (existingBirthCertificateUrl || '');
+
+                    return (
+                        <div className={styles.previewContainer}>
+                            <div className={styles.previewHeader}>
+                                <div className={styles.fileInfo}>
+                                    <svg className={styles.fileIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                        <polyline points="14 2 14 8 20 8" />
+                                    </svg>
+                                    <div className={styles.fileNameDetails}>
+                                        <span className={styles.fileName}>{name}</span>
+                                        <span className={styles.fileSize}>{sizeText}</span>
+                                    </div>
                                 </div>
+                                <button type="button" className={styles.removeBtn} onClick={() => updateForm('birthcertificate_photo', null)}>
+                                    Remove
+                                </button>
                             </div>
-                            <button type="button" className={styles.removeBtn} onClick={() => updateForm('birthcertificate_photo', null)}>
-                                Remove
-                            </button>
+                            {!isPdf && (previewSrc || birthcertificatePreview) ? (
+                                <div className={styles.imagePreviewWrapper}>
+                                    <img src={previewSrc || birthcertificatePreview || ''} alt="Birth Certificate Preview" className={styles.imagePreview} />
+                                </div>
+                            ) : (
+                                <div className={styles.imagePreviewWrapper} style={{ padding: '16px', fontSize: '13px' }}>
+                                    PDF Document uploaded (preview unavailable)
+                                </div>
+                            )}
                         </div>
-                        {birthcertificatePreview ? (
-                            <div className={styles.imagePreviewWrapper}>
-                                <img src={birthcertificatePreview} alt="Birth Certificate Preview" className={styles.imagePreview} />
-                            </div>
-                        ) : (
-                            <div className={styles.imagePreviewWrapper} style={{ padding: '16px', fontSize: '13px' }}>
-                                PDF uploaded successfully (preview unavailable)
-                            </div>
-                        )}
-                    </div>
-                )}
+                    );
+                })()}
             </div>
 
             {/* 2. PASSPORT PHOTO UPLOAD */}
@@ -360,7 +423,7 @@ export default function Step3Upload({ formData, updateForm, rulesAccepted, setRu
                 />
 
                 {!formData.candidate_photo ? (
-                    <div className={styles.dropzone} onClick={() => photoInputRef.current?.click()}>
+                    <div className={styles.dropzone} onClick={() => !disabled && photoInputRef.current?.click()}>
                         <svg className={styles.uploadIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                             <circle cx="12" cy="13" r="4" />
@@ -368,35 +431,44 @@ export default function Step3Upload({ formData, updateForm, rulesAccepted, setRu
                         <span className={styles.uploadText}>Upload Passport Photo</span>
                         <span className={styles.uploadHint}>Supports PNG, JPG, JPEG (Max 1MB)</span>
                     </div>
-                ) : (
-                    <div className={styles.previewContainer}>
-                        <div className={styles.previewHeader}>
-                            <div className={styles.fileInfo}>
-                                <svg className={styles.fileIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <circle cx="12" cy="12" r="10" />
-                                    <path d="M12 8v8M8 12h8" />
-                                </svg>
-                                <div className={styles.fileNameDetails}>
-                                    <span className={styles.fileName}>{formData.candidate_photo.name}</span>
-                                    <span className={styles.fileSize}>{formatSize(formData.candidate_photo.size)}</span>
+                ) : (() => {
+                    const isFile = formData.candidate_photo instanceof File;
+                    const name = isFile ? formData.candidate_photo.name : 'Uploaded Candidate Photo';
+                    const sizeText = isFile ? formatSize(formData.candidate_photo.size) : 'Existing Photo';
+                    const previewSrc = isFile ? photoPreview : (existingPhotoUrl || '');
+
+                    return (
+                        <div className={styles.previewContainer}>
+                            <div className={styles.previewHeader}>
+                                <div className={styles.fileInfo}>
+                                    <svg className={styles.fileIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <path d="M12 8v8M8 12h8" />
+                                    </svg>
+                                    <div className={styles.fileNameDetails}>
+                                        <span className={styles.fileName}>{name}</span>
+                                        <span className={styles.fileSize}>{sizeText}</span>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    {isFile && (
+                                        <button type="button" className={styles.editBtn} onClick={() => handlePhotoSelect(formData.candidate_photo)}>
+                                            Edit
+                                        </button>
+                                    )}
+                                    <button type="button" className={styles.removeBtn} onClick={() => updateForm('candidate_photo', null)}>
+                                        Remove
+                                    </button>
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <button type="button" className={styles.editBtn} onClick={() => handlePhotoSelect(formData.candidate_photo)}>
-                                    Edit
-                                </button>
-                                <button type="button" className={styles.removeBtn} onClick={() => updateForm('candidate_photo', null)}>
-                                    Remove
-                                </button>
-                            </div>
+                            {(previewSrc || photoPreview) && (
+                                <div className={styles.imagePreviewWrapper} style={{ width: '150px', height: '150px', margin: '0 auto', borderRadius: '8px', overflow: 'hidden' }}>
+                                    <img src={previewSrc || photoPreview || ''} alt="Candidate Preview" className={styles.imagePreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                </div>
+                            )}
                         </div>
-                        {photoPreview && (
-                            <div className={styles.imagePreviewWrapper} style={{ width: '150px', height: '150px', margin: '0 auto', borderRadius: '8px', overflow: 'hidden' }}>
-                                <img src={photoPreview} alt="Candidate Preview" className={styles.imagePreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            </div>
-                        )}
-                    </div>
-                )}
+                    );
+                })()}
             </div>
 
             {/* 3. PHOTO EDITING CROPPER MODAL OVERLAY */}
@@ -538,5 +610,6 @@ export default function Step3Upload({ formData, updateForm, rulesAccepted, setRu
                 </div>
             )}
         </div>
+        </fieldset>
     );
 }

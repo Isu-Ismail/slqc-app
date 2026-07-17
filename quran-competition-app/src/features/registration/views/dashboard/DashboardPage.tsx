@@ -255,8 +255,8 @@ export default function DashboardPage() {
             );
         } else {
             return (
-                <Link to="/register" className={styles.btnPrimarySmall}>
-                    <UserPlus size={14} /> Register Candidate
+                <Link to="/portal" className={styles.btnPrimarySmall}>
+                    <UserPlus size={14} /> Candidate Registration
                 </Link>
             );
         }
